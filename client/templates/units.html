@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Custom CSS -->
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/stylesUnits.css' %}">
+
+    <title>LV-automaatti</title>
+  </head>
+  <body>
+    <header>
+      <!-- Fixed navbar -->
+      <nav class="navbar">
+        <h3 class="navbar-brand" href="#">LV-automaatti</h3>
+        <div class="nav-links">
+          <a class="nav-link" href="#">Aloitus</a>
+          <a class="nav-link" href="#">Tiedot</a>
+          <a class="nav-link" href="#">Yhteystiedot</a>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="py-5 text-center container">
+        <div class="row py-lg-5">
+          <div class="col-lg-6 col-md-8 mx-auto">
+            <h1 class="fw-light">Osastot</h1>
+            <p class="lead text-muted">Tutustu eri osastojen laadunvalvontatuloksiin klikkaamalla vastaavaa valikkoa</p>
+          </div>
+        </div>
+      </section>
+
+      <div class="album bg-light">
+        <div class="container">
+          <div class="row">
+            <!-- Loop through units and create a card for each one -->
+            {% for unit in units %}
+            <div class="col">
+              <div class="card shadow-sm">
+                {% if unit == "AVOHOITOTALO" %}
+                <img src="{% static 'images/AVOHOITOTALO.png' %}" class="bd-placeholder-img card-img-top" alt="Image of {{ unit }}">
+                {% elif unit == "KESKUSRÖNTGEN" %}
+                <img src="{% static 'images/KESKUSRÖNTGEN.png' %}" class="bd-placeholder-img card-img-top" alt="Image of {{ unit }}">
+                {% elif unit == "90RTG" %}
+                <img src="{% static 'images/90RTG.png' %}" class="bd-placeholder-img card-img-top" alt="Image of {{ unit }}">
+                {% else %}
+                <img src="{% static 'images/default-unit.png' %}" class="bd-placeholder-img card-img-top" alt="Image of {{ unit }}">
+                {% endif %}
+                <div class="card-body">
+                  <p class="card-text">{{ unit }}</p>
+                  <a href="{% url 'unit_details' unit %}" class="btn">Laitteet</a>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

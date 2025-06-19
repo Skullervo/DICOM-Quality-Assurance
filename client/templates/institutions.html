@@ -1,0 +1,61 @@
+<!doctype html> 
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Custom CSS -->
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/stylesInstitutions.css' %}">
+
+    <title>Instituutiot</title>
+  </head>
+  <body>
+    <header>
+      <!-- Fixed navbar -->
+      <nav class="navbar">
+        <h3 class="navbar-brand" href="#">LV-automaatti</h3>
+        <div class="nav-links">
+          <a class="nav-link" href="#">Aloitus</a>
+          <a class="nav-link" href="#">Tietoa</a>
+          <a class="nav-link" href="#">Yhteystiedot</a>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="py-5 text-center container">
+        <div class="row py-lg-5">
+          <div class="col-lg-6 col-md-8 mx-auto">
+            <h1 class="fw-light">Instituutiot</h1>
+            <p class="lead text-muted">Tutustu eri instituutioiden laadunvalvontatuloksiin klikkaamalla vastaavaa valikkoa</p>
+          </div>
+        </div>
+      </section>
+
+      <div class="album bg-light">
+        <div class="container">
+          <div class="row">
+            <!-- Loop through institutions and create a card for each one -->
+            {% for institution in institutions %}
+            <div class="col">
+              <div class="card shadow-sm">
+                {% if institution == "OYS" %}
+                <img src="{% static 'images/OYS.png' %}" class="bd-placeholder-img card-img-top" alt="Image of {{ institution }}">
+                {% else %}
+                <img src="{% static 'images/unsplash-photo-1.jpg' %}" class="bd-placeholder-img card-img-top" alt="Image of {{ institution }}">
+                {% endif %}
+                <div class="card-body">
+                  <p class="card-text">{{ institution }}</p>
+                  <a href="{% url 'units' %}" class="btn">Osastot</a>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

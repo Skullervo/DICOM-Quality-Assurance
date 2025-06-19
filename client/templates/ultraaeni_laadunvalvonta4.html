@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <title>Yksinkertainen Bootstrap Sivu</title>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="#">Ultraääni laadunvalvonta v.0.1.1</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link active" aria-current="page" href="#">Koti</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Ominaisuudet</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Laitteet</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Kirjaudu ulos</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-9">
+                <h1>Tervetuloa tarkastelemaan laadunvalvonnan tuloksia!</h1>
+                <p>Sivu sisältää ultraääni ilmakuvan sekä vertikaali- ja horisontaaliprofiilit kuvasta. Tarkempia tuloksia löydät taulukosta.</p>
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Ultraääni Ilmakuva</h5>
+                        <p class="card-text">Tämä kuva näyttää ultraääni ilmakuvan.</p>
+                        <p class="card-text"><small class="text-muted">Päivitetty viimeksi 3 minuuttia sitten</small></p>
+                    </div>
+                    <img src="{% static 'images/ultrasound_image.bmp' %}" class="card-img-top" alt="Ultraääni ilmakuva">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <h2>Tulokset</h2>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Parametri</th>
+                            <th>Arvo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Laite</td>
+                            <td>Arvo 1</td>
+                        </tr>
+                        <tr>
+                            <td>Pvm</td>
+                            <td>Arvo 2</td>
+                        </tr>
+                        <tr>
+                            <td>S_depth</td>
+                            <td>Arvo 3</td>
+                        </tr>
+                        <tr>
+                            <td>U_cov</td>
+                            <td>Arvo 3</td>
+                        </tr>
+                        <tr>
+                            <td>U_low (10%)</td>
+                            <td>Arvo 3</td>
+                        </tr>
+                        <tr>
+                            <td>U_low (20%)</td>
+                            <td>Arvo 3</td>
+                        </tr>
+                        <tr>
+                            <td>U_low (40%)</td>
+                            <td>Arvo 3</td>
+                        </tr>
+                        <tr>
+                            <td>U_low (20%)</td>
+                            <td>Arvo 3</td>
+                        </tr>
+                        <tr>
+                            <td>U_low (10%)</td>
+                            <td>Arvo 3</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <footer class="text-center mt-4 py-2 border-top">
+        © skullervo 2024
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

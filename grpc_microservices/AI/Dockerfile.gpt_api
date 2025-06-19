@@ -1,0 +1,19 @@
+# Käytetään virallista Python-kuvaa
+FROM python:3.12
+
+# Asetetaan työskentelyhakemisto
+WORKDIR /app
+
+# Kopioidaan riippuvuudet ja asennetaan ne
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Kopioidaan loput tiedostot
+COPY gpt_api2.py .
+
+# Avataan portti 8000 (FastAPI käyttää oletuksena 8000)
+EXPOSE 8000
+
+# Käynnistetään FastAPI-palvelin Uvicornilla
+CMD ["uvicorn", "gpt_api2:app", "--host", "0.0.0.0", "--port", "8000"]
+

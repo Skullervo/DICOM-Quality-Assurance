@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="fi">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="{% static 'css/stylesStartPage.css' %}" rel="stylesheet"> <!-- Viittaus ulkoiseen CSS-tiedostoon -->
+    <title>POHDE - laadunvalvonta</title>
+</head>
+
+<body>
+    <header>
+        <nav class="navbar">
+            <h3>LV-automaatti</h3>
+            <div class="nav-links">
+                <a class="nav-link" href="#">Aloitus</a>
+                <a class="nav-link" href="#">Tietoa</a>
+                <a class="nav-link" href="#">Yhteystiedot</a>
+            </div>
+        </nav>
+    </header> 
+    
+    <div class="cover-container">
+        <main>
+            <h1>Lääketieteellisten kuvantamislaitteiden laadunvalvonta</h1>
+            <p class="lead">Tervetuloa POHTEEN laadunvalvontasivustolle. Klikkaa edetäksesi lääketieteellisen kuvantamisen laadunvalvonnan modaliteetteihin.</p>
+            <p class="lead">
+                <a href="{% url 'modaliteetit' %}" class="btn">Modaliteetit</a> <!-- Lisätty btn-luokka -->
+            </p>
+        </main>
+
+        <footer>
+            <p>Lääketieteellisen fysiikan asiantuntijapalvelut, <a href="https://github.com/Skullervo">@skullervo</a>.</p>
+        </footer>
+    </div>
+</body>
+</html>

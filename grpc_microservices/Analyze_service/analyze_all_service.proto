@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package analyze_all_service;
+
+service AnalyzeAllService {
+    rpc AnalyzeAll (AnalyzeAllRequest) returns (AnalyzeAllResponse);
+}
+
+message AnalyzeAllRequest {}
+
+message AnalyzeAllResponse {
+    string message = 1;
+}
