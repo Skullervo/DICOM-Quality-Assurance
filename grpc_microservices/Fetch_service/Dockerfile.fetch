@@ -1,0 +1,20 @@
+FROM python:3.12-slim
+WORKDIR /app
+
+# Asenna tarvittavat paketit
+RUN apt-get update && apt-get install -y protobuf-compiler
+
+# Kopioidaan requirements.txt ja asennetaan riippuvuudet
+COPY ../requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Kopioidaan Fetch Service -koodi ja .proto-tiedosto
+COPY fetch_service.py fetch_service.proto .
+
+# 🔹 Generoidaan gRPC Python -tiedostot
+RUN python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. fetch_service.proto
+
+CMD ["python", "fetch_service.py"]
+
+
+

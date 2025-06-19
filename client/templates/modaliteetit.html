@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="fi">
+  <head>
+    {% load static %}
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="{% static 'css/stylesModalities.css' %}">
+    <title>Modaliteetit</title>
+  </head>
+  <body>
+    <header>
+        <!-- Fixed navbar -->
+        <nav class="navbar">
+          <h3>LV-automaatti</h3>
+          <div class="nav-links">
+            <a class="nav-link" href="#">Aloitus</a>
+            <a class="nav-link" href="#">Tietoa</a>
+            <a class="nav-link" href="#">Yhteystiedot</a>
+          </div>
+        </nav>
+    </header>
+
+    <main> 
+      <section class="py-3 text-center container">
+        <div class="row py-lg-3">
+          <div class="col-lg-6 col-md-8 mx-auto">
+            <h1 class="fw-light">Modaliteetit</h1>
+          </div>
+        </div>
+      </section>
+
+      <div class="album py-5 bg-light">
+        <div class="container">
+          <div class="row">
+            <!-- Ultraääni -->
+            <div class="col">
+              <div class="card shadow-sm">
+                <img src="{% static 'images/ultrasound_image.bmp' %}" alt="Ultraääni">
+                <div class="card-body">
+                  <p class="card-text">Ultraääni</p>
+                  <a href="{% url 'institutions' %}" class="btn">OYS</a>
+                </div>
+              </div>
+            </div>
+
+            <!-- Natiiviröntgen -->
+            <div class="col">
+              <div class="card shadow-sm">
+                <img src="{% static 'images/XRAY.png' %}" alt="Natiiviröntgen">
+                <div class="card-body">
+                  <p class="card-text">Natiiviröntgen</p>
+                  <a href="#" class="btn">OYS</a>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tietokonetomografia -->
+            <div class="col">
+              <div class="card shadow-sm">
+                <img src="{% static 'images/CT.png' %}" alt="Tietokonetomografia">
+                <div class="card-body">
+                  <p class="card-text">Tietokonetomografia</p>
+                  <a href="#" class="btn">OYS</a>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

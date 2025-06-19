@@ -1,0 +1,224 @@
+/* Sivun tausta */
+body {
+  background: #000 url('{% static "images/background.jpg" %}') no-repeat center center fixed;
+  -webkit-background-size: cover;
+  -moz-background-size: cover;
+  background-size: cover;
+  -o-background-size: cover;
+  color: white;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Estetään ylimääräinen skrollaus body-elementissä */
+}
+
+/* Asetetaan korkeus html- ja body-elementeille */
+html, body {
+  height: 100%;
+  overflow: hidden; /* Estetään ylivuoto ja skrollaus */
+}
+
+/* Navigointipalkki */
+.navbar {
+  background-color: rgba(31, 31, 31, 0.9);
+  padding: 15px 30px;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center; /* Varmistetaan, että logon ja linkkien väliin jää tilaa */
+  align-items: center;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.navbar h3 {
+  margin: 0;
+  color: white;
+  position: absolute; /* Asetetaan logo absoluuttiseksi */
+  left: 20px; /* Sijoitetaan logo vasemmalle */
+  font-size: 1.5rem; /* Suurempi fonttikoko */
+}
+
+.navbar .nav-links {
+  display: flex;
+  gap: 20px;
+}
+
+.navbar .nav-link {
+  color: white;
+  text-decoration: none;
+  padding: 10px 15px;
+  border-radius: 5px;
+  transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+.nav-link:hover {
+  background-color: #343a40;
+  transform: scale(1.1);
+}
+
+/* Containerin tyyli */
+.container {
+  display: flex;
+  flex-direction: row; /* Sijoitetaan sivupalkki ja sisältö riviin */
+  height: 100%;
+  margin-top: 40px; /* Tilaa kiinteälle yläpalkille */
+}
+
+/* Sivupaneelin tyyli */
+.sidebar {
+  background-color: #1f1f1f;
+  padding: 20px;
+  width: 200px;
+  flex-shrink: 0;
+  height: 100%; /* Asetetaan korkeus */
+  overflow-y: auto;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  margin-right: 10px;
+}
+
+.sidebar .nav {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar .nav-item {
+  margin-bottom: 15px;
+}
+
+.sidebar .nav-link {
+  color: #ffffff;
+  text-decoration: none;
+  display: block;
+  padding: 10px 0;
+  margin: 0;
+  background: none;
+  transition: color 0.3s ease;
+}
+
+.sidebar .nav-link:hover {
+  color: #007bff;
+}
+
+.sidebar .nav-link.active {
+  color: #007bff;
+}
+
+/* Pääsisällön tyyli */
+.main-content {
+  flex-grow: 1;
+  padding: 40px;
+  overflow-y: auto; /* Varmistetaan, että vain pääsisältö skrollaa pystysuunnassa */
+  height: calc(100vh - 80px); /* Varmistetaan, että sisältö täyttää tilan yläpalkin alla */
+}
+
+/* Taulukon tyyli */
+.table-responsive {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%; /* Taulukko vie koko käytettävissä olevan leveyden */
+  max-width: 1170px; /* Maksimileveys taulukolle */
+  margin: 0 auto;
+  border-collapse: collapse;
+  margin-bottom: 40px;
+  background-color: black;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.table th, .table td {
+  border: 1px solid #444444;
+  padding: 5px;
+  text-align: left;
+  font-size: 12px;
+  width: 25%;
+  background-color: black; /* Taustaväri taulukon soluille */
+  border-color: white; /* Reunojen väri valkoiseksi */
+}
+
+.table thead th {
+  background-color: #343a40;
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.table tbody tr:nth-child(even) {
+  background-color: black;
+}
+
+.table tbody tr:hover {
+  background-color: #000000;
+  cursor: pointer;
+}
+
+.table tbody td a {
+  color: #007bff; /* Sininen linkki */
+  text-decoration: none; /* Ei alleviivausta */
+}
+
+.table tbody td a:hover {
+  text-decoration: underline; /* Hover-efekti */
+}
+
+/* Parametri-sarakkeen solujen tyyli */
+.table tbody tr td:nth-child(1),
+.table tbody tr td:nth-child(3) {
+  color: #007bff; /* Sininen teksti */
+  text-decoration: underline; /* Alleviivaus */
+}
+
+/* Kontaineri kuvalle ja kuvaajille */
+#charts-image-wrapper {
+  display: flex;
+  justify-content: space-between; /* Asetetaan kuva ja kuvaajat vierekkäin */
+  align-items: flex-start;
+  width: 100%; /* Varmistetaan, että vie koko käytettävissä olevan leveyden */
+  padding: 20px;
+  flex-grow: 1; /* Kasvatetaan tilan mukaan */
+  gap: 20px; /* Lisätään väliä kuvan ja kuvaajien väliin */
+}
+
+/* Kuvan asettelu */
+#image-container {
+  flex-basis: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#image-container img {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+#charts-container {
+  flex-basis: 50%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start; /* Asetetaan kaaviot yläreunaan */
+  align-items: center; /* Keskitetään kaaviot vaakasuunnassa */
+  overflow-x: auto; /* Varmistaa, että kaaviot näkyvät */
+  gap: 20px; /* Lisätään väliä kaavioiden väliin */
+}
+
+#charts-container .chart-wrapper {
+  background-color: #343a40; /* Tausta kaavioille */
+  padding: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 10px; /* Pyöristetyt kulmat */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Varjostus */
+  height: 20%;
+}
+
+#charts-container .chart-wrapper:last-child {
+  margin-bottom: 0; /* Ei marginaalia viimeiselle kaaviolle */
+}

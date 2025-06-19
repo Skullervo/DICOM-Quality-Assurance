@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analyze-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: analyze-service
+  template:
+    metadata:
+      labels:
+        app: analyze-service
+    spec:
+      containers:
+      - name: analyze-service
+        image: skullervo/analyze-service:medQA
+        ports:
+        - containerPort: 50052
+        env:
+        - name: DATABASE_HOST
+          value: "postgres"
+        - name: DATABASE_PORT
+          value: "5432"
+        - name: DATABASE_NAME
+          value: "QA-results"
+        - name: DATABASE_USER
+          value: "postgres"
+        - name: DATABASE_PASSWORD
+          value: "pohde24"
+        - name: ORTHANC_URL
+          value: "http://host.docker.internal:8042"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: analyze-service
+spec:
+  type: ClusterIP
+  selector:
+    app: analyze-service
+  ports:
+    - port: 50052
+      targetPort: 50052

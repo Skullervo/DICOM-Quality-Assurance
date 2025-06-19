@@ -1,0 +1,15 @@
+grpc_microservices/analyze_service.tar
+*.tar
+
+# Python virtual env
+venv/
+
+# Compiled Python caches
+__pycache__/
+*.pyc
+
+# Junk files from Django and other development environments
+*.log
+db.sqlite3
+*.sqlite3
+

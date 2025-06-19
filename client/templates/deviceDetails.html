@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  {% load static %}
+  <!-- Required meta tags -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Custom CSS -->
+  <link href="{% static 'css/stylesDeviceDetails.css' %}" rel="stylesheet"> <!-- Viittaus ulkoiseen CSS-tiedostoon -->
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@1.0.0"></script>
+
+  <title>{{ device.stationname }}</title>
+</head>
+<body class="bg-dark text-light">
+  <header>
+    <!-- Fixed navbar -->
+    <nav class="navbar">
+      <h3 class="navbar-brand" href="#">LV-automaatti</h3>
+      <div class="nav-links">
+        <a class="nav-link" href="#">Aloitus</a>
+        <a class="nav-link" href="#">Tietoa</a>
+        <a class="nav-link" href="#">Yhteystiedot</a>
+      </div>
+    </nav>
+  </header>
+
+  <div class="container">
+    <nav id="sidebarMenu" class="sidebar">
+      <div class="position-sticky">
+        <ul class="nav">
+          <li class="nav-item">
+            <a class="nav-link active" aria-current="page" href="#">
+              Laitteet
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#">
+              Tietokannat
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#">
+              Kuvat
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#">
+              Osastot
+            </a>
+          </li>
+        </ul>
+      </div>
+    </nav>
+
+    <main class="main-content">
+      <div class="header">
+        <h1>{{ device.stationname }}</h1>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Parametri</th>
+              <th>Arvo</th>
+              <th>Parametri</th>
+              <th>Arvo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Sairaala</strong></td>
+              <td>{{ device.institutionname }}</td>
+              <td><strong>Osasto</strong></td>
+              <td>{{ device.institutionaldepartmentname }}</td>
+            </tr>
+            <tr>
+              <td><strong>Laite</strong></td>
+              <td id="device-name">{{ device.stationname }}</td>
+              <td><strong>Malli</strong></td>
+              <td>{{ device.model }}</td>
+            </tr>
+            {% comment %} <tr>
+              <td><strong>Tutkimuksen ID</strong></td>
+              <td>{{ device.patient_id }}</td>
+              <td><strong>Tutkimuksen Nimi</strong></td>
+              <td>{{ device.patient_name }}</td>
+            </tr> {% endcomment %}
+            {% comment %} <tr>
+              <td><strong>SOPClassUID</strong></td>
+              <td>{{ device.sopclassuid }}</td>
+              <td><strong>SOPInstanceUID</strong></td>
+              <td>{{ device.sopinstanceuid }}</td>
+            </tr> {% endcomment %}
+            <tr>
+              <td><strong>SeriesDate</strong></td>
+              <td>{{ device.seriesdate }}</td>
+              <td><strong>StudyInstanceUID</strong></td>
+              <td>{{ device.studyinstanceuid }}</td>
+            </tr>
+            {% comment %} <tr>
+              <td><strong>SeriesTime</strong></td>
+              <td>{{ device.seriestime }}</td>
+              <td><strong>SeriesInstanceUID</strong></td>
+              <td>{{ device.seriesinstanceuid }}</td>
+            </tr> {% endcomment %}
+            <tr>
+              <td><strong>TransducerType</strong></td>
+              <td>{{ device.transducertype }}</td>
+              <td><strong>S_depth</strong></td>
+              <td id="s-depth-value">{{ device.s_depth }}</td>
+            </tr>
+            <tr>
+              <td><strong>U_cov</strong></td>
+              <td id="u-cov-value">{{ device.u_cov }}</td>
+              <td><strong>U_skew</strong></td>
+              <td id="u-skew-value">{{ device.u_skew }}</td>
+            </tr>
+            <tr>
+              <td><strong>U_low</strong></td>
+              <td id="u-low-value">{{ device.u_low }}</td>
+              <td><strong>Instance</strong></td>
+              <td id="instance-value">{{ device.instance }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <!-- Kuva vasemmalla ja kuvaajat oikealla -->
+      <div id="charts-image-wrapper">
+        <div id="image-container">
+          <img id="orthanc-image" src="data:image/png;base64,{{ image }}" class="img-fluid" alt="Device Image">
+        </div>
+        <div id="charts-container">
+          <div class="chart-wrapper">
+            <canvas id="chart1" width="400" height="150"></canvas>
+          </div>
+          <div class="chart-wrapper">
+            <canvas id="chart2" width="400" height="150"></canvas>
+          </div>
+          <div class="chart-wrapper">
+            <canvas id="chart3" width="400" height="150"></canvas>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="{% static 'js/scriptsDeviceDetails.js' %}"></script> <!-- Viittaus ulkoiseen JavaScript-tiedostoon -->
+</body>
+</html>

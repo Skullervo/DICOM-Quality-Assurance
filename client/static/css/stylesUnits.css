@@ -1,0 +1,134 @@
+body {
+  background: #000 url('{% static "images/background.jpg" %}') no-repeat center center fixed;
+  -webkit-background-size: cover;
+  -moz-background-size: cover;
+  background-size: cover;
+  -o-background-size: cover;
+  color: white;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+}
+
+/* Navigointipalkki */
+.navbar {
+  background-color: rgba(31, 31, 31, 0.9);
+  padding: 15px 30px;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px); /* Taustan blur-efekti */
+}
+
+.navbar h3 {
+  margin: 0;
+  color: white;
+  position: absolute; /* Asetetaan logo absoluuttiseksi */
+  left: 20px; /* Sijoitetaan logo vasemmalle */
+  font-size: 1.5rem; /* Suurempi fonttikoko */
+}
+
+.navbar .nav-links {
+  display: flex;
+  gap: 20px;
+  /* padding-right: 20px; */
+}
+
+.navbar .nav-link {
+  color: white;
+  text-decoration: none;
+  padding: 10px 15px;
+  border-radius: 5px;
+  transition: background-color 0.3s ease, transform 0.3s ease; /* Sulava siirtymä */
+}
+
+.nav-link:hover {
+  background-color: #343a40;
+  /* border-radius: 5px; */
+  transform: scale(1.1); /* Hover-efekti */
+}
+
+/* Pääkontti */
+main {
+  margin-top: 80px; /* Varattu tila kiinteälle yläpalkille */
+  padding: 20px;
+  text-align: center;
+}
+
+.container {
+  background-color: black; /* Aseta tummaksi, jos haluat */
+  max-width: 1140px;
+  margin: auto;
+}
+
+/* Korttien layout */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: center;
+}
+
+.col {
+  flex: 1 1 calc(33.333% - 20px);
+  max-width: 350px;
+  display: flex;
+  justify-content: center;
+}
+
+.card {
+  background-color: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  text-align: left;
+  width: 100%;
+  border: 2px solid white; /* Lisätty valkoinen reuna */
+}
+
+.card img {
+  width: 100%;
+  height: 225px;
+  object-fit: cover;
+}
+
+.card-body {
+  padding: 15px;
+}
+
+.card-text {
+  font-size: 1.2rem;
+  margin-bottom: 10px;
+}
+
+/* Painikkeet */
+.btn {
+  display: inline-block;
+  padding: .5rem 1rem;
+  font-weight: 700;
+  background-color: #3251a6;
+  color: white;
+  text-decoration: none;
+  border-radius: 5px;
+  text-align: center;
+  transition: background-color 0.3s ease;
+}
+
+.btn:hover {
+  background-color: #5a6268;
+}
+
+.bg-light {
+  background-color: #f8f9fa;
+  padding: 40px 0;
+}
+
+.album {
+  background-color: black; /* Musta tausta */
+  color: white; /* Tekstin väriksi valkoinen */
+}

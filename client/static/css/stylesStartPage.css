@@ -1,0 +1,123 @@
+body {
+    background: #000 url('{% static "images/background.jpg" %}') no-repeat center center fixed;
+    -webkit-background-size: cover;
+    -moz-background-size: cover;
+    background-size: cover;
+    -o-background-size: cover;
+    color: white;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    justify-content: center; /* Keskittää sisällön pystysuunnassa */
+    align-items: center; /* Keskittää sisällön vaakasuunnassa */
+    height: 100vh;
+    margin: 0;
+    text-align: center;
+}
+
+.navbar {
+    background-color: rgba(31, 31, 31, 0.9); /* Läpinäkyvä tausta */
+    padding: 15px 30px; /* Suurempi padding */
+    position: fixed;
+    top: 0;
+    width: 100%;
+    display: flex;
+    justify-content: center; /* Keskittää linkit vaakasuunnassa */
+    align-items: center;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Varjostus */
+    backdrop-filter: blur(10px); /* Taustan blur-efekti */
+}
+
+.navbar h3 {
+    margin: 0;
+    color: white;
+    position: absolute; /* Asetetaan logo absoluuttiseksi */
+    left: 20px; /* Sijoitetaan logo vasemmalle */
+    font-size: 1.5rem; /* Suurempi fonttikoko */
+}
+
+.navbar .nav-links {
+    display: flex;
+    gap: 20px; /* Suurempi väli linkkien välillä */
+}
+
+.navbar .nav-link {
+    color: white;
+    text-decoration: none;
+    padding: 10px 15px; /* Suurempi padding */
+    border-radius: 5px;
+    transition: background-color 0.3s ease, transform 0.3s ease; /* Sulava siirtymä */
+}
+
+.navbar .nav-link:hover {
+    background-color: #343a40;
+    transform: scale(1.1); /* Hover-efekti */
+}
+
+.cover-container {
+    max-width: 42em;
+    margin: auto;
+    padding: 3rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* Keskittää sisällön pystysuunnassa */
+    align-items: center; /* Keskittää sisällön vaakasuunnassa */
+    /* background-color: rgba(31, 31, 31, 0.8); */
+    background-color: black; /* Läpinäkyvä tausta */
+    border-radius: 10px; /* Pyöristetyt kulmat */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Varjostus */
+    backdrop-filter: blur(10px); /* Taustan blur-efekti */
+}
+
+.cover h1 {
+    margin-bottom: 1rem;
+    font-size: 2.5rem; /* Suurempi fonttikoko */
+}
+
+.cover p.lead {
+    margin-bottom: 1.5rem;
+    font-size: 1.25rem; /* Suurempi fonttikoko */
+}
+
+p.lead {
+    padding-bottom: 20px; /* Lisää tilaa painikkeen yläpuolelle */
+}
+
+.btn {
+    padding: .75rem 1.5rem; 
+    font-weight: 700;
+    background-color: #3251a6;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    border: 2px solid #3251a6; /* Lisää painikkeelle valkoinen reunus */
+    margin-top: 20px;  /* Lisää tilaa yläpuolelle */
+    margin-bottom: 20px;  /* Lisää tilaa alapuolelle */
+    transition: background-color 0.3s ease, transform 0.3s ease; 
+}
+
+
+p.lead {
+    margin-bottom: 2rem; /* Lisää tilaa painikkeen yläpuolelle */
+}
+
+
+.btn:hover {
+    background-color: #3251a6;
+    transform: scale(1.1); /* Hover-efekti */
+}
+
+footer {
+    margin-top: auto;
+    color: rgba(255, 255, 255, 0.7); /* Kirkkaampi väri */
+    font-size: 0.875rem; /* Pienempi fonttikoko */
+}
+
+footer a {
+    color: rgba(255, 255, 255, 0.7); /* Kirkkaampi väri */
+    text-decoration: none;
+    transition: color 0.3s ease; /* Sulava siirtymä */
+}
+
+footer a:hover {
+    color: white;
+}

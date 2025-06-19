@@ -1,0 +1,119 @@
+body {
+  background: #000 url('{% static "images/background.jpg" %}') no-repeat center center fixed;
+  -webkit-background-size: cover;
+  -moz-background-size: cover;
+  background-size: cover;
+  -o-background-size: cover;
+  color: white;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+}
+
+/* Navigointipalkki */
+.navbar {
+  background-color: rgba(31, 31, 31, 0.9);
+  padding: 15px 30px;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px); /* Taustan blur-efekti */
+}
+
+.navbar h3 {
+  margin: 0;
+  color: white;
+  position: absolute; /* Asetetaan logo absoluuttiseksi */
+  left: 20px; /* Sijoitetaan logo vasemmalle */
+  font-size: 1.5rem; /* Suurempi fonttikoko */
+}
+
+.navbar .nav-links {
+  display: flex;
+  gap: 20px;
+  /* padding-right: 20px; */
+}
+
+.navbar .nav-link {
+  color: white;
+  text-decoration: none;
+  padding: 10px 15px;
+  border-radius: 5px;
+  transition: background-color 0.3s ease, transform 0.3s ease; /* Sulava siirtymä */
+}
+
+.nav-link:hover {
+  background-color: #343a40;
+  /* border-radius: 5px; */
+  transform: scale(1.1); /* Hover-efekti */
+}
+
+/* Pääkontti */
+main {
+  margin-top: 80px; /* Varattu tila kiinteälle navigointipalkille */
+  padding: 20px;
+  text-align: center;
+}
+
+/* Album-osio */
+.album {
+  padding: 40px 0;
+  background-color: black;
+}
+
+.container {
+  background-color: #000; /* Aseta tummaksi, jos haluat */
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Taulukon tyylit */
+table {
+  width: 100%;
+  border-collapse: separate; /* Muutettu collapse -> separate, jotta border-radius toimii */
+  border-spacing: 0; /* Poistetaan väli solujen välistä */
+  margin-top: 20px;
+  color: white;
+  border-radius: 10px; /* Lisätty pyöristetyt kulmat */
+  overflow: hidden; /* Piilotetaan ylimenevät osat */
+}
+
+table, th, td {
+  border: 1px solid #ddd;
+}
+
+th, td {
+  padding: 12px;
+  text-align: left;
+}
+
+th {
+  background-color: #343a40;
+  color: white;
+}
+
+/* Muutetaan tbody:n solut mustiksi ja tekstin väriksi valkoinen */
+tbody td {
+  background-color: black;
+  color: white;
+}
+
+/* Hover-efekti korostamaan riviä */
+tbody tr:hover {
+  background-color: #555;
+}
+
+/* Linkit */
+a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}

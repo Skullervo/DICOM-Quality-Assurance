@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <!-- Required meta tags -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <style>
+
+    #sidebarMenu {
+      background-color: #cccccc; /* Harmaa tausta */
+    }
+    
+
+    {% comment %} body {
+      background-color: #333; /* Tumma tausta */
+      color: #fff; /* Vaalea teksti */
+    } {% endcomment %}
+  
+  </style>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <title>Samsung EVO</title>
+</head>
+<body>
+
+  <header class="navbar navbar-dark sticky-top bg-dark flex-md-nowrap p-0 shadow">
+    {% comment %} <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3" href="#">Ultraääni LV v.0.1.1</a> {% endcomment %}
+    <h3 class="navbar-brand col-md-3 col-lg-2 me-0 px-3" href="#">Ultraääni LV v.0.1.1</h3>
+    <button class="navbar-toggler position-absolute d-md-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <input class="form-control form-control-dark w-100" type="text" placeholder="Search" aria-label="Search">
+  </header>
+
+  <div class="container-fluid">
+    <div class="row">
+      <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
+        <div class="position-sticky pt-3">
+          <ul class="nav flex-column">
+            <li class="nav-item">
+              <a class="nav-link active" aria-current="page" href="#">
+                Laitteet
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#">
+                Tietokannat
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#">
+                Kuvat
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#">
+                Osastot
+              </a>
+            </li>
+          </ul>
+        </div>
+      </nav>
+
+      <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+          <h1 class="h2">Samsung EVO</h1>
+        </div>
+
+        <div class="container my-3">
+            <div class="table-responsive">
+              <table class="table table-borderless">
+                <tbody>
+                  <tr>
+                    <td>InstitutionName</td>
+                    <td>OYS</td>
+                    <td>InstitutionalDepartmentName</td>
+                    <td>90 RTG</td>
+                  </tr>
+                  <tr>
+                    <td>Laite</td>
+                    <td>Samsung EVO</td>
+                    <td>Malli</td>
+                    <td>EVO</td>
+                  </tr>
+                  <tr>
+                    <td>Patient ID</td>
+                    <td>112233-US</td>
+                    <td>Patient Name</td>
+                    <td>Ultra\u00e4\u00e4ni^Ilmakuva</td>
+                  </tr>
+                  <tr>
+                    <td>SOPClassUID</td>
+                    <td>1.2.840.10008.5.1.4.1.1.6.1</td>
+                    <td>SOPInstanceUID</td>
+                    <td>1.2.840.113619.2.256.50122723163.1613050651.91</td>
+                  </tr>
+                  <tr>
+                    <td>PhysicalDeltaX</td>
+                    <td>0.02</td>
+                    <td>PhysicalDeltaY</td>
+                    <td>0.02</td>
+                  </tr>
+                  <tr>
+                    <td>SeriesDate</td>
+                    <td>20210211</td>
+                    <td>StudyInstanceUID</td>
+                    <td>1.2.840.113619.2.256.50122723163.1613050037.81</td>
+                  </tr>
+                  <tr>
+                    <td>SeriesTime</td>
+                    <td>152717</td>
+                    <td>SeriesInstanceUID</td>
+                    <td>1.2.840.113619.2.256.50122723163.1613050037.81</td>
+                  </tr>
+                  <tr>
+                    <td>TransducerType</td>
+                    <td>SECTOR_PHASED</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          
+          <canvas id="chart1" width="400" height="150"></canvas>
+          <canvas id="chart2" width="400" height="150"></canvas>
+          <canvas id="chart3" width="400" height="150"></canvas>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Bootstrap Bundle with Popper -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  
+  <script>
+    fetch('/first_app/api/s_depth/')
+      .then(response => response.json())
+      .then(data => {
+        var ctx1 = document.getElementById('chart1').getContext('2d');
+        var chart1 = new Chart(ctx1, {
+          type: 'line',
+          data: {
+            labels: data.map((_, index) => `Sample ${index + 1}`),
+            datasets: [{
+              label: 'S Depth Values',
+              data: data,
+              fill: false,
+              borderColor: 'rgb(75, 192, 192)',
+              tension: 0.1
+            }]
+          }
+        });
+      });
+
+    fetch('/first_app/api/u_cov/')
+      .then(response => response.json())
+      .then(data => {
+        var ctx2 = document.getElementById('chart2').getContext('2d');
+        var chart2 = new Chart(ctx2, {
+          type: 'line',
+          data: {
+            labels: data.map((_, index) => `Sample ${index + 1}`),
+            datasets: [{
+              label: 'U Cov Values',
+              data: data,
+              fill: false,
+              borderColor: 'rgb(255, 99, 132)',
+              tension: 0.1
+            }]
+          }
+        });
+      });
+
+
+    fetch('/first_app/api/u_skew/')
+     .then(response => response.json())
+     .then(data => {
+        var ctx3 = document.getElementById('chart3').getContext('2d');
+        var chart3 = new Chart(ctx3, {
+          type: 'line',
+          data: {
+            labels: data.map((_, index) => `Sample ${index + 1}`),
+            datasets: [{
+              label: 'U skew Values',
+              data: data,
+              fill: false,
+              borderColor: 'rgb(255, 255, 50)',
+              tension: 0.1
+            }]
+          }
+        });
+      });
+  </script>
+</body>
+</html>

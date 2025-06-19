@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <title>Yksinkertainen Bootstrap Sivu</title>
+    <!-- Cornerstone Libraries -->
+    <script src="https://unpkg.com/cornerstone-core@2.3.0/dist/cornerstone.min.js"></script>
+    <script src="https://unpkg.com/cornerstone-wado-image-loader@3.1.1/dist/cornerstoneWADOImageLoader.min.js"></script>
+    <script src="https://unpkg.com/dicom-parser@1.8.3/dist/dicomParser.min.js"></script>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="#">Ultraääni laadunvalvonta v.0.1.1</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link active" aria-current="page" href="#">Koti</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Ominaisuudet</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Laitteet</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Kirjaudu ulos</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-8">
+                <h1>Tervetuloa tarkastelemaan laadunvalvonnan tuloksia!</h1>
+                <p>Sivu sisältää ultraääni ilmakuvan sekä vertikaali- ja horisontaaliprofiilit kuvasta. Tarkempia tuloksia löydät taulukosta.</p>
+                
+                <!-- DICOM Image Viewer -->
+                <div id="dicomImage" style="width:512px; height:512px;"></div>
+            </div>
+            <div class="col-md-4">
+                <h2>Sivupalkki</h2>
+                <p>Tämä on esimerkki sivupalkista, joka voi sisältää lisätietoa tai linkkejä.</p>
+            </div>
+        </div>
+    </div>
+
+    <footer class="text-center mt-4 py-2 border-top">
+        © skullervo 2024
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        cornerstoneWADOImageLoader.external.cornerstone = cornerstone;
+        cornerstoneWADOImageLoader.external.dicomParser = dicomParser;
+
+        cornerstoneWADOImageLoader.configure({
+            webWorkerPath: 'https://unpkg.com/cornerstone-wado-image-loader/dist/cornerstoneWADOImageLoaderWebWorker.min.js',
+            taskConfiguration: {
+                'decodeTask': {
+                    loadCodecsOnStartup: true,
+                    initializeCodecsOnStartup: false,
+                    codecsPath: 'https://unpkg.com/cornerstone-wado-image-loader/dist/cornerstoneWADOImageLoaderCodecs.min.js',
+                    usePDFJS: false,
+                    strict: true
+                }
+            }
+        });
+
+        const element = document.getElementById('dicomImage');
+        cornerstone.enable(element);
+
+        // Replace 'wadouri:yourOrthancServerURL' with the actual WADO URI
+        cornerstone.loadImage('wadouri:http://localhost:8042/instances/yourInstanceUID/file').then(function(image) {
+            cornerstone.displayImage(element, image);
+        });
+    </script>
+</body>
+</html>

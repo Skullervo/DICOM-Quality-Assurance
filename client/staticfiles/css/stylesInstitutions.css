@@ -1,0 +1,31 @@
+body {
+    background-color: #333; /* Tumma tausta */
+    color: #fff; /* Vaalea teksti */
+}
+
+.card {
+    width: 100%; /* Asettaa kortin leveydeksi 100% vanhemman elementin leveydestä */
+    height: 100%; /* Antaa korkeuden määräytyä automaattisesti */
+}
+
+.btn-min-width {
+    display: block;
+    width: 100%; /* Täyttää vanhemman elementin leveyden */
+    box-sizing: border-box;
+    text-align: center;
+    overflow: hidden; /* Voit poistaa tämän jos haluat tekstin rivittyvän */
+    height: 100%; /* Antaa painikkeen korkeuden mukautua sisällön mukaan */
+}
+
+.col-md-4 {
+    margin-bottom: 10px; /* Lisää marginaalia alapuolelle */
+}
+
+.album {
+    background-color: #cccccc; /* Harmaa tausta */
+}
+
+.navbar-nav {
+    width: 100%;
+    justify-content: center; /* Keskitetään linkit */
+}
