@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package fetch_service;
+
+service FetchService {
+    rpc FetchDicomData (FetchRequest) returns (FetchResponse);
+}
+
+message FetchRequest {
+    string instance_id = 1;
+}
+
+message FetchResponse {
+    bytes dicom_data = 1;
+}

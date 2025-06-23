@@ -1,12 +1,7 @@
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Fetch_service')))
-# ...existing imports...
-
 import grpc
 from concurrent import futures
-import analyze_service_timed_pb2
-import analyze_service_timed_pb2_grpc
+import analyze_service_pb2
+import analyze_service_pb2_grpc
 import fetch_service_pb2
 import fetch_service_pb2_grpc
 import psycopg2
@@ -17,32 +12,25 @@ from pydicom.errors import InvalidDicomError
 from US_IQ_analysis3 import imageQualityUS
 import os
 import requests
-import threading
-import time
 
 # 🔹 Orthanc ja Fetch Service osoitteet
 ORTHANC_URL = os.getenv("ORTHANC_URL", "http://localhost:8042") #virtuaaliympäristössä
-#ORTHANC_URL = os.getenv("ORTHANC_URL", "http://host.docker.internal:8042") #kontissa
-FETCH_SERVICE_ADDRESS = os.getenv("FETCH_SERVICE_HOST", "fetch-service:50051")
-#FETCH_SERVICE_ADDRESS = os.getenv("FETCH_SERVICE_HOST", "host.docker.internal:50051")
 
-# 🔹 Tietokanta-asetukset kontissa
+#FETCH_SERVICE_ADDRESS = "localhost:50051"
+# 🔹 Fetch Service osoite (ennen localhost, nyt käytetään kontin nimeä)
+FETCH_SERVICE_ADDRESS = os.getenv("FETCH_SERVICE_HOST", "fetch-service:50051") 
+
+
+
+# 🔹 Tietokanta-asetukset virtuaaliympäristössä
 DB_CONFIG = {
     "dbname": os.getenv("DATABASE_NAME", "QA-results"),
     "user": os.getenv("DATABASE_USER", "postgres"),
     "password": os.getenv("DATABASE_PASSWORD", "pohde24"),
-    "host": os.getenv("DATABASE_HOST", "postgres-db-distributedQA"),
+    "host": os.getenv("DATABASE_HOST", "localhost"),
     "port": os.getenv("DATABASE_PORT", "5432"),
 }
 
-# # Database settings
-# DB_CONFIG = {
-#     "dbname": os.getenv("DATABASE_NAME", "QA-results"),
-#     "user": os.getenv("DATABASE_USER", "postgres"),
-#     "password": os.getenv("DATABASE_PASSWORD", "pohde24"),
-#     "host": os.getenv("DATABASE_HOST", "localhost"),
-#     "port": os.getenv("DATABASE_PORT", "5432"),
-# }
 
 # 🔹 Luo tietokantayhteys ja varmista, että taulu on olemassa
 def connect_db():
@@ -69,11 +57,6 @@ def connect_db():
     cur.close()
     return conn
 
-# 🔹 Tarkista onko instanssi jo analysoitu
-def is_instance_analyzed(cur, instance_id):
-    cur.execute("SELECT 1 FROM ultrasound WHERE instance = %s", (instance_id,))
-    return cur.fetchone() is not None
-
 # 🔹 Yhdistetään Fetch Serviceen
 def get_fetch_stub():
     options = [
@@ -83,7 +66,7 @@ def get_fetch_stub():
     channel = grpc.insecure_channel(FETCH_SERVICE_ADDRESS, options=options)
     return fetch_service_pb2_grpc.FetchServiceStub(channel)
 
-class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
+class AnalyzeService(analyze_service_pb2_grpc.AnalyzeServiceServicer):
     def AnalyzeAllDicomData(self, request, context):
         print("📡 Received request to analyze all series in Orthanc")
 
@@ -91,16 +74,14 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
         response = requests.get(f"{ORTHANC_URL}/series")
         if response.status_code != 200:
             print("❌ Error: Could not fetch series from Orthanc")
-            if context:
-                context.set_code(grpc.StatusCode.NOT_FOUND)
-            return analyze_service_timed_pb2.AnalyzeResponse(message="No series found", series_id="ALL")
+            context.set_code(grpc.StatusCode.NOT_FOUND)
+            return analyze_service_pb2.AnalyzeResponse(message="No series found", series_id="ALL")
 
         series_list = response.json()
         if not series_list:
             print("❌ No series found in Orthanc")
-            if context:
-                context.set_code(grpc.StatusCode.NOT_FOUND)
-            return analyze_service_timed_pb2.AnalyzeResponse(message="No series available", series_id="ALL")
+            context.set_code(grpc.StatusCode.NOT_FOUND)
+            return analyze_service_pb2.AnalyzeResponse(message="No series available", series_id="ALL")
 
         fetch_stub = get_fetch_stub()
         conn = connect_db()
@@ -122,11 +103,6 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
 
             for instance in instance_list:
                 instance_id = instance["ID"]
-                # Tarkista onko jo analysoitu
-                if is_instance_analyzed(cur, instance_id):
-                    print(f"⏩ Instance {instance_id} already analyzed, skipping.")
-                    continue
-
                 print(f"📡 Fetching instance ID: {instance_id}")
 
                 # 🔍 Haetaan DICOM-data Fetch-palvelulta
@@ -197,29 +173,17 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
         cur.close()
         conn.close()
 
-        return analyze_service_timed_pb2.AnalyzeResponse(message="Analysis complete for all new series!", series_id="ALL")
+        return analyze_service_pb2.AnalyzeResponse(message="Analysis complete for all series!", series_id="ALL")
 
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    analyze_service_timed_pb2_grpc.add_AnalyzeServiceServicer_to_server(AnalyzeService(), server)
+    analyze_service_pb2_grpc.add_AnalyzeServiceServicer_to_server(AnalyzeService(), server)
     server.add_insecure_port("[::]:50052")
     server.start()
     print("🚀 Analyze Service running on port 50052")
     server.wait_for_termination()
 
-def start_analyze_scheduler(interval_seconds=3600):
-    def loop():
-        while True:
-            print("⏰ Ajastettu analyysi käynnistyy")
-            service = AnalyzeService()
-            class DummyContext:
-                def set_code(self, code): pass
-            service.AnalyzeAllDicomData(None, DummyContext())
-            print(f"🕒 Odotetaan {interval_seconds} sekuntia seuraavaan ajoon...")
-            time.sleep(interval_seconds)
-    t = threading.Thread(target=loop, daemon=True)
-    t.start()
-
 if __name__ == "__main__":
-    start_analyze_scheduler(60)  # Ajastettu analyysi (esim. kerran minuutissa)
-    serve()                        # Käynnistää gRPC-palvelimen
+    serve()
+
+

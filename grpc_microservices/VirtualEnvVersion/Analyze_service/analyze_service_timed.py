@@ -21,28 +21,18 @@ import threading
 import time
 
 # 🔹 Orthanc ja Fetch Service osoitteet
-ORTHANC_URL = os.getenv("ORTHANC_URL", "http://localhost:8042") #virtuaaliympäristössä
-#ORTHANC_URL = os.getenv("ORTHANC_URL", "http://host.docker.internal:8042") #kontissa
-FETCH_SERVICE_ADDRESS = os.getenv("FETCH_SERVICE_HOST", "fetch-service:50051")
-#FETCH_SERVICE_ADDRESS = os.getenv("FETCH_SERVICE_HOST", "host.docker.internal:50051")
+ORTHANC_URL = os.getenv("ORTHANC_URL", "http://localhost:8042") #virtualenv path
+#FETCH_SERVICE_ADDRESS = os.getenv("FETCH_SERVICE_HOST", "fetch-service:50051")
+FETCH_SERVICE_ADDRESS = os.getenv("FETCH_SERVICE_HOST", "localhost:50051")
 
-# 🔹 Tietokanta-asetukset kontissa
+# Database settings
 DB_CONFIG = {
     "dbname": os.getenv("DATABASE_NAME", "QA-results"),
     "user": os.getenv("DATABASE_USER", "postgres"),
     "password": os.getenv("DATABASE_PASSWORD", "pohde24"),
-    "host": os.getenv("DATABASE_HOST", "postgres-db-distributedQA"),
+    "host": os.getenv("DATABASE_HOST", "localhost"),
     "port": os.getenv("DATABASE_PORT", "5432"),
 }
-
-# # Database settings
-# DB_CONFIG = {
-#     "dbname": os.getenv("DATABASE_NAME", "QA-results"),
-#     "user": os.getenv("DATABASE_USER", "postgres"),
-#     "password": os.getenv("DATABASE_PASSWORD", "pohde24"),
-#     "host": os.getenv("DATABASE_HOST", "localhost"),
-#     "port": os.getenv("DATABASE_PORT", "5432"),
-# }
 
 # 🔹 Luo tietokantayhteys ja varmista, että taulu on olemassa
 def connect_db():
