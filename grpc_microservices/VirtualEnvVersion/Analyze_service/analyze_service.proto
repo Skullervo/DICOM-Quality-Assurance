@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package analyze_service;
+
+// Yksittäisen sarjan analyysi
+message AnalyzeRequest {
+  string series_id = 1;
+}
+
+// Kaikkien sarjojen analyysi
+message AnalyzeAllRequest {}
+
+// Vastaus analyysille
+message AnalyzeResponse {
+  string message = 1;
+  string series_id = 2;
+}
+
+// gRPC-palvelun määrittely
+service AnalyzeService {
+  rpc AnalyzeDicomData (AnalyzeRequest) returns (AnalyzeResponse);
+  rpc AnalyzeAllDicomData (AnalyzeAllRequest) returns (AnalyzeResponse);  // 🔹 UUSI METODI
+}
+

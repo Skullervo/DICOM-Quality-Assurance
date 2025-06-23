@@ -5,8 +5,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'F
 
 import grpc
 from concurrent import futures
-import analyze_service_pb2
-import analyze_service_pb2_grpc
+import analyze_service_timed_pb2
+import analyze_service_timed_pb2_grpc
 import fetch_service_pb2
 import fetch_service_pb2_grpc
 import psycopg2
@@ -26,23 +26,23 @@ ORTHANC_URL = os.getenv("ORTHANC_URL", "http://localhost:8042") #virtuaaliympär
 FETCH_SERVICE_ADDRESS = os.getenv("FETCH_SERVICE_HOST", "fetch-service:50051")
 #FETCH_SERVICE_ADDRESS = os.getenv("FETCH_SERVICE_HOST", "host.docker.internal:50051")
 
-# # 🔹 Tietokanta-asetukset kontissa
-# DB_CONFIG = {
-#     "dbname": os.getenv("DATABASE_NAME", "QA-results"),
-#     "user": os.getenv("DATABASE_USER", "postgres"),
-#     "password": os.getenv("DATABASE_PASSWORD", "***REDACTED***"),
-#     "host": os.getenv("DATABASE_HOST", "postgres-db-distributedQA"),
-#     "port": os.getenv("DATABASE_PORT", "5432"),
-# }
-
-# Database settings
+# 🔹 Tietokanta-asetukset kontissa
 DB_CONFIG = {
     "dbname": os.getenv("DATABASE_NAME", "QA-results"),
     "user": os.getenv("DATABASE_USER", "postgres"),
     "password": os.getenv("DATABASE_PASSWORD", "***REDACTED***"),
-    "host": os.getenv("DATABASE_HOST", "localhost"),
+    "host": os.getenv("DATABASE_HOST", "postgres-db-distributedQA"),
     "port": os.getenv("DATABASE_PORT", "5432"),
 }
+
+# # Database settings
+# DB_CONFIG = {
+#     "dbname": os.getenv("DATABASE_NAME", "QA-results"),
+#     "user": os.getenv("DATABASE_USER", "postgres"),
+#     "password": os.getenv("DATABASE_PASSWORD", "***REDACTED***"),
+#     "host": os.getenv("DATABASE_HOST", "localhost"),
+#     "port": os.getenv("DATABASE_PORT", "5432"),
+# }
 
 # 🔹 Luo tietokantayhteys ja varmista, että taulu on olemassa
 def connect_db():
@@ -83,7 +83,7 @@ def get_fetch_stub():
     channel = grpc.insecure_channel(FETCH_SERVICE_ADDRESS, options=options)
     return fetch_service_pb2_grpc.FetchServiceStub(channel)
 
-class AnalyzeService(analyze_service_pb2_grpc.AnalyzeServiceServicer):
+class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
     def AnalyzeAllDicomData(self, request, context):
         print("📡 Received request to analyze all series in Orthanc")
 
@@ -93,14 +93,14 @@ class AnalyzeService(analyze_service_pb2_grpc.AnalyzeServiceServicer):
             print("❌ Error: Could not fetch series from Orthanc")
             if context:
                 context.set_code(grpc.StatusCode.NOT_FOUND)
-            return analyze_service_pb2.AnalyzeResponse(message="No series found", series_id="ALL")
+            return analyze_service_timed_pb2.AnalyzeResponse(message="No series found", series_id="ALL")
 
         series_list = response.json()
         if not series_list:
             print("❌ No series found in Orthanc")
             if context:
                 context.set_code(grpc.StatusCode.NOT_FOUND)
-            return analyze_service_pb2.AnalyzeResponse(message="No series available", series_id="ALL")
+            return analyze_service_timed_pb2.AnalyzeResponse(message="No series available", series_id="ALL")
 
         fetch_stub = get_fetch_stub()
         conn = connect_db()
@@ -197,11 +197,11 @@ class AnalyzeService(analyze_service_pb2_grpc.AnalyzeServiceServicer):
         cur.close()
         conn.close()
 
-        return analyze_service_pb2.AnalyzeResponse(message="Analysis complete for all new series!", series_id="ALL")
+        return analyze_service_timed_pb2.AnalyzeResponse(message="Analysis complete for all new series!", series_id="ALL")
 
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    analyze_service_pb2_grpc.add_AnalyzeServiceServicer_to_server(AnalyzeService(), server)
+    analyze_service_timed_pb2_grpc.add_AnalyzeServiceServicer_to_server(AnalyzeService(), server)
     server.add_insecure_port("[::]:50052")
     server.start()
     print("🚀 Analyze Service running on port 50052")
