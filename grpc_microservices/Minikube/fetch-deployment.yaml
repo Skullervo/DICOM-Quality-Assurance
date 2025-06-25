@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: fetch-service
-        image: skullervo/fetch-service:medQA
+        image: skullervo/fetch-service-timed:distributedQA
         ports:
         - containerPort: 50051
         env:

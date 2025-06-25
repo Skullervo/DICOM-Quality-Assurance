@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: analyze-service
-        image: skullervo/analyze-service:medQA
+        image: skullervo/analyze-service-timed:distributedQA
         ports:
         - containerPort: 50052
         env:
