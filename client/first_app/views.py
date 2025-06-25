@@ -9,6 +9,13 @@ from PIL import Image
 from io import BytesIO
 import pydicom
 
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
+#from django.http import JsonResponse
+import json
+
+from .ai_chat import generate_response  # tuodaan ai_chat-funktio
+
 orthanc_url = 'http://localhost:8042'
 orthanc_username = 'admin'  # Korvaa oikealla käyttäjätunnuksella
 orthanc_password = 'alice'  # Korvaa oikealla salasanalla
@@ -153,3 +160,24 @@ def get_orthanc_image(request, instance_value):
 def device_details(request, device_id):
     device = get_object_or_404(Ultrasound, pk=device_id)
     return render(request, 'deviceDetails.html', {'device': device})
+
+
+@require_POST
+@csrf_exempt  # Poista tämä tuotannossa ja käytä CSRF-tokenia JavaScriptissä
+def ask_ai(request):
+    print("DEBUG: Pyyntö vastaanotettu:", request.method)
+    try:
+        data = json.loads(request.body)
+        print("DEBUG: Pyynnön data:", data)
+        question = data.get("question", "").strip()
+
+        if not question:
+            return JsonResponse({"answer": "Kysymys puuttuu."}, status=400)
+
+        # Kutsutaan GPT-mallia
+        answer = generate_response(question)
+        return JsonResponse({"answer": answer})
+
+    except Exception as e:
+        return JsonResponse({"answer": f"Virhe: {str(e)}"}, status=500)
+

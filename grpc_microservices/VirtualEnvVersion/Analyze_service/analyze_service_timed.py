@@ -1,5 +1,6 @@
 import sys
 import os
+import logging
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Fetch_service')))
 # ...existing imports...
 
@@ -19,6 +20,16 @@ import os
 import requests
 import threading
 import time
+
+# Lisää logituksen konfigurointi heti alkuun
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        #logging.StreamHandler(),  # Tulostaa konsoliin
+        logging.FileHandler("analyze_service.log", encoding="utf-8"),  # Jos haluat myös tiedostoon
+    ]
+)
 
 # 🔹 Orthanc ja Fetch Service osoitteet
 ORTHANC_URL = os.getenv("ORTHANC_URL", "http://localhost:8042") #virtualenv path
@@ -76,11 +87,13 @@ def get_fetch_stub():
 class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
     def AnalyzeAllDicomData(self, request, context):
         print("📡 Received request to analyze all series in Orthanc")
+        logging.info("Received request to analyze all series in Orthanc")
 
         # 🔍 Haetaan kaikki sarjat Orthancista
         response = requests.get(f"{ORTHANC_URL}/series")
         if response.status_code != 200:
             print("❌ Error: Could not fetch series from Orthanc")
+            logging.error("Error: Could not fetch series from Orthanc")
             if context:
                 context.set_code(grpc.StatusCode.NOT_FOUND)
             return analyze_service_timed_pb2.AnalyzeResponse(message="No series found", series_id="ALL")
@@ -88,6 +101,7 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
         series_list = response.json()
         if not series_list:
             print("❌ No series found in Orthanc")
+            logging.error("❌ No series found in Orthanc")
             if context:
                 context.set_code(grpc.StatusCode.NOT_FOUND)
             return analyze_service_timed_pb2.AnalyzeResponse(message="No series available", series_id="ALL")
@@ -98,16 +112,19 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
 
         for series_id in series_list:
             print(f"📡 Processing series ID: {series_id}")
+            logging.info(f"Processing series ID: {series_id}")
 
             # 🔍 Haetaan sarjan instanssit Orthancista
             instance_response = requests.get(f"{ORTHANC_URL}/series/{series_id}/instances")
             if instance_response.status_code != 200:
                 print(f"❌ Could not fetch instances for series {series_id}")
+                logging.error(f"Could not fetch instances for series {series_id}")
                 continue  # Ohitetaan tämä sarja
 
             instance_list = instance_response.json()
             if not instance_list:
                 print(f"❌ No instances found for series {series_id}")
+                logging.error(f"No instances found for series {series_id}")
                 continue  # Ohitetaan tämä sarja
 
             for instance in instance_list:
@@ -115,15 +132,18 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
                 # Tarkista onko jo analysoitu
                 if is_instance_analyzed(cur, instance_id):
                     print(f"⏩ Instance {instance_id} already analyzed, skipping.")
+                    logging.info(f"Instance {instance_id} already analyzed, skipping.")
                     continue
 
                 print(f"📡 Fetching instance ID: {instance_id}")
+                logging.info(f"Fetching instance ID: {instance_id}")
 
                 # 🔍 Haetaan DICOM-data Fetch-palvelulta
                 fetch_response = fetch_stub.FetchDicomData(fetch_service_pb2.FetchRequest(instance_id=instance_id))
 
                 if not fetch_response.dicom_data:
                     print(f"❌ No data received for instance {instance_id}")
+                    logging.error(f"No data received for instance {instance_id}")
                     continue  # Ohitetaan tämä instanssi
 
                 # 🔄 Muutetaan binääridata DICOM-muotoon
@@ -131,8 +151,10 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
                 try:
                     dicom_dataset = pydicom.dcmread(dicom_bytes, force=True)
                     print("✅ DICOM data successfully read!")
+                    logging.info("DICOM data successfully read!")
                 except InvalidDicomError as e:
                     print(f"❌ Error reading DICOM file: {e}")
+                    logging.error(f"Error reading DICOM file: {e}")
                     continue  # Ohitetaan tämä instanssi
 
                 # 🔍 Haetaan metadata
@@ -147,6 +169,7 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
 
                 if metadata["Modality"] != "US":
                     print("❌ Not an ultrasound image. Skipping...")
+                    logging.info("Not an ultrasound image. Skipping...")
                     continue  # Ohitetaan tämä instanssi
 
                 # 📊 Analysoidaan kuva
@@ -195,17 +218,20 @@ def serve():
     server.add_insecure_port("[::]:50052")
     server.start()
     print("🚀 Analyze Service running on port 50052")
+    logging.info("Analyze Service running on port 50052")
     server.wait_for_termination()
 
 def start_analyze_scheduler(interval_seconds=3600):
     def loop():
         while True:
             print("⏰ Ajastettu analyysi käynnistyy")
+            logging.info("Ajastettu analyysi käynnistyy")
             service = AnalyzeService()
             class DummyContext:
                 def set_code(self, code): pass
             service.AnalyzeAllDicomData(None, DummyContext())
             print(f"🕒 Odotetaan {interval_seconds} sekuntia seuraavaan ajoon...")
+            logging.info(f"Odotetaan {interval_seconds} sekuntia seuraavaan ajoon...")
             time.sleep(interval_seconds)
     t = threading.Thread(target=loop, daemon=True)
     t.start()

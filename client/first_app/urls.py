@@ -21,6 +21,11 @@ urlpatterns = [
     path('device/<str:stationname>/', views.device_details_view, name='device_details'),
     path('get_orthanc_image/instance/<str:instance_value>/', views.get_orthanc_image, name='get_orthanc_image'),
     path('device/<int:device_id>/', views.device_details, name='device_details'),
+    path("ask-ai/", views.ask_ai, name="ask_ai"),
 ]
+
+
+
+
 
 

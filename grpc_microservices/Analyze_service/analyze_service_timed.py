@@ -21,10 +21,10 @@ import threading
 import time
 
 # 🔹 Orthanc ja Fetch Service osoitteet
-ORTHANC_URL = os.getenv("ORTHANC_URL", "http://localhost:8042") #virtuaaliympäristössä
-#ORTHANC_URL = os.getenv("ORTHANC_URL", "http://host.docker.internal:8042") #kontissa
-FETCH_SERVICE_ADDRESS = os.getenv("FETCH_SERVICE_HOST", "fetch-service:50051")
-#FETCH_SERVICE_ADDRESS = os.getenv("FETCH_SERVICE_HOST", "host.docker.internal:50051")
+#ORTHANC_URL = os.getenv("ORTHANC_URL", "http://localhost:8042") #virtuaaliympäristössä
+ORTHANC_URL = os.getenv("ORTHANC_URL", "http://host.docker.internal:8042") #kontissa
+#FETCH_SERVICE_ADDRESS = os.getenv("FETCH_SERVICE_HOST", "fetch-service:50051")
+FETCH_SERVICE_ADDRESS = os.getenv("FETCH_SERVICE_HOST", "host.docker.internal:50051")
 
 # 🔹 Tietokanta-asetukset kontissa
 DB_CONFIG = {

@@ -293,4 +293,69 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('There has been a problem with your fetch operation for Orthanc image:', error);
       });
   }
+
+    // AI-kysymyslomakkeen käsittely
+  const chatForm = document.getElementById('chat-form');
+  if (chatForm) {
+    chatForm.addEventListener('submit', async function (e) {
+      e.preventDefault();
+
+      const question = document.getElementById('question').value.trim();
+      const answerBox = document.getElementById('answer-box');
+
+      if (!question) {
+        answerBox.textContent = "Kirjoita ensin kysymys.";
+        return;
+      }
+
+      answerBox.textContent = "Haetaan vastausta...";
+
+      try {
+        const response = await fetch("/first_app/ask-ai/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCSRFToken()
+          },
+          body: JSON.stringify({ question: question })
+        });
+
+        const data = await response.json();
+        // answerBox.textContent = data.answer || "Ei saatu vastausta.";
+        typeText(answerBox, data.answer || "Ei saatu vastausta.", 20);  // 20 ms merkkiä kohden
+      } catch (err) {
+        answerBox.textContent = "Tapahtui virhe: " + err.message;
+      }
+    });
+  }
+
+  // CSRF-tokenin hakeminen cookieista
+  function getCSRFToken() {
+    const name = 'csrftoken';
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.startsWith(name + '=')) {
+        return decodeURIComponent(cookie.substring(name.length + 1));
+      }
+    }
+    return '';
+  }
+
+  function typeText(element, text, speed) {
+  element.textContent = '';  // Tyhjennä kenttä aluksi
+  let i = 0;
+
+  function type() {
+    if (i < text.length) {
+      element.textContent += text.charAt(i);
+      i++;
+      setTimeout(type, speed);
+    }
+  }
+
+  type();
+}
+
+
 });
