@@ -18,7 +18,7 @@
         <h3 class="navbar-brand">LV-automaatti</h3>
         <div class="nav-links">
           <a class="nav-link" href="#">Aloitus</a>
-          <a class="nav-link" href="#">Tiedot</a>
+          <a class="nav-link" href="#">Tiedoa</a>
           <a class="nav-link" href="#">Yhteystiedot</a>
         </div>
       </nav>
@@ -46,7 +46,7 @@
               <!-- Loop through unit details and create a row for each one -->
               {% for detail in unit_details %}
               <tr>
-                <td><a href="{% url 'device_details' detail.stationname %}">{{ detail.stationname }}</a></td>
+                <td><a href="{% url 'device_details_view' detail.stationname %}">{{ detail.stationname }}</a></td>
                 <td>{{ detail.manufacturer }}</td>
                 <td>{{ detail.modality }}</td>
               </tr>

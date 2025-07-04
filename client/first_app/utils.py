@@ -1,45 +1,59 @@
-import sys
+import os
+from django.conf import settings
 import os
 import matplotlib.pyplot as plt
-import pydicom
 import numpy as np
 from skimage.measure import label  
 import cv2 
-from scipy.signal import argrelextrema
 from scipy import ndimage
 import cv2
-try:
-    from utils.LUT_table_codes import extract_parameters, get_name_from_df
-except:
-    from LUT_table_codes import extract_parameters, get_name_from_df
-from LUT_taulukko_lisaa import AddToLUT
-import pandas as pd
 import matplotlib as mpl
 from PIL import Image as im_module
 import PIL
 mpl.rcParams['figure.dpi']= 72
+import pydicom
+from io import BytesIO
 
 #%%
 
-class imageQualityUS:
+class modifyUS:
     
     def __init__(self, path_data, dicom_bytes, image, table):
-
-        
         """
         Class constructor
 
         Args:
-          image path (str): image path for US DICOM image
-          table: LUT table path
+          path_data (str): polku dataan
+          dicom_bytes: DICOM-binaarit
+          image: kuvan numpy-array tai käsittely
+          table (str): LUT-taulukon polku (jos määritetty)
         """
-
-        # # Read DICOM-file in memory with pydicom library
-        self.path_data = path_data
+        
         self.dicom_bytes = dicom_bytes
         self.image = image
-        # self.path_LUT_table = table
         self.path_LUT_table = os.path.join(os.path.dirname(__file__), "probe-LUT.xls")
+
+        # Korjattu DICOM-datan luku muistiin
+        self.path_data = pydicom.dcmread(BytesIO(self.dicom_bytes), force=True)
+    
+    # def __init__(self, path_data, dicom_bytes, image, table=None):
+    #     """
+    #     Class constructor
+
+    #     Args:
+    #       path_data (str): polku dataan
+    #       dicom_bytes: DICOM-binaarit
+    #       image: kuvan numpy-array tai käsittely
+    #       table (str): LUT-taulukon polku (jos määritetty)
+    #     """
+    #     self.path_data = pydicom.dcmread(BytesIO(self.dicom_bytes), force=True)
+    #     self.dicom_bytes = dicom_bytes
+    #     self.image = image
+
+    #     if table:
+    #         self.path_LUT_table = table
+    #     else:
+    #         self.path_LUT_table = os.path.join(settings.BASE_DIR, 'static', 'data', 'probe-LUT.xls')
     
     def getLargestCC(self, segmentation):
         '''
@@ -57,23 +71,6 @@ class imageQualityUS:
 
         return largestCC
 
-    #%%
-    def fillhole(self, input_image):
-        '''
-        input gray binary image  get the filled image by floodfill method
-        Note: only holes surrounded in the connected regions will be filled.
-        :param input_image: binary image
-        :return: filled image
-        '''
-        im_flood_fill = input_image.copy()
-        h, w = input_image.shape[:2]
-        mask = np.zeros((h + 2, w + 2), np.uint8)
-        im_flood_fill = im_flood_fill.astype("uint8")
-        cv2.floodFill(im_flood_fill, mask, (0, 0), 255)
-        im_flood_fill_inv = cv2.bitwise_not(im_flood_fill)
-        img_out = input_image | im_flood_fill_inv
-
-        return img_out
 
     #%%
     def rgb2gray(self, rgb):
@@ -167,89 +164,6 @@ class imageQualityUS:
         return im_crop
 
 
-    #%%
-    def smooth(self, y, box_pts):
-        '''
-        smooths vector y with box convolution length box_pts
-        Parameters
-        ----------
-        y : vector profile
-           
-        box_pts : box vector length
-
-        Returns
-        -------
-        y_smooth : smoothed vector
-
-        '''
-        box = np.ones(box_pts)/box_pts
-        y_smooth = np.convolve(y, box, mode='same')
-
-        return y_smooth
-
-    #%%
-    def get_reverb_lines(self, vert_profile, reverb_lines, smooth_factor = 5):
-        '''
-        returns reverberation line positions from detrended vertical profile minimas
-
-        Parameters
-        ----------
-        vert_profile : vertical profile vector
-        reverb_lines : scalar of how many lines are being detected
-        smooth_factor : how much detrended profile will be smoothed
-             The default is 5.
-
-        Returns
-        -------
-        XX : vector of reverb line locations
-
-        '''
-
-        detrend = np.zeros(vert_profile.shape)
-        vert_profile2 = self.smooth(vert_profile, smooth_factor)
-       
-        for t in range(1,vert_profile.shape[0]):
-            detrend[t] = vert_profile2[t] - vert_profile2[t-1]
-       
-        detrend[0] = detrend[1]   
-        locs = argrelextrema(detrend, np.less) #find extremas
-        locs= locs[0]
-        XX = locs[0:reverb_lines] + smooth_factor
-       
-        return XX
-
-    #%%
-    def imopen_take_largest(self, BW, dilate_f=True,  kernel=np.ones((5,5), np.uint8),  iters = 2):
-        '''
-        Performs erosion, largest component and dilatation
-
-        Parameters
-        ----------
-        BW: input binary image
-        kernel: kernel for erosion and dilatation
-        smooth_factor : number of iterations in image erosion and dilatation
-             The default is 2.
-
-        Returns
-        -------
-        BW_new : processed binary image
-
-        '''
-        #print("Entered imopen_take_largest function")
-        img_erosion = cv2.erode(BW.astype("float"), kernel, iterations=iters) #erode binary image
-       
-        label_im, nb_labels = ndimage.label(img_erosion) #take largest component
-        sizes = ndimage.sum(img_erosion, label_im, range(nb_labels + 1))
-        loc = np.argmax(sizes)
-        img_erosion = label_im==loc
-        img_erosion = img_erosion.astype("bool")
-        
-        if dilate_f:
-            img_dilation = cv2.dilate(img_erosion.astype("float"), kernel, iterations=iters) #dilate back binary image
-            BW_new  =  img_dilation.astype("bool")
-        else:
-            BW_new  = img_erosion  
-        return BW_new 
 
     #%%
     def transform_convex_image2linear(self, im):
@@ -571,186 +485,6 @@ class imageQualityUS:
         return polar_image
 
 
-    #%%  
-    #Old Transform_Convex is only run, if the new one fails
-
-    def transform_convex_image2linear_old(self, im):
-        '''
-        This function transforms the convex transducer image to linear using
-        polar transform.
-
-        Parameters
-        ----------
-        im : convex image
-
-        Returns
-        -------
-        polar_image : Polar image
-
-        '''
-        #----Pre-crop ---
-        #im = im[0:int(im.shape[0]/2),:] #crop bottom half (noise) away
-        loop = True
-        c = 0
-        while loop: #see if else in loop
-        
-            BW = im  > 1.5*np.mean(im) #Threshold image
-            
-            kernel = np.ones((5,5), np.uint8)
-            iters = 4
-            dilate_f = True#no dilatation to find the offset value
-            BW_new = self.imopen_take_largest(BW, dilate_f) #This also removes text attached to the border
-            BW = BW_new  
-                
-            label_im, nb_labels = ndimage.label(BW)
-            sizes = ndimage.sum(BW, label_im, range(nb_labels + 1))
-            loc = np.argmax(sizes)
-            BW = label_im==loc
-        
-        
-            vals = np.argwhere(BW==1)
-               
-            x = vals[:,1]
-            y = vals[:,0]
-            
-            y_border = 5
-            
-            if  (y==y_border).any(): #Check of upper border of the image is detected
-                im = im[np.max(y):,:] #remove border by cropping
-                # plt.subplot(2,1,1)
-                # plt.imshow(im)
-                # plt.subplot(2,1,2)
-                # plt.imshow(im2)
-                # plt.show()
-                loop = True  #run again
-                c +=1
-            elif c > 2:
-                break
-            else:
-                
-                loop = False #continue
-                
-
-
-        #corner locations:
-        vals = np.argwhere(BW==1)
-       
-        x = vals[:,0]
-        y = vals[:,1]    
-
-        y_min = np.min(y)
-        y_max = np.max(y)
-        x_min = np.min(x)
-        x_max = np.max(x)
-        
-        ##import ipdb; ipdb.set_trace()
-       
-        #Crop image to content:
-        im_crop = im[x_min:x_max,y_min:y_max]
-       
-        #tight crop to edge fits:
-        x = np.round(im_crop.shape[0]*0.5)
-        BW = im_crop[ 0:x.astype(int) , :]  > 1.5*np.mean(im) #Threshold image
-        
-        label_im, nb_labels = ndimage.label(BW)
-        sizes = ndimage.sum(BW, label_im, range(nb_labels + 1))
-        loc = np.argmax(sizes)
-        BW = label_im == loc
-       
-        # Find edge pixels using for loop:
-        left_vals = np.zeros((40, 2))
-        right_vals = np.zeros((40, 2))    
-        count=0
-        for  row in range(10, 50, 1): #range(10, 100, 1): #this affects how many  edge points are taken 
-            profile = BW[row,:]
-            loc_l = np.argmax(profile)
-            loc_r = np.argmax(np.flipud(profile))
-            loc_r  = BW.shape[1]-loc_r
-           
-            left_vals[count,:] = [row, loc_l]
-            right_vals[count,:] = [row, loc_r]
-            count+=1
-       
-        ##sanity check:
-        #plt.imshow(BW)
-        #plt.plot(left_vals[:,1], left_vals[:, 0])
-        #plt.plot(right_vals[:,1], right_vals[:, 0])
-        #plt.show()
-       
-        #Line fits:
-        x_r = right_vals[:,1]
-        y_r = right_vals[:,0]    
-        m_r, b_r = np.polyfit(x_r, y_r, 1)
-        #m = slope, b = intercept.
-       
-        x_l = left_vals[:,1]
-        y_l = left_vals[:,0]    
-        m_l, b_l = np.polyfit(x_l, y_l, 1)
-       
-        # intersection:
-        x_int = (b_l-b_r)/(m_r-m_l)
-        y_int = m_r*x_int+b_r
-           
-        ##sanity check 2
-        #plt. plot(x_r, y_r, 'ko')
-        #plt. plot(x_r, m_r*x_r + b_r)
-        #
-        #plt. plot(x_l, y_l, 'ro')
-        #plt. plot(x_l, m_l*x_l + b_l)
-        #
-        #plt. plot(x_int, y_int, 'bo')
-        #plt.show()
-       
-        #take the ole image:
-        x = np.round(im_crop.shape[0]*1)
-       
-        
-        BW = im_crop[ 0:x.astype(int) , :]  > 1.5*np.mean(im) #Threshold image
-        
-        kernel = np.ones((3,3), np.uint8)
-        iters = 3
-        BW = self.imopen_take_largest(BW, True, kernel, iters)
-        
-        label_im, nb_labels = ndimage.label(BW)
-        sizes = ndimage.sum(BW, label_im, range(nb_labels + 1))
-        loc = np.argmax(sizes)
-        BW = label_im == loc
-       
-        im_crop2 = im_crop[ 0:x.astype(int) , :]*BW
-       
-        offset = np.round(np.abs(y_int))
-        offset = offset.astype(int)
-        temp = np.zeros((im_crop2.shape[0]+offset, im_crop2.shape[1]))    
-        temp[offset:,:] = im_crop2
-
-        # enlanrge to cover whole area:
-        temp_disk = np.zeros((2*temp.shape[0], 2*temp.shape[0]))
-       
-        offset2 = np.round(temp_disk.shape[0]/2)
-        offset2 = offset2.astype(int)
-        offset3 = np.round(-temp.shape[1]/2 + temp_disk.shape[1]/2)
-        offset3 = offset3.astype(int)
-        end_loc3 = offset3+temp.shape[1]
-        end_loc3 = end_loc3.astype(int)
-       
-        temp_disk[ offset2: ,  offset3:end_loc3 ] = temp
-        
-        #    import pdb; pdb.set_trace()
-        #--- ensure image is of the type float ---
-        img = temp_disk.astype(np.float32)
-       
-        #--- the following holds the square root of the sum of squares of the image dimensions ---
-        #--- this is done so that the entire width/height of the original image is used to express the complete circular range of the resulting polar image ---
-        value = np.sqrt(((img.shape[0]/2.0)**2.0)+((img.shape[1]/2.0)**2.0))
-       
-        polar_image = cv2.linearPolar(img,(img.shape[0]/2, img.shape[1]/2), value, cv2.WARP_FILL_OUTLIERS)
-        polar_image = np.transpose(polar_image)
-        polar_image = np.fliplr(polar_image)
-        
-        
-
-        return polar_image
-
     #%%
     def US_air_image_analysis(self, im_crop, reverb_lines = 4 ):
         '''
@@ -866,7 +600,7 @@ class imageQualityUS:
            
 
     #%%
-    def MAIN_US_analysis(self):
+    def modify(self):
         '''
         Main function to perform air scan analysis on image defined on
         path path_data. 
@@ -902,15 +636,9 @@ class imageQualityUS:
         # ----Read in data ----:
         # data = pydicom.dcmread(self.path_data, force=True)
         data = self.path_data
-        bytes_dicom = self.dicom_bytes
-        
-        im = self.image
         
 
-        
-        
-
-        # --- Extract dicom metadata ---  
+        # # --- Extract dicom metadata ---  
         try:
             TransducerType = data.TransducerType
         except:
@@ -920,89 +648,7 @@ class imageQualityUS:
             else:
                 TransducerType = 'LINEAR'
                 
-        Physical_Delta_X = 0
-        Physical_Delta_Y = 0
-       
-        try:
-            Physical_Delta_X  = data.SequenceOfUltrasoundRegions[0]['0x0018602c'].value
-            Physical_Delta_Y  = data.SequenceOfUltrasoundRegions[0]['0x0018602e'].value
-            unit = data.SequenceOfUltrasoundRegions[0]['0x00186024'].value
-        except:
-            #print("PhysDelta X and/or Physdelta Y not found in dicom, default values set 0.01")
-            Physical_Delta_X = 0.01
-            Physical_Delta_Y = 0.01
-            unit = 0.01
         
-        label = data[0x00081010].value
-       
-        try:
-            transducer_name = data[0x00186031].value #read in transducer name
-        except:
-            # ----- if the name cannot be found --> then search from the look up table (LUT)  for corresponding transducer. 
-            df = pd.read_excel(self.path_LUT_table)
-            try:
-                df.drop(['Unnamed: 0'], axis = 1, inplace=True)
-            except:
-                None
-                
-            dct_params = extract_parameters(data)
-            df1 = pd.DataFrame(data = dct_params)
-            transducer_name = get_name_from_df(df, df1) #if the transducer name is not listed 'no name' is annotated, which currently is "Not_found_from_LUT"
-            
-            #If dicom has no transudcer name and it is not yet added to LUT, run the program to manually add transducer to it
-            if transducer_name == "Not_found_from_LUT":
-                # AddToLUT(self.path_data)
-                AddToLUT(data)
-                #AddToLUT(bytes_dicom)
-                
-                df = pd.read_excel(self.path_LUT_table)
-                
-                dct_params = extract_parameters(data)
-                df1 = pd.DataFrame(data = dct_params)
-                transducer_name = get_name_from_df(df, df1)
-
-            # ---------------------------------------------------------------------------------------------------------------
-        
-        try:        
-            Transducer_Frequency = data.SequenceOfUltrasoundRegions[0]['0x00186030'].value
-        except:
-            Transducer_Frequency = '' #if the frequency information missing insert empty string
-               
-
-        try:
-            department = data[0x00081040].value
-        except:
-            department ='Institutional_department_unknown'
-        try:    
-            model = data[0x00081090].value
-        except:
-            model ='Model_unknown'
-            
-        name = department + '_' + model+ '_' + label
-       
-        transducer_name = transducer_name + '_' +str(Transducer_Frequency) #the transcuder name should have name and frequency known!
-        
-        try:
-            date = data[0x00080020].value
-        except:
-            date = '00000000'
-            
-        try:
-            manufacturer = data[0x00080070].value
-        except:
-            manufacturer = "Manufacturer_unknown"
-            
-        try:
-            patient_id = data[0x00100020].value
-        except:
-            patient_id = "Patient_ID_Unknown"
-
-        if unit == 3:
-            unit ='cm'
-        else:
-            unit = 'not in meters'
-        # --- End  Extract metadata ---     
-
         #--- Perform analysis ---
         
         #Get air scan image:        
@@ -1040,31 +686,7 @@ class imageQualityUS:
            
         else: #linear
             im_crop = self.crop_US_im(im, crop2half=True)
-            reverb_lines = 4 #number of reverberation lines to be detected is set to 4 for all  linear transducers
-            
+
         
-        # --- Analysis ---
-        vert_profile, horizon_profile, S_depth, U_cov, U_skew, U_low = self.US_air_image_analysis(im_crop, reverb_lines )
-       
-        S_depth = S_depth*Physical_Delta_X  #change from pix to unit
-        #Return results as dictionary:
-        
-        tests = {'S_depth': S_depth,
-               'U_cov': U_cov,
-               'U_low': U_low,
-               'U_skew': U_skew,
-               'horiz_profile': horizon_profile.tolist(),
-               'vert_profiles': vert_profile.tolist(),
-               'im': im_crop.tolist(),
-               'name': name,
-               'transducer_name': transducer_name,
-               'reverb_lines': reverb_lines,
-               'unit': unit,
-               'date': date,
-               'path': self.path_data,
-               'manufacturer': manufacturer,
-               'patient_id': patient_id,
-               'im_t': im_crop}
-        
-        return tests
+        return im_crop
     

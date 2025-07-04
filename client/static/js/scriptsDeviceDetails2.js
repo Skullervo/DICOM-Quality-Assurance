@@ -7,20 +7,6 @@ document.addEventListener('DOMContentLoaded', function() {
   let startX = 0;
   let scrollSpeed = 0.2; // Skrollauksen herkkyys (säädä tätä)
 
-  // Funktio päivittää taulukon
-  // function updateTable(data, index) {
-  //   const sDepthValue = data[index].s_depth;
-  //   const uCovValue = data[index].u_cov;
-  //   const uSkewValue = data[index].u_skew;
-  //   const instanceValue = data[index].instance;
-
-  //   document.getElementById('s-depth-value').innerText = sDepthValue;
-  //   document.getElementById('u-cov-value').innerText = uCovValue;
-  //   document.getElementById('u-skew-value').innerText = uSkewValue;
-  //   document.getElementById('instance-value').innerText = instanceValue;
-
-  //   loadOrthancImage(instanceValue);  // Lataa vastaava kuva
-  // }
 
   function updateTableByInstance(instanceValue) {
   fetch(`/first_app/api/ultrasound/${instanceValue}/`)
@@ -155,15 +141,6 @@ document.addEventListener('DOMContentLoaded', function() {
       // Lisää vedon käsittely s_depthille
       handleDrag(chart1, data, offsetSDepth, limit, 's_depth');
 
-      // Add click event listener to chart1
-      // document.getElementById('chart1').onclick = function(evt) {
-      //   const activePoints = chart1.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
-      //   if (activePoints.length > 0) {
-      //     const clickedIndex = activePoints[0].index + offsetSDepth;
-      //     updateTable(data, clickedIndex);
-      //     highlightSelectedPoint(chart1, activePoints[0].index); // Korostetaan valittu piste
-      //   }
-      // };
       document.getElementById('chart1').onclick = function(evt) {
           const activePoints = chart1.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
           if (activePoints.length > 0) {
@@ -228,14 +205,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
       handleDrag(chart2, data, offsetUCov, limit, 'u_cov');
 
-      // document.getElementById('chart2').onclick = function(evt) {
-      //   const activePoints = chart2.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
-      //   if (activePoints.length > 0) {
-      //     const clickedIndex = activePoints[0].index + offsetUCov;
-      //     updateTable(data, clickedIndex);
-      //     highlightSelectedPoint(chart2, activePoints[0].index); // Korostetaan valittu piste
-      //   }
-      // };
       document.getElementById('chart2').onclick = function(evt) {
         const activePoints = chart2.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
         if (activePoints.length > 0) {
@@ -300,14 +269,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
       handleDrag(chart3, data, offsetUSkew, limit, 'u_skew');
 
-      // document.getElementById('chart3').onclick = function(evt) {
-      //   const activePoints = chart3.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
-      //   if (activePoints.length > 0) {
-      //     const clickedIndex = activePoints[0].index + offsetUSkew;
-      //     updateTable(data, clickedIndex);
-      //     highlightSelectedPoint(chart3, activePoints[0].index); // Korostetaan valittu piste
-      //   }
-      // };
       document.getElementById('chart3').onclick = function(evt) {
         const activePoints = chart3.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
         if (activePoints.length > 0) {
@@ -416,120 +377,6 @@ document.addEventListener('DOMContentLoaded', function() {
   type();
 }
 
-// if (window.horizProfile && Array.isArray(window.horizProfile)) {
-//   const ctxHoriz = document.getElementById('horizontal-profile').getContext('2d');
-//   new Chart(ctxHoriz, {
-//     type: 'line',
-//     data: {
-//       labels: window.horizProfile.map((_, i) => i),
-//       datasets: [{
-//         label: 'Horisontaalinen profiili',
-//         data: window.horizProfile,
-//         // borderColor: 'blue',
-//         borderColor: '#66ccff', // vaaleansininen
-//         borderWidth: 1,
-//         fill: false,
-//         pointRadius: 0
-//       }]
-//     },
-//     options: {
-//       responsive: true,
-//       plugins: { legend: { display: false } },
-//       scales: { x: { display: false }, y: { display: false } }
-//     }
-//   });
-// }
-
-// if (window.vertProfile && Array.isArray(window.vertProfile)) {
-//   const ctxVert = document.getElementById('vertical-profile').getContext('2d');
-//   new Chart(ctxVert, {
-//     type: 'line',
-//     data: {
-//       labels: window.vertProfile.map((_, i) => i),
-//       datasets: [{
-//         label: 'Vertikaalinen profiili',
-//         data: window.vertProfile,
-//         // borderColor: 'red',
-//         borderColor: '#66ccff', // vaaleansininen
-//         borderWidth: 1,
-//         fill: false,
-//         pointRadius: 0
-//       }]
-//     },
-//     options: {
-//       responsive: true,
-//       indexAxis: 'y', // <-- TÄMÄ tekee profiilista "ylhäältä alas"
-//       plugins: { legend: { display: false } },
-//       scales: { x: { display: false }, y: { display: false } },
-//       // responsive: false,
-//       // maintainAspectRatio: false,
-//     }
-//   });
-// }
-
-// function drawProfiles(horizProfile, vertProfile, uLow = []) {
-//   // Horisontaalinen profiili
-//   console.log("drawProfiles uLow:", uLow);
-//   const ctxHoriz = document.getElementById('horizontal-profile').getContext('2d');
-//   if (window.horizChart) window.horizChart.destroy();
-
-//   // Profiiliviiva (ei pisteitä)
-//   const profileDataset = {
-//     label: 'Horisontaalinen profiili',
-//     data: horizProfile,
-//     borderColor: '#66ccff',
-//     borderWidth: 1,
-//     fill: false,
-//     pointRadius: 0, // Ei pisteitä viivalle
-//     showLine: true
-//   };
-
-//   // u_low-pisteet (punaiset)
-//   const uLowData = horizProfile.map((v, i) => (uLow && uLow.includes(i) ? v : NaN));
-//   const uLowDataset = {
-//     label: 'U_low',
-//     data: uLowData,
-//     borderColor: 'red',
-//     backgroundColor: 'red',
-//     pointRadius: 4,
-//     pointStyle: 'circle',
-//     fill: false,
-//     showLine: false // Ei viivaa, vain pisteet
-//   };
-
-//   window.horizChart = new Chart(ctxHoriz, {
-//     type: 'line',
-//     data: {
-//       labels: horizProfile.map((_, i) => i),
-//       datasets: [profileDataset, uLowDataset]
-//     },
-//     options: {
-//       responsive: true,
-//       plugins: { legend: { display: false } },
-//       scales: { x: { display: false }, y: { display: false } }
-//     }
-//   });
-
-  
-//   // window.horizChart = new Chart(ctxHoriz, {
-//   //   type: 'line',
-//   //   data: {
-//   //     labels: horizProfile.map((_, i) => i),
-//   //     datasets: [{
-//   //       label: 'Horisontaalinen profiili',
-//   //       data: horizProfile,
-//   //       borderColor: '#66ccff',
-//   //       borderWidth: 1,
-//   //       fill: false,
-//   //       pointRadius: 0
-//   //     }]
-//   //   },
-//   //   options: {
-//   //     responsive: true,
-//   //     plugins: { legend: { display: false } },
-//   //     scales: { x: { display: false }, y: { display: false } }
-//   //   }
-//   // });
 
 function drawProfiles(horizProfile, vertProfile, uLow = [], sDepth = null, uCov = null, uSkew = null) {
   const ctxHoriz = document.getElementById('horizontal-profile').getContext('2d');
@@ -631,35 +478,7 @@ function drawProfiles(horizProfile, vertProfile, uLow = [], sDepth = null, uCov 
     }
   });
 
-  // Vertikaalinen profiili kuten ennen...
-
-  // Vertikaalinen profiili
-//   const ctxVert = document.getElementById('vertical-profile').getContext('2d');
-//   if (window.vertChart) window.vertChart.destroy();
-//   window.vertChart = new Chart(ctxVert, {
-//     type: 'line',
-//     data: {
-//       labels: vertProfile.map((_, i) => i),
-//       datasets: [{
-//         label: 'Vertikaalinen profiili',
-//         data: vertProfile,
-//         borderColor: '#66ccff',
-//         borderWidth: 1,
-//         fill: false,
-//         pointRadius: 0
-//       }]
-//     },
-//     options: {
-//       responsive: true,
-//       indexAxis: 'y',
-//       plugins: { legend: { display: false } },
-//       scales: { x: { display: false }, y: { display: false } }
-//     }
-//   });
-// }
-
-
-  // ... horisontaalinen profiili kuten ennen ...
+    // Vertikaalinen profiili
 
   const ctxVert = document.getElementById('vertical-profile').getContext('2d');
   if (window.vertChart) window.vertChart.destroy();

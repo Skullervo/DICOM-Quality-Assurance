@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Cache-Control" content="no-store" />
+    <title>Muokkaa Ultrasound-dataa</title>
+    <style>
+        table, th, td { border:1px solid #000; border-collapse:collapse; padding:6px; }
+        input { width:100%; }
+    </style>
+</head>
+<body>
+<h1>Ultraäänidata</h1>
+
+<form method="post">
+    {% csrf_token %}
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>s_depth</th>
+            <th>u_cov</th>
+            <th>u_skew</th>
+            <th>stationname</th>
+            <th>institutionname</th>
+            <th>institutionaldepartmentname</th>
+            <th>manufacturer</th>
+            <th>modality</th>
+            <th>instance</th>
+            <th>seriesdate</th>
+        </tr>
+
+        {% for item in data %}
+        <tr>
+            <td>{{ item.id }}</td>
+
+            <td><input type="text"  name="s_depth_{{ item.id }}"  value="{{ item.s_depth }}"></td>
+            <td><input type="text"  name="u_cov_{{ item.id }}"    value="{{ item.u_cov }}"></td>
+            <td><input type="text"  name="u_skew_{{ item.id }}"   value="{{ item.u_skew }}"></td>
+
+            <td><input type="text"  name="stationname_{{ item.id }}" value="{{ item.stationname }}"></td>
+            <td><input type="text"  name="institutionname_{{ item.id }}" value="{{ item.institutionname }}"></td>
+            <td><input type="text"  name="institutionaldepartmentname_{{ item.id }}" value="{{ item.institutionaldepartmentname }}"></td>
+
+            <td><input type="text"  name="manufacturer_{{ item.id }}" value="{{ item.manufacturer }}"></td>
+            {% comment %} <td><input type="text" name="manufacturer_{{ row.id }}" value="{{ row.manufacturer }}"></td> {% endcomment %}
+
+            <td><input type="text"  name="modality_{{ item.id }}" value="{{ item.modality }}"></td>
+            <td><input type="text"  name="instance_{{ item.id }}" value="{{ item.instance }}"></td>
+
+            <!-- date-kenttä: anna tyyppi=date, jotta selain näyttää date-pickerin -->
+            {% comment %} <td><input type="date" name="seriesdate_{{ item.id }}" value="{{ item.seriesdate }}"></td> {% endcomment %}
+            <td><input type="date" name="seriesdate_{{ item.id }}" value="{{ item.seriesdate|date:'Y-m-d' }}"></td>
+
+        </tr>
+        {% endfor %}
+    </table>
+
+    <br>
+    <button type="submit">💾 Tallenna kaikki muutokset</button>
+</form>
+</body>
+</html>
+
+
