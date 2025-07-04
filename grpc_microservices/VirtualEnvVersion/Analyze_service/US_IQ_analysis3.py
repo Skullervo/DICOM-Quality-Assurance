@@ -1,4 +1,5 @@
 import sys
+import os
 import matplotlib.pyplot as plt
 import pydicom
 import numpy as np
@@ -37,7 +38,8 @@ class imageQualityUS:
         self.path_data = path_data
         self.dicom_bytes = dicom_bytes
         self.image = image
-        self.path_LUT_table = table
+        # self.path_LUT_table = table
+        self.path_LUT_table = os.path.join(os.path.dirname(__file__), "probe-LUT.xls")
     
     def getLargestCC(self, segmentation):
         '''
@@ -154,6 +156,7 @@ class imageQualityUS:
         y_max = np.max(y)
        
         im_crop = im[x_min:x_max,y_min:y_max]   #cropped image
+
 
 
         if crop2half==True: #Reverberations are present in the upper half of the ultrasound image  
@@ -559,6 +562,11 @@ class imageQualityUS:
         #cv2.imshow("polar image", polar_image)
         #cv2.waitKey(0) 
         #cv2.destroyAllWindows()
+        
+        # plt.imshow(polar_image,cmap='gray')
+        # plt.title("Test")
+        # plt.show()
+        # print()
       
         return polar_image
 
@@ -738,6 +746,8 @@ class imageQualityUS:
         polar_image = cv2.linearPolar(img,(img.shape[0]/2, img.shape[1]/2), value, cv2.WARP_FILL_OUTLIERS)
         polar_image = np.transpose(polar_image)
         polar_image = np.fliplr(polar_image)
+        
+        
 
         return polar_image
 
@@ -896,9 +906,7 @@ class imageQualityUS:
         
         im = self.image
         
-        # plt.imshow(im,cmap='gray')
-        # plt.title("Test")
-        # plt.show()
+
         
         
 
@@ -999,6 +1007,12 @@ class imageQualityUS:
         
         #Get air scan image:        
         im = data.pixel_array
+        # plt.imshow(im, cmap='gray')
+        # plt.title('DICOM Image')
+        # plt.axis('off')
+        # plt.show()
+        # im_shape = np.shape(im)
+        # print()
        
         if im.ndim == 3: #if image is not grayscale  transform to grayscale
             im = self.rgb2gray(im)
@@ -1007,6 +1021,7 @@ class imageQualityUS:
             #try:
             # im_t =  self.transform_convex_image2linear(im)  #transforms convex transducer to linear
             im_crop =  self.transform_convex_image2linear(im)  #transforms convex transducer to linear
+            
             #except:
                 #print('Old code used')
                 #im_t =  transform_convex_image2linear_old(im)
@@ -1015,6 +1030,13 @@ class imageQualityUS:
             im_crop = self.crop_US_im(im_crop, crop2half = False)
             im_crop = im_crop[:, 3:] #remove manually few pixels from the edge
             reverb_lines = 5 #number of reverberation lines to be detected is set to 5 for all curved linear transducers
+            # plt.imshow(im_crop, cmap='gray')
+            # plt.title('DICOM Image')
+            # plt.axis('off')
+            # plt.savefig('dicom_kuva.png', bbox_inches='tight', pad_inches=0)
+            # plt.show()
+            # im_crop_shape = np.shape(im_crop)
+            # print()
            
         else: #linear
             im_crop = self.crop_US_im(im, crop2half=True)
@@ -1025,8 +1047,8 @@ class imageQualityUS:
         vert_profile, horizon_profile, S_depth, U_cov, U_skew, U_low = self.US_air_image_analysis(im_crop, reverb_lines )
        
         S_depth = S_depth*Physical_Delta_X  #change from pix to unit
-
         #Return results as dictionary:
+        
         tests = {'S_depth': S_depth,
                'U_cov': U_cov,
                'U_low': U_low,

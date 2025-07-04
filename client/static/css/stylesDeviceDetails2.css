@@ -1,0 +1,228 @@
+/* CSS: stylesDeviceDetails.css */
+
+:root {
+  --bg-dark: #000;
+  --bg-panel: #1f1f1f;
+  --primary: #007bff;
+  --text: #ffffff;
+  --accent: #343a40;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: var(--text);
+  background: var(--bg-dark) url('{% static "images/background.jpg" %}') no-repeat center center fixed;
+  background-size: cover;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.navbar {
+  background-color: rgba(31, 31, 31, 0.9);
+  padding: 15px 30px;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+}
+
+.navbar h3 {
+  margin: 0;
+  color: var(--text);
+  position: absolute;
+  left: 20px;
+  font-size: 1.5rem;
+}
+
+.navbar .nav-links {
+  display: flex;
+  gap: 20px;
+}
+
+.navbar .nav-link {
+  color: var(--text);
+  text-decoration: none;
+  padding: 10px 15px;
+  border-radius: 5px;
+  transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+.navbar .nav-link:hover {
+  background-color: var(--accent);
+  transform: scale(1.1);
+}
+
+.container {
+  display: flex;
+  flex-direction: row;
+  margin-top: 60px;
+  height: auto;
+  min-height: calc(100vh - 60px);
+}
+
+.sidebar {
+  background-color: var(--bg-panel);
+  padding: 20px;
+  width: 200px;
+  flex-shrink: 0;
+  height: 100vh;
+  overflow-y: auto;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  margin-right: 10px;
+}
+
+.sidebar .nav {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar .nav-item {
+  margin-bottom: 15px;
+}
+
+.sidebar .nav-link {
+  color: var(--text);
+  text-decoration: none;
+  display: block;
+  padding: 10px 0;
+  transition: all 0.3s ease;
+}
+
+.sidebar .nav-link:hover,
+.sidebar .nav-link.active {
+  color: var(--primary);
+  background-color: var(--accent);
+  border-left: 4px solid var(--primary);
+  padding-left: 11px;
+}
+
+.main-content {
+  flex-grow: 1;
+  padding: 40px;
+  overflow-y: auto;
+  min-height: calc(100vh - 60px);
+}
+
+.table-responsive {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  max-width: 1170px;
+  margin: 0 auto 40px;
+  border-collapse: collapse;
+  background-color: var(--bg-dark);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.table th, .table td {
+  border: 1px solid #444;
+  padding: 8px;
+  text-align: left;
+  font-size: 14px;
+  line-height: 1.4;
+  background-color: var(--bg-dark);
+  border-color: white;
+}
+
+.table thead th {
+  background-color: var(--accent);
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.table tbody tr:nth-child(even) {
+  background-color: var(--bg-dark);
+}
+
+.table tbody tr:hover {
+  background-color: #1a1a1a;
+  cursor: pointer;
+}
+
+.table tbody td a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.table tbody td a:hover {
+  text-decoration: underline;
+}
+
+.table tbody tr td:nth-child(1),
+.table tbody tr td:nth-child(3) {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+#charts-image-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  width: 100%;
+  padding: 20px;
+  gap: 20px;
+}
+
+#image-container, #charts-container {
+  flex: 1 1 100%;
+}
+
+@media (min-width: 768px) {
+  #image-container, #charts-container {
+    flex: 1 1 45%;
+  }
+}
+
+#image-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#image-container img {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+#charts-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  overflow-x: auto;
+}
+
+#charts-container .chart-wrapper {
+  background-color: var(--accent);
+  padding: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+#answer-box::after {
+  content: '|';
+  animation: blink 1s step-start infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}

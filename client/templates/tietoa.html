@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fi">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="{% static 'css/stylesTietoa.css' %}" rel="stylesheet"> <!-- Viittaus ulkoiseen CSS-tiedostoon -->
+    <title>POHDE - laadunvalvonta</title>
+</head>
+
+<body>
+    <header>
+        <nav class="navbar">
+            <h3>LV-automaatti</h3>
+            <div class="nav-links">
+                <a class="nav-link" href="#">Aloitus</a>
+                <a class="nav-link" href="#">Yhteystiedot</a>
+            </div>
+        </nav>
+    </header> 
+    
+    <div class="cover-container">
+        <main class="content">
+            <h1>Tietoa järjestelmästä</h1>
+            <p>Tällä sivustolla voit tarkastella POHTEEN alueella sijaitsevien lääketieteellisten kuvantamislaitteiden laadunvalvonnan tuloksia.</p>
+
+            <p>Järjestelmä kattaa seuraavat kuvantamismodaliteetit:</p>
+            <ul class="modalities">
+                <li>Ultraääni (UÄ)</li>
+                <li>Tietokonetomografia (CT)</li>
+                <li>Natiiviröntgen</li>
+            </ul>
+
+            <p>
+                Sivuston tavoitteena on tarjota selkeä ja ajantasainen näkymä laitteiden laadunvarmistuksen tilaan,
+                tukien sekä fyysikoiden että kliinisten käyttäjien työtä.
+            </p>
+        </main>
+
+        <footer>
+            <p>Lääketieteellisen fysiikan asiantuntijapalvelut, <a href="https://github.com/Skullervo">@skullervo</a>.</p>
+        </footer>
+    </div>
+</body>
+</html>
+

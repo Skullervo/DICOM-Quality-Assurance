@@ -8,19 +8,32 @@ document.addEventListener('DOMContentLoaded', function() {
   let scrollSpeed = 0.2; // Skrollauksen herkkyys (säädä tätä)
 
   // Funktio päivittää taulukon
-  function updateTable(data, index) {
-    const sDepthValue = data[index].s_depth;
-    const uCovValue = data[index].u_cov;
-    const uSkewValue = data[index].u_skew;
-    const instanceValue = data[index].instance;
+  // function updateTable(data, index) {
+  //   const sDepthValue = data[index].s_depth;
+  //   const uCovValue = data[index].u_cov;
+  //   const uSkewValue = data[index].u_skew;
+  //   const instanceValue = data[index].instance;
 
-    document.getElementById('s-depth-value').innerText = sDepthValue;
-    document.getElementById('u-cov-value').innerText = uCovValue;
-    document.getElementById('u-skew-value').innerText = uSkewValue;
-    document.getElementById('instance-value').innerText = instanceValue;
+  //   document.getElementById('s-depth-value').innerText = sDepthValue;
+  //   document.getElementById('u-cov-value').innerText = uCovValue;
+  //   document.getElementById('u-skew-value').innerText = uSkewValue;
+  //   document.getElementById('instance-value').innerText = instanceValue;
 
-    loadOrthancImage(instanceValue);  // Lataa vastaava kuva
-  }
+  //   loadOrthancImage(instanceValue);  // Lataa vastaava kuva
+  // }
+
+  function updateTableByInstance(instanceValue) {
+  fetch(`/first_app/api/ultrasound/${instanceValue}/`)
+    .then(response => response.json())
+    .then(data => {
+      document.getElementById('s-depth-value').innerText = data.s_depth ?? 'unknown';
+      document.getElementById('u-cov-value').innerText = data.u_cov ?? 'unknown';
+      document.getElementById('u-skew-value').innerText = data.u_skew ?? 'unknown';
+      document.getElementById('u-low-value').innerText = data.u_low ?? 'unknown';
+      document.getElementById('instance-value').innerText = data.instance ?? 'unknown';
+      loadOrthancImage(instanceValue);
+    });
+}
 
   // Funktio, joka rajoittaa datan haluttuun määrään
   function limitData(data, offset, limit) {
@@ -95,15 +108,17 @@ document.addEventListener('DOMContentLoaded', function() {
     .then(response => response.json())
     .then(data => {
       const ctx1 = document.getElementById('chart1').getContext('2d');
+      
       const chart1 = new Chart(ctx1, {
         type: 'line',
         data: {
           labels: limitData(data.map(item => item.seriesdate), offsetSDepth, limit),
           datasets: [{
-            label: 'S Depth Values',
+            label: 'Herkkyys (S Depth)',
             data: limitData(data.map(item => item.s_depth), offsetSDepth, limit),
             fill: false,
             borderColor: 'rgb(75, 192, 192)',
+            borderWidth: 1,
             tension: 0.1,
             pointBackgroundColor: Array(limit).fill('rgba(0, 0, 0, 0.1)') // Oletusväri
           }]
@@ -141,14 +156,23 @@ document.addEventListener('DOMContentLoaded', function() {
       handleDrag(chart1, data, offsetSDepth, limit, 's_depth');
 
       // Add click event listener to chart1
+      // document.getElementById('chart1').onclick = function(evt) {
+      //   const activePoints = chart1.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
+      //   if (activePoints.length > 0) {
+      //     const clickedIndex = activePoints[0].index + offsetSDepth;
+      //     updateTable(data, clickedIndex);
+      //     highlightSelectedPoint(chart1, activePoints[0].index); // Korostetaan valittu piste
+      //   }
+      // };
       document.getElementById('chart1').onclick = function(evt) {
-        const activePoints = chart1.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
-        if (activePoints.length > 0) {
-          const clickedIndex = activePoints[0].index + offsetSDepth;
-          updateTable(data, clickedIndex);
-          highlightSelectedPoint(chart1, activePoints[0].index); // Korostetaan valittu piste
-        }
-      };
+          const activePoints = chart1.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
+          if (activePoints.length > 0) {
+            const clickedIndex = activePoints[0].index + offsetSDepth;
+            const instanceValue = data[clickedIndex].instance;
+            updateTableByInstance(instanceValue);
+            highlightSelectedPoint(chart1, activePoints[0].index);
+          }
+        };
     })
     .catch(error => {
       console.error('There has been a problem with your fetch operation for s_depth:', error);
@@ -164,10 +188,11 @@ document.addEventListener('DOMContentLoaded', function() {
         data: {
           labels: limitData(data.map(item => item.seriesdate), offsetUCov, limit),
           datasets: [{
-            label: 'U Cov Values',
+            label: 'Tasaisuus (U Cov)',
             data: limitData(data.map(item => item.u_cov), offsetUCov, limit),
             fill: false,
             borderColor: 'rgb(255, 99, 132)',
+            borderWidth: 1,
             tension: 0.1,
             pointBackgroundColor: Array(limit).fill('rgba(0, 0, 0, 0.1)') // Oletusväri
           }]
@@ -203,12 +228,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
       handleDrag(chart2, data, offsetUCov, limit, 'u_cov');
 
+      // document.getElementById('chart2').onclick = function(evt) {
+      //   const activePoints = chart2.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
+      //   if (activePoints.length > 0) {
+      //     const clickedIndex = activePoints[0].index + offsetUCov;
+      //     updateTable(data, clickedIndex);
+      //     highlightSelectedPoint(chart2, activePoints[0].index); // Korostetaan valittu piste
+      //   }
+      // };
       document.getElementById('chart2').onclick = function(evt) {
         const activePoints = chart2.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
         if (activePoints.length > 0) {
-          const clickedIndex = activePoints[0].index + offsetUCov;
-          updateTable(data, clickedIndex);
-          highlightSelectedPoint(chart2, activePoints[0].index); // Korostetaan valittu piste
+          const clickedIndex = activePoints[0].index + offsetSDepth;
+          const instanceValue = data[clickedIndex].instance;
+          updateTableByInstance(instanceValue);
+          highlightSelectedPoint(chart2, activePoints[0].index);
         }
       };
     })
@@ -226,10 +260,11 @@ document.addEventListener('DOMContentLoaded', function() {
         data: {
           labels: limitData(data.map(item => item.seriesdate), offsetUSkew, limit),
           datasets: [{
-            label: 'U Skew Values',
+            label: 'Epäsymmetria (U Skew)',
             data: limitData(data.map(item => item.u_skew), offsetUSkew, limit),
             fill: false,
             borderColor: 'rgb(255, 255, 50)',
+            borderWidth: 1,
             tension: 0.1,
             pointBackgroundColor: Array(limit).fill('rgba(0, 0, 0, 0.1)') // Oletusväri
           }]
@@ -265,12 +300,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
       handleDrag(chart3, data, offsetUSkew, limit, 'u_skew');
 
+      // document.getElementById('chart3').onclick = function(evt) {
+      //   const activePoints = chart3.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
+      //   if (activePoints.length > 0) {
+      //     const clickedIndex = activePoints[0].index + offsetUSkew;
+      //     updateTable(data, clickedIndex);
+      //     highlightSelectedPoint(chart3, activePoints[0].index); // Korostetaan valittu piste
+      //   }
+      // };
       document.getElementById('chart3').onclick = function(evt) {
         const activePoints = chart3.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
         if (activePoints.length > 0) {
-          const clickedIndex = activePoints[0].index + offsetUSkew;
-          updateTable(data, clickedIndex);
-          highlightSelectedPoint(chart3, activePoints[0].index); // Korostetaan valittu piste
+          const clickedIndex = activePoints[0].index + offsetSDepth;
+          const instanceValue = data[clickedIndex].instance;
+          updateTableByInstance(instanceValue);
+          highlightSelectedPoint(chart3, activePoints[0].index);
         }
       };
     })
@@ -283,8 +327,21 @@ document.addEventListener('DOMContentLoaded', function() {
     fetch(`/first_app/get_orthanc_image/instance/${instanceValue}/`)
       .then(response => response.json())
       .then(data => {
+        console.log("AJAX-vastaus:", data);
         if (data.image) {
           document.getElementById('orthanc-image').src = 'data:image/jpeg;base64,' + data.image;
+        // TÄRKEÄÄ: päivitä profiilit ja piirrä ne
+        if (data.horiz_prof && data.vert_prof) {
+          window.horizProfile = data.horiz_prof;
+          window.vertProfile = data.vert_prof;
+          console.log("Piirretään profiilit:", window.horizProfile, window.vertProfile);
+          // drawProfiles(window.horizProfile, window.vertProfile);
+          window.uLow = data.u_low; // oletetaan että tämä on lista indeksejä
+          window.sDepth = data.s_depth; // oletetaan että tämä on lista indeksejä
+          window.uCov = data.u_cov; // oletetaan että tämä on lista indeksejä
+          window.uSkew = data.u_skew; // oletetaan että tämä on lista indeksejä
+          drawProfiles(window.horizProfile, window.vertProfile, window.uLow, window.sDepth, window.uCov, window.uSkew);
+        }
         } else {
           console.error('Error loading image:', data.error);
         }
@@ -293,6 +350,8 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('There has been a problem with your fetch operation for Orthanc image:', error);
       });
   }
+
+  
 
     // AI-kysymyslomakkeen käsittely
   const chatForm = document.getElementById('chat-form');
@@ -356,6 +415,310 @@ document.addEventListener('DOMContentLoaded', function() {
 
   type();
 }
+
+// if (window.horizProfile && Array.isArray(window.horizProfile)) {
+//   const ctxHoriz = document.getElementById('horizontal-profile').getContext('2d');
+//   new Chart(ctxHoriz, {
+//     type: 'line',
+//     data: {
+//       labels: window.horizProfile.map((_, i) => i),
+//       datasets: [{
+//         label: 'Horisontaalinen profiili',
+//         data: window.horizProfile,
+//         // borderColor: 'blue',
+//         borderColor: '#66ccff', // vaaleansininen
+//         borderWidth: 1,
+//         fill: false,
+//         pointRadius: 0
+//       }]
+//     },
+//     options: {
+//       responsive: true,
+//       plugins: { legend: { display: false } },
+//       scales: { x: { display: false }, y: { display: false } }
+//     }
+//   });
+// }
+
+// if (window.vertProfile && Array.isArray(window.vertProfile)) {
+//   const ctxVert = document.getElementById('vertical-profile').getContext('2d');
+//   new Chart(ctxVert, {
+//     type: 'line',
+//     data: {
+//       labels: window.vertProfile.map((_, i) => i),
+//       datasets: [{
+//         label: 'Vertikaalinen profiili',
+//         data: window.vertProfile,
+//         // borderColor: 'red',
+//         borderColor: '#66ccff', // vaaleansininen
+//         borderWidth: 1,
+//         fill: false,
+//         pointRadius: 0
+//       }]
+//     },
+//     options: {
+//       responsive: true,
+//       indexAxis: 'y', // <-- TÄMÄ tekee profiilista "ylhäältä alas"
+//       plugins: { legend: { display: false } },
+//       scales: { x: { display: false }, y: { display: false } },
+//       // responsive: false,
+//       // maintainAspectRatio: false,
+//     }
+//   });
+// }
+
+// function drawProfiles(horizProfile, vertProfile, uLow = []) {
+//   // Horisontaalinen profiili
+//   console.log("drawProfiles uLow:", uLow);
+//   const ctxHoriz = document.getElementById('horizontal-profile').getContext('2d');
+//   if (window.horizChart) window.horizChart.destroy();
+
+//   // Profiiliviiva (ei pisteitä)
+//   const profileDataset = {
+//     label: 'Horisontaalinen profiili',
+//     data: horizProfile,
+//     borderColor: '#66ccff',
+//     borderWidth: 1,
+//     fill: false,
+//     pointRadius: 0, // Ei pisteitä viivalle
+//     showLine: true
+//   };
+
+//   // u_low-pisteet (punaiset)
+//   const uLowData = horizProfile.map((v, i) => (uLow && uLow.includes(i) ? v : NaN));
+//   const uLowDataset = {
+//     label: 'U_low',
+//     data: uLowData,
+//     borderColor: 'red',
+//     backgroundColor: 'red',
+//     pointRadius: 4,
+//     pointStyle: 'circle',
+//     fill: false,
+//     showLine: false // Ei viivaa, vain pisteet
+//   };
+
+//   window.horizChart = new Chart(ctxHoriz, {
+//     type: 'line',
+//     data: {
+//       labels: horizProfile.map((_, i) => i),
+//       datasets: [profileDataset, uLowDataset]
+//     },
+//     options: {
+//       responsive: true,
+//       plugins: { legend: { display: false } },
+//       scales: { x: { display: false }, y: { display: false } }
+//     }
+//   });
+
+  
+//   // window.horizChart = new Chart(ctxHoriz, {
+//   //   type: 'line',
+//   //   data: {
+//   //     labels: horizProfile.map((_, i) => i),
+//   //     datasets: [{
+//   //       label: 'Horisontaalinen profiili',
+//   //       data: horizProfile,
+//   //       borderColor: '#66ccff',
+//   //       borderWidth: 1,
+//   //       fill: false,
+//   //       pointRadius: 0
+//   //     }]
+//   //   },
+//   //   options: {
+//   //     responsive: true,
+//   //     plugins: { legend: { display: false } },
+//   //     scales: { x: { display: false }, y: { display: false } }
+//   //   }
+//   // });
+
+function drawProfiles(horizProfile, vertProfile, uLow = [], sDepth = null, uCov = null, uSkew = null) {
+  const ctxHoriz = document.getElementById('horizontal-profile').getContext('2d');
+  if (window.horizChart) window.horizChart.destroy();
+
+  // 1. Laske mediaani
+  const sorted = [...horizProfile].sort((a, b) => a - b);
+  const median = sorted.length % 2 === 0
+    ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+    : sorted[Math.floor(sorted.length / 2)];
+
+  // 2. Segmenttirajat
+  const N = horizProfile.length;
+  const seg1 = Math.round(N * 0.1);
+  const seg2 = seg1 + Math.round(N * 0.2);
+  const seg3 = seg2 + Math.round(N * 0.4);
+  const seg4 = seg3 + Math.round(N * 0.2);
+  const segmentBorders = [0, seg1, seg2, seg3, seg4, N];
+
+  // 3. Etsi pienimmät arvot segmenteittäin
+  const minPoints = [];
+  for (let s = 0; s < 5; s++) {
+    const start = segmentBorders[s];
+    const end = segmentBorders[s + 1];
+    let minVal = Infinity;
+    let minIdx = -1;
+    for (let i = start; i < end; i++) {
+      if (horizProfile[i] < minVal) {
+        minVal = horizProfile[i];
+        minIdx = i;
+      }
+    }
+    minPoints.push({ x: minIdx, y: minVal });
+  }
+
+  // 4. Profiiliviiva
+  const profileDataset = {
+    label: 'Horisontaalinen profiili',
+    data: horizProfile,
+    borderColor: '#66ccff',
+    borderWidth: 1,
+    fill: false,
+    pointRadius: 0,
+    showLine: true
+  };
+
+  // 5. Mediaaniviiva
+  const medianDataset = {
+    label: 'Mediaani',
+    data: Array(N).fill(median),
+    borderColor: 'orange',
+    borderWidth: 1,
+    borderDash: [5, 5],
+    fill: false,
+    pointRadius: 0,
+    showLine: true
+  };
+
+  // 6. Scatter-pisteet minimiarvoille
+  const minPointsDataset = {
+    label: 'U_low',
+    data: minPoints,
+    borderColor: 'red',
+    backgroundColor: 'red',
+    pointRadius: 3,
+    pointStyle: 'circle',
+    type: 'scatter',
+    showLine: false
+  };
+
+  // 7. Segmenttirajat (pystysuorat viivat)
+  const annotation = {
+    annotations: {}
+  };
+  for (let i = 1; i < segmentBorders.length - 1; i++) {
+    annotation.annotations['border' + i] = {
+      type: 'line',
+      xMin: segmentBorders[i],
+      xMax: segmentBorders[i],
+      borderColor: 'gray',
+      borderWidth: 2,
+      borderDash: [4, 4]
+    };
+  }
+
+  window.horizChart = new Chart(ctxHoriz, {
+    type: 'line',
+    data: {
+      labels: horizProfile.map((_, i) => i),
+      datasets: [profileDataset, medianDataset, minPointsDataset]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        annotation: annotation
+      },
+      scales: { x: { display: false }, y: { display: false } }
+    }
+  });
+
+  // Vertikaalinen profiili kuten ennen...
+
+  // Vertikaalinen profiili
+//   const ctxVert = document.getElementById('vertical-profile').getContext('2d');
+//   if (window.vertChart) window.vertChart.destroy();
+//   window.vertChart = new Chart(ctxVert, {
+//     type: 'line',
+//     data: {
+//       labels: vertProfile.map((_, i) => i),
+//       datasets: [{
+//         label: 'Vertikaalinen profiili',
+//         data: vertProfile,
+//         borderColor: '#66ccff',
+//         borderWidth: 1,
+//         fill: false,
+//         pointRadius: 0
+//       }]
+//     },
+//     options: {
+//       responsive: true,
+//       indexAxis: 'y',
+//       plugins: { legend: { display: false } },
+//       scales: { x: { display: false }, y: { display: false } }
+//     }
+//   });
+// }
+
+
+  // ... horisontaalinen profiili kuten ennen ...
+
+  const ctxVert = document.getElementById('vertical-profile').getContext('2d');
+  if (window.vertChart) window.vertChart.destroy();
+
+  // Luo annotation-objekti s_depth-viivalle, jos arvo annettu
+  const vertAnnotation = {
+    annotations: {}
+  };
+  if (sDepth !== null && !isNaN(sDepth)) {
+    vertAnnotation.annotations['s_depth_line'] = {
+      type: 'line',
+      yMin: sDepth,
+      yMax: sDepth,
+      borderColor: 'orange',
+      borderWidth: 2,
+      borderDash: [6, 6],
+      label: {
+        display: true,
+        content: 'S Depth',
+        position: 'start',
+        color: 'orange'
+      }
+    };
+  }
+
+  window.vertChart = new Chart(ctxVert, {
+    type: 'line',
+    data: {
+      labels: vertProfile.map((_, i) => i),
+      datasets: [{
+        // label: 'Vertikaalinen profiili', // voit poistaa labelin jos et halua legendaa
+        data: vertProfile,
+        borderColor: '#66ccff',
+        borderWidth: 1,
+        fill: false,
+        pointRadius: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      indexAxis: 'y',
+      plugins: {
+        legend: { display: false },
+        annotation: vertAnnotation
+      },
+      scales: { x: { display: false }, y: { display: false } }
+    }
+  });
+}
+
+
+document.addEventListener("DOMContentLoaded", function () {
+  const instanceValue = document.getElementById('instance-value').textContent.trim();
+  if (instanceValue) {
+    loadOrthancImage(instanceValue);
+  } else {
+    console.error("Instance value not found.");
+  }
+});
 
 
 });

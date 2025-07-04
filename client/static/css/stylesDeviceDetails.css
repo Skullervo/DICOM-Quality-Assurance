@@ -1,6 +1,16 @@
-/* Sivun tausta */
+/* MAIN CONTENT */
+.main-content {
+  flex-grow: 1;
+  padding: 40px;
+  overflow-y: auto; 
+  height: calc(100vh - 80px); 
+  padding-bottom: 3rem;
+}
+
+
+/* BODY */
 body {
-  background: #000 url('{% static "images/background.jpg" %}') no-repeat center center fixed;
+  background: #000;
   -webkit-background-size: cover;
   -moz-background-size: cover;
   background-size: cover;
@@ -9,34 +19,36 @@ body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   margin: 0;
   padding: 0;
-  overflow: hidden; /* Estetään ylimääräinen skrollaus body-elementissä */
-}
-
-/* Asetetaan korkeus html- ja body-elementeille */
-html, body {
+  overflow: hidden; 
+  padding-bottom: 3rem;
   height: 100%;
-  overflow: hidden; /* Estetään ylivuoto ja skrollaus */
 }
 
-/* Navigointipalkki */
+
+/* HTML */
+html {
+  height: 100%;
+}
+
+
+/* NAVBAR */
 .navbar {
-  background-color: rgba(31, 31, 31, 0.9);
+  background-color: rgba(19, 19, 19);
   padding: 15px 30px;
   position: fixed;
   top: 0;
   width: 100%;
   display: flex;
-  justify-content: center; /* Varmistetaan, että logon ja linkkien väliin jää tilaa */
+  justify-content: center; 
   align-items: center;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .navbar h3 {
   margin: 0;
   color: white;
-  position: absolute; /* Asetetaan logo absoluuttiseksi */
-  left: 20px; /* Sijoitetaan logo vasemmalle */
-  font-size: 1.5rem; /* Suurempi fonttikoko */
+  position: absolute; 
+  left: 20px; 
+  font-size: 1.5rem; 
 }
 
 .navbar .nav-links {
@@ -57,21 +69,22 @@ html, body {
   transform: scale(1.1);
 }
 
-/* Containerin tyyli */
+
+/* CONTAINER */
 .container {
   display: flex;
-  flex-direction: row; /* Sijoitetaan sivupalkki ja sisältö riviin */
+  flex-direction: row; 
   height: 100%;
-  margin-top: 40px; /* Tilaa kiinteälle yläpalkille */
+  margin-top: 40px; 
 }
 
-/* Sivupaneelin tyyli */
+/* SIDEBAR */
 .sidebar {
-  background-color: #1f1f1f;
+  background-color: rgba(19, 19, 19);
   padding: 20px;
   width: 200px;
   flex-shrink: 0;
-  height: 100%; /* Asetetaan korkeus */
+  height: 100%; 
   overflow-y: auto;
   border-radius: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -106,22 +119,16 @@ html, body {
   color: #007bff;
 }
 
-/* Pääsisällön tyyli */
-.main-content {
-  flex-grow: 1;
-  padding: 40px;
-  overflow-y: auto; /* Varmistetaan, että vain pääsisältö skrollaa pystysuunnassa */
-  height: calc(100vh - 80px); /* Varmistetaan, että sisältö täyttää tilan yläpalkin alla */
-}
 
-/* Taulukon tyyli */
+
+/* TABLE */
 .table-responsive {
   overflow-x: auto;
 }
 
 .table {
-  width: 100%; /* Taulukko vie koko käytettävissä olevan leveyden */
-  max-width: 1170px; /* Maksimileveys taulukolle */
+  width: 100%; 
+  max-width: 1170px; 
   margin: 0 auto;
   border-collapse: collapse;
   margin-bottom: 40px;
@@ -129,6 +136,7 @@ html, body {
   border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  table-layout: fixed;
 }
 
 .table th, .table td {
@@ -136,9 +144,12 @@ html, body {
   padding: 5px;
   text-align: left;
   font-size: 12px;
-  width: 25%;
-  background-color: black; /* Taustaväri taulukon soluille */
-  border-color: white; /* Reunojen väri valkoiseksi */
+  background-color: black;
+  border-color: white;
+  vertical-align: middle;
+  word-wrap: break-word;
+  word-break: break-word;
+  white-space: normal;
 }
 
 .table thead th {
@@ -158,76 +169,152 @@ html, body {
 }
 
 .table tbody td a {
-  color: #007bff; /* Sininen linkki */
-  text-decoration: none; /* Ei alleviivausta */
+  color: #007bff; 
+  text-decoration: none; 
 }
 
 .table tbody td a:hover {
-  text-decoration: underline; /* Hover-efekti */
+  text-decoration: underline; 
 }
 
-/* Parametri-sarakkeen solujen tyyli */
+/* Parameter cell style */
 .table tbody tr td:nth-child(1),
 .table tbody tr td:nth-child(3) {
-  color: #007bff; /* Sininen teksti */
-  text-decoration: underline; /* Alleviivaus */
+  color: #007bff; 
+  text-decoration: underline; 
 }
 
-/* Kontaineri kuvalle ja kuvaajille */
+.table-wrapper {
+  max-width: 1170px;
+  margin: 0 auto;
+  margin-top: 5rem;
+}
+
+
+/* IMAGE AND CHARTS */
 #charts-image-wrapper {
   display: flex;
-  justify-content: space-between; /* Asetetaan kuva ja kuvaajat vierekkäin */
+  gap: 20px;
   align-items: flex-start;
-  width: 100%; /* Varmistetaan, että vie koko käytettävissä olevan leveyden */
-  padding: 20px;
-  flex-grow: 1; /* Kasvatetaan tilan mukaan */
-  gap: 20px; /* Lisätään väliä kuvan ja kuvaajien väliin */
 }
 
-/* Kuvan asettelu */
-#image-container {
-  flex-basis: 50%;
+#image-profile-wrapper {
   display: flex;
-  align-items: center;
+  flex-direction: row;
+  align-items: flex-start;
+  /* gap: 10px; */
+}
+
+#vertical-profile-container {
+  display: flex;
+  flex-direction: column;
   justify-content: center;
 }
 
-#image-container img {
-  width: 100%;
-  height: auto;
-  object-fit: contain;
+#vertical-profile {
+  background: black;
+  border-radius: 8px;
+  margin-right: 20px;
+  border: 0.5px solid #393939;;
+  display: block;
 }
+
+#image-and-horizontal-profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#orthanc-image {
+  object-fit: cover;
+  border: 0.5px solid #393939;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  display: block;
+}
+
+#horizontal-profile {
+  background: black;
+  border-radius: 8px;
+  margin-top: 20px;
+  border: 0.5px solid #393939;
+}
+
 
 #charts-container {
   flex-basis: 50%;
+  background-color: black;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start; /* Asetetaan kaaviot yläreunaan */
-  align-items: center; /* Keskitetään kaaviot vaakasuunnassa */
-  overflow-x: auto; /* Varmistaa, että kaaviot näkyvät */
-  gap: 20px; /* Lisätään väliä kaavioiden väliin */
+  justify-content: flex-start; 
+  align-items: center; 
+  overflow-x: auto; 
+  gap: 20px; 
 }
 
 #charts-container .chart-wrapper {
-  background-color: #343a40; /* Tausta kaavioille */
   padding: 10px;
   display: flex;
   justify-content: center;
   align-items: center;
-  border-radius: 10px; /* Pyöristetyt kulmat */
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Varjostus */
+  border-radius: 10px; 
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); 
   height: 20%;
+  border: 0.5px solid #393939;  
+}
+
+
+#chart1, #chart2, #chart3 {
+  background-color: #000; 
 }
 
 #charts-container .chart-wrapper:last-child {
-  margin-bottom: 0; /* Ei marginaalia viimeiselle kaaviolle */
+  margin-bottom: 0; 
 }
 
+
+
+/* AI ANSWER AND QUESTION BOX */
 #answer-box::after {
   content: '|';
   animation: blink 1s step-start infinite;
 }
 
+#question {
+  background-color: #222;
+  color: #fff;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 0.5rem;
+  width: 100%;
+  font-family: inherit;
+  font-size: 1rem;
+  box-sizing: border-box;
+  resize: none;
+}
+
+#answer-box {
+  background-color: #222;
+  color: #fff;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 0.5rem;
+  width: 100%;
+  min-height: 3em;
+  font-family: inherit;
+  font-size: 1rem;
+  box-sizing: border-box;
+  margin-top: 1rem;
+  resize: none; 
+}
+
 @keyframes blink {
   50% { opacity: 0; }
 }
+
+
+.uid-section th:last-child,
+.uid-section td:last-child {
+  width: 50%;  
+} 
+

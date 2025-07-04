@@ -1,0 +1,44 @@
+services:
+  loki:
+    image: grafana/loki:2.9.1
+    container_name: loki
+    command: -config.file=/etc/loki/loki-config.yaml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki-config.yaml:/etc/loki/loki-config.yaml
+      - ./loki-storage/chunks:/loki/chunks
+      - ./loki-storage/index:/loki/index
+      - ./loki-storage/boltdb-cache:/loki/boltdb-cache
+      - ./loki-storage/wal:/loki/wal  # 🔧 Tämä RATKAISEE ongelman
+      - ./loki-storage/compactor:/loki/compactor   # 🔧 lisää tämä
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-storage:/var/lib/grafana
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+
+  promtail:
+    image: grafana/promtail:2.9.1
+    container_name: promtail
+    volumes:
+      - ./promtail-config.yaml:/etc/promtail/config.yaml
+      # - /var/log:/var/log                # Linux: Järjestelmän logit
+      - ./logdata:/var/log/custom        # Vaihtoehtoisesti oma logihakemisto (Windows tai projektille)
+    command: -config.file=/etc/promtail/config.yaml
+
+volumes:
+  grafana-storage:
+
+
