@@ -22,15 +22,35 @@ import requests
 import threading
 import time
 
-# Lisää logituksen konfigurointi heti alkuun
+# # Lisää logituksen konfigurointi heti alkuun
+# logging.basicConfig(
+#     level=logging.INFO,
+#     format="%(asctime)s [%(levelname)s] %(message)s",
+#     handlers=[
+#         #logging.StreamHandler(),  # Tulostaa konsoliin
+#         logging.FileHandler("analyze_service.log", encoding="utf-8"),  # Jos haluat myös tiedostoon
+#     ]
+# )
+
+# logging.basicConfig(
+#     level=logging.INFO,
+#     format="%(asctime)s [%(levelname)s] %(message)s",
+#     handlers=[
+#         logging.StreamHandler(sys.stdout),  # ← tämä lisää stdout-tulostuksen
+#         logging.FileHandler("analyze_service.log", encoding="utf-8"),
+#     ]
+# )
+
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
-        #logging.StreamHandler(),  # Tulostaa konsoliin
-        logging.FileHandler("analyze_service.log", encoding="utf-8"),  # Jos haluat myös tiedostoon
+        logging.StreamHandler(sys.stdout)  # Ei FileHandleria nyt
     ]
 )
+
+
 
 # 🔹 Orthanc ja Fetch Service osoitteet
 ORTHANC_URL = os.getenv("ORTHANC_URL", "http://localhost:8042") #virtualenv path

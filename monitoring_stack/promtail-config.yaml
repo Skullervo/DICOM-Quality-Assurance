@@ -8,12 +8,25 @@ positions:
 clients:
   - url: http://loki:3100/loki/api/v1/push
 
+# scrape_configs:
+#   - job_name: system
+#     static_configs:
+#       - targets:
+#           - localhost
+#         labels:
+#           job: varlogs
+#           __path__: /var/log/custom/*.log
+
+
 scrape_configs:
-  - job_name: system
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: varlogs
-          __path__: /var/log/custom/*.log
+  - job_name: analyze_service
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+    relabel_configs:
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/analyze_service'
+        action: keep
+      - source_labels: ['__meta_docker_container_name']
+        target_label: job
+
 

@@ -28,8 +28,10 @@ urlpatterns = [
     path("ask-ai/", views.ask_ai, name="ask_ai"),
     path('muokkaa/', views.muokkaa_ultraa, name='muokkaa_ultraa'),
     
-    path('api/ultrasound/<str:instance_value>/', views.get_ultrasound_by_instance)
-]
+    path('api/ultrasound/<str:instance_value>/', views.get_ultrasound_by_instance),
+    
+    path("api/dicom_info/<str:instance_id>/", views.dicom_info_api, name="dicom_info_api"),
+]   
 
 
 

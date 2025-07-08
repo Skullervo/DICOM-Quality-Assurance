@@ -157,10 +157,6 @@ class imageQualityUS:
        
         im_crop = im[x_min:x_max,y_min:y_max]   #cropped image
         
-        # plt.imshow(im_crop,cmap='gray')
-        # plt.title("Test")
-        # plt.show()
-        # print()
 
 
 
@@ -169,10 +165,15 @@ class imageQualityUS:
                 x = np.round(im_crop.shape[0]/2)
                 im_crop = im_crop[0 : x.astype(int), :]
                 
+        # plt.imshow(im_crop,cmap='gray')
+        # plt.title("Test")
+        # plt.show()
+        # print()
+                
                 
         # --- TALLENNA KUVA ---
         # Luo polku juureen ja kansioon 'cropped images'
-        save_dir = os.path.join(os.getcwd(), "cropped images")
+        save_dir = os.path.join(os.getcwd(), "cropped images test")
         os.makedirs(save_dir, exist_ok=True)
 
         # Luo tiedostonimi (voit käyttää esim. id(self) tai timestampia)
@@ -184,12 +185,28 @@ class imageQualityUS:
         else:
             filename = f"{id(self)}.png"
         save_path = os.path.join(save_dir, filename)
+        
+        plt.imshow(im_crop, cmap='gray')
+        plt.axis('off')
+        plt.savefig(save_path, bbox_inches='tight', pad_inches=0)
 
-        # Muunna kuva uint8-muotoon ja tallenna
-        im_to_save = np.uint8(255 * (im_crop - np.min(im_crop)) / (np.ptp(im_crop)))
-        img = im_module.fromarray(im_to_save)
-        img.save(save_path)
-        print(f"Cropped image saved to: {save_path}")
+        
+        # Tarkista ettei jakauma ole nolla
+        # range_val = np.ptp(im_crop)
+
+        # # Muunna kuva uint8-muotoon ja tallenna
+        # if range_val == 0:
+        #     # Jos kaikki pikselit ovat samat, tee pelkkä asteikkoarvojen säätö
+        #     im_to_save = np.uint8(np.clip(im_crop, 0, 255))
+        # else:
+        #     im_to_save = np.uint8(255 * (im_crop - np.min(im_crop)) / range_val)
+
+        # img = im_module.fromarray(im_to_save)
+        # img.save(save_path)
+        # print(f"Cropped image saved to: {save_path}")
+        
+        # print("min:", np.min(im_crop), "max:", np.max(im_crop), "ptp:", np.ptp(im_crop))
+
         
         return im_crop
 
@@ -590,10 +607,10 @@ class imageQualityUS:
         #cv2.waitKey(0) 
         #cv2.destroyAllWindows()
         
-        # plt.imshow(polar_image,cmap='gray')
-        # plt.title("Test")
-        # plt.show()
-        # print()
+        plt.imshow(polar_image,cmap='gray')
+        plt.title("Test")
+        plt.show()
+        print()
         
         # --- TALLENNA POLAR KUVA ---
         save_dir = os.path.join(os.getcwd(), "polar_images")
@@ -919,3 +936,47 @@ class imageQualityUS:
         
         return tests
     
+    
+if __name__ == "__main__":
+    import requests
+    import pydicom
+    from io import BytesIO
+
+    # Valitse Orthanc instance UID (voit hakea ne listana myös /instances)
+    instance_uid = "975b1449-b887bb1a-423c2aec-ec37a822-a5d68fb1"  # Vaihda tämä oikeaan UID:iin
+
+    # Orthanc-palvelimen asetukset
+    ORTHANC_URL = "http://localhost:8042"
+    INSTANCE_URL = f"{ORTHANC_URL}/instances/{instance_uid}/file"
+
+    try:
+        # Hae DICOM-kuva Orthancista
+        response = requests.get(INSTANCE_URL)
+        response.raise_for_status()
+
+        # Lue DICOM tiedot muistista
+        dicom_bytes = BytesIO(response.content)
+        dicom_data = pydicom.dcmread(dicom_bytes, force=True)
+        image_array = dicom_data.pixel_array
+
+        # Luo imageQualityUS-instanssi
+        analyzer = imageQualityUS(
+            path_data=dicom_data,
+            dicom_bytes=response.content,
+            image=image_array,
+            table=None
+        )
+
+        # Suorita analyysi
+        results = analyzer.MAIN_US_analysis()
+
+        # Tulosta analyysin tulokset
+        print("\nAnalyysin tulokset:")
+        for key, value in results.items():
+            if isinstance(value, (list, np.ndarray)):
+                print(f"{key}: [array of length {len(value)}]")
+            else:
+                print(f"{key}: {value}")
+
+    except requests.exceptions.RequestException as e:
+        print("Virhe haettaessa DICOM-kuvaa Orthancista:", e)

@@ -530,14 +530,119 @@ function drawProfiles(horizProfile, vertProfile, uLow = [], sDepth = null, uCov 
 }
 
 
-document.addEventListener("DOMContentLoaded", function () {
-  const instanceValue = document.getElementById('instance-value').textContent.trim();
-  if (instanceValue) {
-    loadOrthancImage(instanceValue);
-  } else {
-    console.error("Instance value not found.");
+// document.addEventListener("DOMContentLoaded", function () {
+//   const instanceValue = document.getElementById('instance-value').textContent.trim();
+//   if (instanceValue) {
+//     loadOrthancImage(instanceValue);
+//   } else {
+//     console.error("Instance value not found.");
+//   }
+// });
+
+
+// document.addEventListener('keydown', function(event) {
+//   if (event.altKey && event.key === 'd') {
+//     event.preventDefault();
+//     openDicomModal();
+//   }
+// });
+
+// function openDicomModal() {
+//   const modal = document.getElementById('dicom-modal');
+//   modal.style.display = 'block';
+
+//   const instance = document.getElementById('instance-value').textContent.trim();
+//   fetch(`/first_app/api/dicom_metadata/${instance}/`)
+//     .then(response => response.json())
+//     .then(data => {
+//       document.getElementById('dicom-info-box').textContent = JSON.stringify(data, null, 2);
+//     })
+//     .catch(error => {
+//       document.getElementById('dicom-info-box').textContent = 'Virhe: ' + error;
+//     });
+// }
+
+// document.addEventListener('keydown', function(event) {
+//   if (event.key === 'Escape') {
+//     closeDicomModal();
+//   }
+// });
+
+// window.onclick = function(event) {
+//   const modal = document.getElementById('dicom-modal');
+//   if (event.target === modal) {
+//     closeDicomModal();
+//   }
+// };
+
+// function closeDicomModal() {
+//   document.getElementById('dicom-modal').style.display = 'none';
+// }
+
+let isDicomOpen = false;
+
+document.addEventListener('keydown', function (e) {
+  //  ⌃Ctrl + I (pienellä, isolla, layoutista riippumatta)
+  if (e.ctrlKey && !e.shiftKey && e.code === 'KeyI') {
+    // Älä tee jos kohdistin on input/textarea
+    const t = e.target;
+    if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') return;
+
+    e.preventDefault();
+    const inst = document.getElementById('instance-value')?.textContent.trim();
+    if (inst) {
+      openDicomModal(inst);
+    } else {
+      console.warn('instance-value puuttuu');
+    }
+  }
+
+  // ESC sulkee
+  if (e.key === 'Escape' && isDicomOpen) {
+    e.preventDefault();
+    closeDicomModal();
   }
 });
+
+
+function openDicomModal(instanceId) {
+  // fetch(`/first_app/api/dicom_info/${instanceId}/`)
+  fetch(`/first_app/api/dicom_info/${instanceId}/`)      // <= etuliite + alaviiva
+  // fetch(`/api/dicom_info/${instanceId}/`)
+    // .then(response => response.json())
+    .then(response => {
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    return response.json();
+  })
+    .then(data => {
+      if (data.status === 'success') {
+        const tbody = document.querySelector('#dicom-table tbody');
+        tbody.innerHTML = ''; // Tyhjennä vanhat rivit
+
+        for (const [key, value] of Object.entries(data.data)) {
+          const row = document.createElement('tr');
+          row.innerHTML = `<td>${key}</td><td>${value}</td>`;
+          tbody.appendChild(row);
+        }
+
+        document.getElementById('dicom-modal').style.display = 'block';
+        isDicomOpen = true;
+      } else {
+        alert("Virhe DICOM-tietojen haussa: " + data.message);
+      }
+    })
+    .catch(err => {
+      alert("Verkkovirhe DICOM-tietojen haussa: " + err);
+    });
+}
+
+function closeDicomModal() {
+  document.getElementById('dicom-modal').style.display = 'none';
+  isDicomOpen = false;
+}
+
 
 
 });
