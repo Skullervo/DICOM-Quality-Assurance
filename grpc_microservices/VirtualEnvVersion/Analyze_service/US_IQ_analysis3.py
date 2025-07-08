@@ -93,7 +93,7 @@ class imageQualityUS:
         return gray    
 
     #%%
-    def crop_US_im(self, im, crop2half=True):
+    def crop_US_im(self, im, crop2half=True, instance_uid=None):
         '''
         This function crops the ultrasound image to the image content ie. extracts the outer regions of the US dicom image.
 
@@ -156,6 +156,11 @@ class imageQualityUS:
         y_max = np.max(y)
        
         im_crop = im[x_min:x_max,y_min:y_max]   #cropped image
+        
+        # plt.imshow(im_crop,cmap='gray')
+        # plt.title("Test")
+        # plt.show()
+        # print()
 
 
 
@@ -163,6 +168,28 @@ class imageQualityUS:
                 #Vertical crop to half:
                 x = np.round(im_crop.shape[0]/2)
                 im_crop = im_crop[0 : x.astype(int), :]
+                
+                
+        # --- TALLENNA KUVA ---
+        # Luo polku juureen ja kansioon 'cropped images'
+        save_dir = os.path.join(os.getcwd(), "cropped images")
+        os.makedirs(save_dir, exist_ok=True)
+
+        # Luo tiedostonimi (voit käyttää esim. id(self) tai timestampia)
+        # instance_uid = str(data.SOPInstanceUID)
+        # filename = f"im_crop_{instance_uid}.png"
+        # filename = f"im_crop_{id(self)}.png"
+        if instance_uid is not None:
+            filename = f"{instance_uid}.png"
+        else:
+            filename = f"{id(self)}.png"
+        save_path = os.path.join(save_dir, filename)
+
+        # Muunna kuva uint8-muotoon ja tallenna
+        im_to_save = np.uint8(255 * (im_crop - np.min(im_crop)) / (np.ptp(im_crop)))
+        img = im_module.fromarray(im_to_save)
+        img.save(save_path)
+        print(f"Cropped image saved to: {save_path}")
         
         return im_crop
 
@@ -252,7 +279,7 @@ class imageQualityUS:
         return BW_new 
 
     #%%
-    def transform_convex_image2linear(self, im):
+    def transform_convex_image2linear(self, im, instance_uid=None):
         '''
         This function transforms the convex transducer image to linear using
         polar transform.
@@ -567,189 +594,26 @@ class imageQualityUS:
         # plt.title("Test")
         # plt.show()
         # print()
+        
+        # --- TALLENNA POLAR KUVA ---
+        save_dir = os.path.join(os.getcwd(), "polar_images")
+        os.makedirs(save_dir, exist_ok=True)
+
+        if instance_uid is not None:
+            filename = f"{instance_uid}.png"
+        else:
+            filename = f"{id(self)}.png"
+
+        save_path = os.path.join(save_dir, filename)
+
+        # Muunna kuva uint8-muotoon ja tallenna
+        polar_to_save = np.uint8(255 * (polar_image - np.min(polar_image)) / (np.ptp(polar_image)))
+        img = im_module.fromarray(polar_to_save)
+        img.save(save_path)
+        print(f"Polar image saved to: {save_path}")
       
         return polar_image
 
-
-    #%%  
-    #Old Transform_Convex is only run, if the new one fails
-
-    def transform_convex_image2linear_old(self, im):
-        '''
-        This function transforms the convex transducer image to linear using
-        polar transform.
-
-        Parameters
-        ----------
-        im : convex image
-
-        Returns
-        -------
-        polar_image : Polar image
-
-        '''
-        #----Pre-crop ---
-        #im = im[0:int(im.shape[0]/2),:] #crop bottom half (noise) away
-        loop = True
-        c = 0
-        while loop: #see if else in loop
-        
-            BW = im  > 1.5*np.mean(im) #Threshold image
-            
-            kernel = np.ones((5,5), np.uint8)
-            iters = 4
-            dilate_f = True#no dilatation to find the offset value
-            BW_new = self.imopen_take_largest(BW, dilate_f) #This also removes text attached to the border
-            BW = BW_new  
-                
-            label_im, nb_labels = ndimage.label(BW)
-            sizes = ndimage.sum(BW, label_im, range(nb_labels + 1))
-            loc = np.argmax(sizes)
-            BW = label_im==loc
-        
-        
-            vals = np.argwhere(BW==1)
-               
-            x = vals[:,1]
-            y = vals[:,0]
-            
-            y_border = 5
-            
-            if  (y==y_border).any(): #Check of upper border of the image is detected
-                im = im[np.max(y):,:] #remove border by cropping
-                # plt.subplot(2,1,1)
-                # plt.imshow(im)
-                # plt.subplot(2,1,2)
-                # plt.imshow(im2)
-                # plt.show()
-                loop = True  #run again
-                c +=1
-            elif c > 2:
-                break
-            else:
-                
-                loop = False #continue
-                
-
-
-        #corner locations:
-        vals = np.argwhere(BW==1)
-       
-        x = vals[:,0]
-        y = vals[:,1]    
-
-        y_min = np.min(y)
-        y_max = np.max(y)
-        x_min = np.min(x)
-        x_max = np.max(x)
-        
-        ##import ipdb; ipdb.set_trace()
-       
-        #Crop image to content:
-        im_crop = im[x_min:x_max,y_min:y_max]
-       
-        #tight crop to edge fits:
-        x = np.round(im_crop.shape[0]*0.5)
-        BW = im_crop[ 0:x.astype(int) , :]  > 1.5*np.mean(im) #Threshold image
-        
-        label_im, nb_labels = ndimage.label(BW)
-        sizes = ndimage.sum(BW, label_im, range(nb_labels + 1))
-        loc = np.argmax(sizes)
-        BW = label_im == loc
-       
-        # Find edge pixels using for loop:
-        left_vals = np.zeros((40, 2))
-        right_vals = np.zeros((40, 2))    
-        count=0
-        for  row in range(10, 50, 1): #range(10, 100, 1): #this affects how many  edge points are taken 
-            profile = BW[row,:]
-            loc_l = np.argmax(profile)
-            loc_r = np.argmax(np.flipud(profile))
-            loc_r  = BW.shape[1]-loc_r
-           
-            left_vals[count,:] = [row, loc_l]
-            right_vals[count,:] = [row, loc_r]
-            count+=1
-       
-        ##sanity check:
-        #plt.imshow(BW)
-        #plt.plot(left_vals[:,1], left_vals[:, 0])
-        #plt.plot(right_vals[:,1], right_vals[:, 0])
-        #plt.show()
-       
-        #Line fits:
-        x_r = right_vals[:,1]
-        y_r = right_vals[:,0]    
-        m_r, b_r = np.polyfit(x_r, y_r, 1)
-        #m = slope, b = intercept.
-       
-        x_l = left_vals[:,1]
-        y_l = left_vals[:,0]    
-        m_l, b_l = np.polyfit(x_l, y_l, 1)
-       
-        # intersection:
-        x_int = (b_l-b_r)/(m_r-m_l)
-        y_int = m_r*x_int+b_r
-           
-        ##sanity check 2
-        #plt. plot(x_r, y_r, 'ko')
-        #plt. plot(x_r, m_r*x_r + b_r)
-        #
-        #plt. plot(x_l, y_l, 'ro')
-        #plt. plot(x_l, m_l*x_l + b_l)
-        #
-        #plt. plot(x_int, y_int, 'bo')
-        #plt.show()
-       
-        #take the ole image:
-        x = np.round(im_crop.shape[0]*1)
-       
-        
-        BW = im_crop[ 0:x.astype(int) , :]  > 1.5*np.mean(im) #Threshold image
-        
-        kernel = np.ones((3,3), np.uint8)
-        iters = 3
-        BW = self.imopen_take_largest(BW, True, kernel, iters)
-        
-        label_im, nb_labels = ndimage.label(BW)
-        sizes = ndimage.sum(BW, label_im, range(nb_labels + 1))
-        loc = np.argmax(sizes)
-        BW = label_im == loc
-       
-        im_crop2 = im_crop[ 0:x.astype(int) , :]*BW
-       
-        offset = np.round(np.abs(y_int))
-        offset = offset.astype(int)
-        temp = np.zeros((im_crop2.shape[0]+offset, im_crop2.shape[1]))    
-        temp[offset:,:] = im_crop2
-
-        # enlanrge to cover whole area:
-        temp_disk = np.zeros((2*temp.shape[0], 2*temp.shape[0]))
-       
-        offset2 = np.round(temp_disk.shape[0]/2)
-        offset2 = offset2.astype(int)
-        offset3 = np.round(-temp.shape[1]/2 + temp_disk.shape[1]/2)
-        offset3 = offset3.astype(int)
-        end_loc3 = offset3+temp.shape[1]
-        end_loc3 = end_loc3.astype(int)
-       
-        temp_disk[ offset2: ,  offset3:end_loc3 ] = temp
-        
-        #    import pdb; pdb.set_trace()
-        #--- ensure image is of the type float ---
-        img = temp_disk.astype(np.float32)
-       
-        #--- the following holds the square root of the sum of squares of the image dimensions ---
-        #--- this is done so that the entire width/height of the original image is used to express the complete circular range of the resulting polar image ---
-        value = np.sqrt(((img.shape[0]/2.0)**2.0)+((img.shape[1]/2.0)**2.0))
-       
-        polar_image = cv2.linearPolar(img,(img.shape[0]/2, img.shape[1]/2), value, cv2.WARP_FILL_OUTLIERS)
-        polar_image = np.transpose(polar_image)
-        polar_image = np.fliplr(polar_image)
-        
-        
-
-        return polar_image
 
     #%%
     def US_air_image_analysis(self, im_crop, reverb_lines = 4 ):
@@ -905,10 +769,6 @@ class imageQualityUS:
         bytes_dicom = self.dicom_bytes
         
         im = self.image
-        
-
-        
-        
 
         # --- Extract dicom metadata ---  
         try:
@@ -1007,12 +867,7 @@ class imageQualityUS:
         
         #Get air scan image:        
         im = data.pixel_array
-        # plt.imshow(im, cmap='gray')
-        # plt.title('DICOM Image')
-        # plt.axis('off')
-        # plt.show()
-        # im_shape = np.shape(im)
-        # print()
+        instance_uid = str(data.SOPInstanceUID)
        
         if im.ndim == 3: #if image is not grayscale  transform to grayscale
             im = self.rgb2gray(im)
@@ -1020,14 +875,10 @@ class imageQualityUS:
         if TransducerType == 'CURVED LINEAR': #convex
             #try:
             # im_t =  self.transform_convex_image2linear(im)  #transforms convex transducer to linear
-            im_crop =  self.transform_convex_image2linear(im)  #transforms convex transducer to linear
-            
-            #except:
-                #print('Old code used')
-                #im_t =  transform_convex_image2linear_old(im)
+            im_crop =  self.transform_convex_image2linear(im, instance_uid=instance_uid)  #transforms convex transducer to linear
                 
             # im_crop = self.crop_US_im(im_t, crop2half = False)
-            im_crop = self.crop_US_im(im_crop, crop2half = False)
+            im_crop = self.crop_US_im(im_crop, crop2half = False, instance_uid=instance_uid)
             im_crop = im_crop[:, 3:] #remove manually few pixels from the edge
             reverb_lines = 5 #number of reverberation lines to be detected is set to 5 for all curved linear transducers
             # plt.imshow(im_crop, cmap='gray')
@@ -1039,7 +890,7 @@ class imageQualityUS:
             # print()
            
         else: #linear
-            im_crop = self.crop_US_im(im, crop2half=True)
+            im_crop = self.crop_US_im(im, crop2half=True, instance_uid=instance_uid)
             reverb_lines = 4 #number of reverberation lines to be detected is set to 4 for all  linear transducers
             
         

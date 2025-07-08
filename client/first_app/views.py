@@ -1,4 +1,5 @@
 import io
+import os
 import json
 import numpy as np
 import requests
@@ -8,9 +9,11 @@ import datetime
 import logging
 
 
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse, Http404
 from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import F
 from .models import Ultrasound
@@ -21,6 +24,7 @@ from PIL import Image
 from io import BytesIO
 from first_app.utils import modifyUS
 from pydicom import dcmread
+
 
 
 orthanc_url = 'http://localhost:8042'
@@ -118,6 +122,77 @@ def get_stationname(request, index):
     except IndexError:
         return JsonResponse({'error': 'Index out of range'}, status=404)
     
+
+
+# @require_GET
+# def dicom_info_api(request, instance_id):
+#     try:
+#         response = requests.get(f"{ORTHANC_URL}/instances/{instance_id}/tags")
+#         response.raise_for_status()
+
+#         tags = response.json()
+        
+#         # Muotoillaan tagit luettavaan muotoon
+#         info = {}
+#         for tag_hex, value in tags.items():
+#             if isinstance(value, dict) and 'Value' in value:
+#                 value = value['Value']
+#             if isinstance(value, list):
+#                 value = ", ".join(str(v) for v in value)
+#             elif not isinstance(value, str):
+#                 value = str(value)
+
+#             info[tag_hex] = value
+
+#         return JsonResponse({'status': 'success', 'data': info})
+    
+#     except Exception as e:
+#         return JsonResponse({'status': 'error', 'message': f"Virhe DICOM-tietojen haussa: {str(e)}"}, status=500)
+
+
+# @require_GET
+# def dicom_info_api(request, instance_id):
+#     try:
+#         url = f"{orthanc_url}/instances/{instance_id}/file"
+#         r = requests.get(url, auth=(orthanc_username, orthanc_password))
+#         r.raise_for_status()
+
+#         ds = pydicom.dcmread(BytesIO(r.content))
+#         info = {}
+#         for elem in ds:
+#             if elem.VR != 'SQ':
+#                 tag_name = elem.name
+#                 value = str(elem.value)
+#                 info[tag_name] = value
+#         return JsonResponse({'status': 'success', 'data': info})
+
+#     except Exception as e:
+#         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@require_GET
+def dicom_info_api(request, instance_id):
+    try:
+        url = f"{orthanc_url}/instances/{instance_id}/file"
+        r = requests.get(url, auth=(orthanc_username, orthanc_password))
+        r.raise_for_status()
+
+        ds = pydicom.dcmread(BytesIO(r.content))
+        info = {}
+
+        for elem in ds:
+            if elem.VR != 'SQ' and elem.tag != (0x7FE0, 0x0010):  # Suodata Pixel Data
+                tag_name = elem.name
+                value = str(elem.value)
+                info[tag_name] = value
+
+        return JsonResponse({'status': 'success', 'data': info})
+
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    
+    
+ 
     
 
 def device_details_view(request, stationname):
@@ -172,70 +247,217 @@ def device_details_view(request, stationname):
         logger.debug("Device not found")  # Debug-tulostus
         raise Http404("Device not found")
 
+# def get_orthanc_image(request, instance_value):
+#     try:
+#         # Hae kuva Orthanc-palvelimelta käyttäen instancen ID:tä
+#         orthanc_url_full = f'{orthanc_url}/instances/{instance_value}/file'
+#         response = requests.get(orthanc_url_full, auth=(orthanc_username, orthanc_password))
+#         response.raise_for_status()
+
+#         # Lue DICOM-tiedosto
+#         dicom_file = BytesIO(response.content)
+#         dicom_data = pydicom.dcmread(dicom_file)
+
+#         # Muunna DICOM-kuva numpy-taulukoksi
+#         image_array = dicom_data.pixel_array
+
+#         # Luo modifyUS-instanssi
+#         modifier = modifyUS(
+#             path_data="",
+#             dicom_bytes=response.content,
+#             image=image_array,
+#             table=None
+#         )
+
+#         # Kutsu modify-funktiota
+#         image_array = modifier.modify()
+        
+#         print("SHAPE:", image_array.shape)
+#         print("DTYPE:", image_array.dtype)
+#         print("MIN:", np.min(image_array))
+#         print("MAX:", np.max(image_array))
+#         print("PTP:", np.ptp(image_array))
+        
+#         img_str = Image.fromarray(image_array)
+
+#         # Tallennus PNG:nä, ei JPEG:nä
+#         img_str.save("DEBUG_IMAGE.png")
+
+
+#         # Normalisoi ja skaalaa uint8-muotoon (0–255)
+#         # image_uint8 = np.uint8(255 * (image_array - np.min(image_array)) / (np.ptp(image_array)))
+#         # range_val = np.ptp(image_array)
+#         # if range_val == 0:
+#         #     image_uint8 = np.uint8(np.clip(image_array, 0, 255))
+#         # else:
+#         #     image_uint8 = np.uint8(255 * (image_array - np.min(image_array)) / range_val)
+            
+#         # if len(image_uint8.shape) == 2:
+#         #     image_uint8 = np.stack((image_uint8,) * 3, axis=-1)
+
+#         # Image.fromarray(image_uint8).save("DEBUG_IMAGE.jpg")
+        
+#         # img = Image.fromarray(image_uint8)
+
+#         # # Muunna kuva base64-muotoon
+#         # buffered = BytesIO()
+#         # img.save(buffered, format="JPEG")
+#         # img_str = base64.b64encode(buffered.getvalue()).decode()
+        
+#         # range_val = np.ptp(image_array)
+#         # if range_val == 0:
+#         #     image_norm = np.zeros_like(image_array, dtype=np.uint8)
+#         # else:
+#         #     image_norm = 255 * (image_array - np.min(image_array)) / range_val
+#         #     image_norm = image_norm.astype(np.uint8)
+
+#         # # Pakota RGB, jos kanavia ei ole 3
+#         # if image_norm.ndim == 2:
+#         #     image_rgb = np.stack((image_norm,) * 3, axis=-1)
+#         # elif image_norm.shape[2] == 1:
+#         #     image_rgb = np.concatenate([image_norm] * 3, axis=2)
+#         # else:
+#         #     image_rgb = image_norm
+
+#         # # Testitallennus
+#         # Image.fromarray(image_rgb).save("DEBUG_IMAGE.jpg")
+
+#         # # Base64
+#         # img = Image.fromarray(image_rgb)
+#         # buffered = BytesIO()
+#         # img.save(buffered, format="JPEG")
+#         # img_str = base64.b64encode(buffered.getvalue()).decode()
+        
+#         import matplotlib.pyplot as plt
+
+#         plt.imshow(image_array, cmap='gray')
+#         plt.axis('off')
+#         plt.savefig("DEBUG_MPL_IMAGE.jpg", bbox_inches='tight', pad_inches=0)
+#         plt.close()
+
+#         # Hae profiilit tietokannasta
+#         # from .models import Ultrasound
+#         try:
+#             us = Ultrasound.objects.get(instance=instance_value)
+#             horiz_prof = us.horiz_prof if us.horiz_prof else []
+#             vert_prof = us.vert_prof if us.vert_prof else []
+#             u_low = us.u_low if us.u_low else []
+#             s_depth = us.s_depth if us.s_depth else None
+#             u_cov = us.u_cov if us.u_cov else None
+#             u_skew = us.u_skew if us.u_skew else None
+#         except Ultrasound.DoesNotExist:
+#             horiz_prof = []
+#             vert_prof = []
+#             u_low = []
+
+#         return JsonResponse({
+#             'image': img_str,
+#             'horiz_prof': horiz_prof,
+#             'vert_prof': vert_prof,
+#             'u_low': u_low,
+#             's_depth': s_depth,
+#             'u_cov': u_cov, 
+#             'u_skew': u_skew
+#         })
+#     except requests.exceptions.RequestException as e:
+#         return JsonResponse({'error': 'Request error', 'details': str(e)}, status=500)
+#     except Exception as e:
+#         import traceback
+#         traceback.print_exc()
+#         return JsonResponse({'error': str(e)}, status=500)
+
+
+def dicom_to_uint8_rgb(arr: np.ndarray) -> np.ndarray:
+    """Normalisoi [min,max] -> [0,255] ja pakota 3-kanavaiseksi."""
+    arr = arr.astype(np.float32)
+    rng = np.ptp(arr)
+    if rng == 0:
+        arr_n = np.zeros_like(arr, dtype=np.uint8)
+    else:
+        arr_n = (255 * (arr - arr.min()) / rng).astype(np.uint8)
+    if arr_n.ndim == 2:                           # (H,W) -> (H,W,3)
+        arr_n = np.stack([arr_n]*3, axis=-1)
+    return arr_n
+
 def get_orthanc_image(request, instance_value):
     try:
-        # Hae kuva Orthanc-palvelimelta käyttäen instancen ID:tä
-        orthanc_url_full = f'{orthanc_url}/instances/{instance_value}/file'
-        response = requests.get(orthanc_url_full, auth=(orthanc_username, orthanc_password))
-        response.raise_for_status()
+        # 1) Lataa DICOM Orthancista
+        url = f"{orthanc_url}/instances/{instance_value}/file"
+        r   = requests.get(url, auth=(orthanc_username, orthanc_password))
+        r.raise_for_status()
 
-        # Lue DICOM-tiedosto
-        dicom_file = BytesIO(response.content)
-        dicom_data = pydicom.dcmread(dicom_file)
+        ds  = pydicom.dcmread(BytesIO(r.content))
+        im  = ds.pixel_array                       # numpy-taulukko
 
-        # Muunna DICOM-kuva numpy-taulukoksi
-        image_array = dicom_data.pixel_array
+        # 2) (valinnainen) modiﬁoi kuva
+        im  = modifyUS("", r.content, im, None).modify()
 
-        # Luo modifyUS-instanssi
-        modifier = modifyUS(
-            path_data="",
-            dicom_bytes=response.content,
-            image=image_array,
-            table=None
-        )
+        # 3) Normalisoi ja tee RGB
+        im_rgb = dicom_to_uint8_rgb(im)
 
-        # Kutsu modify-funktiota
-        image_array = modifier.modify()
+        # 4) Koodaa PNG:ksi base64-muotoon
+        buffer = BytesIO()
+        Image.fromarray(im_rgb).save(buffer, format="PNG")
+        img_b64 = base64.b64encode(buffer.getvalue()).decode()
+        
+        # import matplotlib.pyplot as plt
+        # plt.imshow(im_rgb, cmap='gray')
+        # plt.axis('off')
+        # plt.savefig("DEBUG_MPL_IMAGE.jpg", bbox_inches='tight', pad_inches=0)
+        # plt.close()
 
-        # Normalisoi ja skaalaa uint8-muotoon (0–255)
-        image_uint8 = np.uint8(255 * (image_array - np.min(image_array)) / (np.ptp(image_array)))
-        img = Image.fromarray(image_uint8)
-
-        # Muunna kuva base64-muotoon
-        buffered = BytesIO()
-        img.save(buffered, format="JPEG")
-        img_str = base64.b64encode(buffered.getvalue()).decode()
-
-        # Hae profiilit tietokannasta
-        # from .models import Ultrasound
+        # 5) Hae profiilit (try/except jätetty ennalleen)
         try:
             us = Ultrasound.objects.get(instance=instance_value)
-            horiz_prof = us.horiz_prof if us.horiz_prof else []
-            vert_prof = us.vert_prof if us.vert_prof else []
-            u_low = us.u_low if us.u_low else []
-            s_depth = us.s_depth if us.s_depth else None
-            u_cov = us.u_cov if us.u_cov else None
-            u_skew = us.u_skew if us.u_skew else None
+            horiz_prof = us.horiz_prof or []
+            vert_prof  = us.vert_prof  or []
+            u_low      = us.u_low      or []
+            s_depth    = us.s_depth
+            u_cov      = us.u_cov
+            u_skew     = us.u_skew
         except Ultrasound.DoesNotExist:
-            horiz_prof = []
-            vert_prof = []
-            u_low = []
+            horiz_prof = vert_prof = u_low = []
+            s_depth = u_cov = u_skew = None
+            
+        # 6) Kerää DICOM-metatiedot
+        dicom_info = {}
+        for elem in ds:
+            if elem.VR != 'SQ':
+                tag_name = elem.name
+                value = str(elem.value)
+                dicom_info[tag_name] = value
 
+
+        # return JsonResponse({
+        #     "image":      img_b64,                        # nyt string!
+        #     "mime":       "image/png",                    # kerro frontendille
+        #     "horiz_prof": horiz_prof,
+        #     "vert_prof":  vert_prof,
+        #     "u_low":      u_low,
+        #     "s_depth":    s_depth,
+        #     "u_cov":      u_cov,
+        #     "u_skew":     u_skew,
+        # })
+        
         return JsonResponse({
-            'image': img_str,
-            'horiz_prof': horiz_prof,
-            'vert_prof': vert_prof,
-            'u_low': u_low,
-            's_depth': s_depth,
-            'u_cov': u_cov, 
-            'u_skew': u_skew
+            "image":      img_b64,
+            "mime":       "image/png",
+            "horiz_prof": horiz_prof,
+            "vert_prof":  vert_prof,
+            "u_low":      u_low,
+            "s_depth":    s_depth,
+            "u_cov":      u_cov,
+            "u_skew":     u_skew,
+            "dicom_info": dicom_info  # uusi kenttä!
         })
+
+
     except requests.exceptions.RequestException as e:
-        return JsonResponse({'error': 'Request error', 'details': str(e)}, status=500)
+        return JsonResponse({"error": "Request error", "details": str(e)}, status=500)
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return JsonResponse({'error': str(e)}, status=500)
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
+
 
 
 

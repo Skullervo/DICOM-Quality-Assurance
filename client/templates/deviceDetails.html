@@ -33,6 +33,8 @@
         <a class="nav-link" href="#">Aloitus</a>
         <a class="nav-link" href="#">Tietoa</a>
         <a class="nav-link" href="#">Yhteystiedot</a>
+        <a class="nav-link" href="/admin/" target="_blank" rel="noopener noreferrer">Tietokanta</a>
+        <a class="nav-link" href="http://localhost:8042/app/explorer.html">Kuvat</a>
       </div>
     </nav>
   </header>
@@ -40,34 +42,45 @@
   <div class="container">
     <nav id="sidebarMenu" class="sidebar">
       <div class="position-sticky">
-        <ul class="nav">
+        {% comment %} <ul class="nav">
           <li class="nav-item">
-            <a class="nav-link active" aria-current="page" href="#">
+            <a class="nav-link" aria-current="page" href="#">
               Laitteet
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="#">
-              Tietokannat
-            </a>
+            <a class="nav-link" href="/admin/" target="_blank" rel="noopener noreferrer">Tietokanta</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="#">
-              Kuvat
-            </a>
+            <a class="nav-link" href="http://localhost:8042/app/explorer.html">Kuvat</a>
           </li>
-          <li class="nav-item">
-            <a class="nav-link" href="#">
-              Osastot
-            </a>
-          </li>
-        </ul>
+        </ul> {% endcomment %}
+
+        <!-- Lisää tämä .floating-box sidebarin sisään -->
+        <div class="floating-box" id="mini-chat">
+          <h4>Raportoi ongelmasta</h4>
+          <form id="mini-chat-form">
+            <textarea id="mini-chat-input" placeholder="Kirjoita viesti…" rows="2"></textarea>
+            <button type="submit" id="mini-chat-send">Lähetä</button>
+          </form>
+        </div>
+
+        <div id="ai-chat-box" style="margin-top: 2rem;">
+          <h4>Kysy mittaustuloksista tekoälyltä</h4>
+          <form id="chat-form">
+            <textarea id="question" rows="3" placeholder="Kirjoita kysymyksesi..." style="width:100%;"></textarea>
+          </form>
+          <div id="answer-box"></div>
+          <button id="chat-send-button" type="submit" form="chat-form">Lähetä</button>
+        </div>
+
+
       </div>
     </nav>
 
     <main class="main-content">
       <div class="header">
-        <h1>{{ device.institutionname }} \ {{ device.institutionaldepartmentname }} \ {{ device.stationname }}</h1>
+        <h3>{{ device.institutionname }} \ {{ device.institutionaldepartmentname }} \ {{ device.stationname }}</h3>
       </div>
 
 
@@ -97,9 +110,9 @@
       </div>
 
       <!-- TABLE: DEVICE BASIC INFO -->
-      <div class="table-wrapper">
+      <div class="table-wrapper hidden">
       <div class="basic-section" style="margin-top: 1rem;">
-        <h3 style="margin-bottom: 1rem;">🔧 Laitteen perustiedot</h3>
+        <h4 style="margin-bottom: 1rem;">🔧 Laitteen perustiedot</h4>
         <div class="table-responsive">
           <table class="table table-striped">
             <thead>
@@ -123,8 +136,8 @@
       </div>
 
       <!-- TABLE: STUDY INFO -->
-      <div class="device-section" style="margin-top: 1rem;">
-        <h3 style="margin-bottom: 1rem;">🔧 Tutkimuksen tiedot</h3>
+      <div class="device-section hidden" style="margin-top: 1rem;">
+        <h4 style="margin-bottom: 1rem;">🔧 Tutkimuksen tiedot</h4>
         <div class="table-responsive">
           <table class="table table-striped">
             <thead>
@@ -135,12 +148,10 @@
             </thead>
             <tbody>
               <tr><td>Päivämäärä</td><td>{{ device.seriesdate }}</td></tr>
-              {% comment %} <tr><td>Instanssi UID</td><td>{{ device.instance }}</td></tr> {% endcomment %}
               <tr><td>Herkkyys (s_depth)</td><td id="s-depth-value">{{ device.s_depth }}</td></tr>
               <tr><td>Tasaisuus (U_cov)</td><td id="u-cov-value">{{ device.u_cov }}</td></tr>
               <tr><td>Epäsymmetria (U_skew)</td><td id="u-skew-value">{{ device.u_skew }}</td></tr>
               <tr><td>Pahin signaalihäviö (U_low)</td><td id="u-low-value">{{ device.u_low }}</td></tr>
-              {% comment %} <tr><td>Instanssi</td><td>{{ device.instance }}</td></tr> {% endcomment %}
               <tr><td>Instanssi</td><td id="instance-value">{{ device.instance }}</td></tr>
             </tbody>
           </table>
@@ -148,8 +159,8 @@
       </div>
 
       <!-- TABLE: DICOM INFO -->
-      <div class="dicom-section" style="margin-top: 1rem;">
-        <h3 style="margin-bottom: 1rem;">📄 DICOM-tiedot</h3>
+      <div class="dicom-section hidden" style="margin-top: 1rem;">
+        <h4 style="margin-bottom: 1rem;">📄 DICOM-tiedot</h4>
         <div class="table-responsive">
           <table class="table table-striped">
             <thead>
@@ -172,8 +183,8 @@
 
 
       <!-- UID-INFO -->
-      <div class="ui-section" style="margin-top: 1rem;">
-        <h3 style="margin-bottom: 1rem;">📄 UID-tiedot</h3>
+      <div class="ui-section hidden" style="margin-top: 1rem;">
+        <h4 style="margin-bottom: 1rem;">📄 UID-tiedot</h4>
         <div class="table-responsive">
           <table class="table table-striped">
             <thead>
@@ -183,11 +194,8 @@
               </tr>
             </thead>
             <tbody>
-              {% comment %} <tr><td>Series UID</td><td>{{ device.seriesinstanceuid }}</td></tr>
-              <tr><td>Study instance UID</td><td>{{ device.instance }}</td></tr> {% endcomment %}
               <tr><td>Study Instance UID</td><td>{{ device.instance }}</td></tr>
               <tr><td>SOP Class UID</td><td>{{ device.sopclassuid }}</td></tr>
-              {% comment %} <tr><td>SOP Instance UID</td><td>{{ device.sopinstanceuid }}</td></tr> {% endcomment %}
             </tbody>
           </table>
         </div>
@@ -195,16 +203,40 @@
       </div>
 
 
-      <div id="ai-chat-box" style="margin-top: 2rem;">
+      {% comment %} <div id="ai-chat-box" style="margin-top: 2rem;">
           <h3>Kysy mittaustuloksista tekoälyltä</h3>
           <form id="chat-form">
             <textarea id="question" rows="3" placeholder="Kirjoita kysymyksesi..." style="width:100%;"></textarea>
             <button type="submit" style="margin-top: 0.5rem;">Lähetä</button>
           </form>
           <div id="answer-box"></div>
-        </div>
+      </div> {% endcomment %}
       </main>
       </div>
+
+    <!-- Modaali -->
+    <div id="dicom-modal" class="modal">
+      <div class="modal-content">
+        <span class="close" onclick="closeDicomModal()">&times;</span>
+        <h2>DICOM-metatiedot</h2>
+        <table id="dicom-table" class="dicom-table">
+          <thead>
+            <tr>
+              <th>Attribuutti</th>
+              <th>Arvo</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+
+    <span class="close" onclick="closeDicomModal()">&times;</span>
+
+
+
+      <div style="height: 5px;"></div>
 
       <script>
       window.horizProfile = {{ horiz_prof|default:"[]"|safe }};
