@@ -10,9 +10,13 @@
   <!-- Custom CSS -->
   <link href="{% static 'css/stylesDeviceDetails.css' %}" rel="stylesheet"> <!-- Viittaus ulkoiseen CSS-tiedostoon -->
 
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Chart.js + plugins-->
+  {% comment %} <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> {% endcomment %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@1.0.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.2.1"></script>
+  {% comment %} <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@1.4.0/dist/chartjs-plugin-annotation.min.js"></script> {% endcomment %}
+
 
   <!-- Scripts -->
   <script src="{% static 'js/scriptsDeviceDetails2.js' %}"></script>
@@ -66,7 +70,7 @@
         </div>
 
         <div id="ai-chat-box" style="margin-top: 2rem;">
-          <h4>Kysy mittaustuloksista tekoälyltä</h4>
+          <h4>Kysy tekoälyltä</h4>
           <form id="chat-form">
             <textarea id="question" rows="3" placeholder="Kirjoita kysymyksesi..." style="width:100%;"></textarea>
           </form>
@@ -87,27 +91,32 @@
       <div id="charts-image-wrapper">
       <div id="image-profile-wrapper">
         <div id="vertical-profile-container">
-          <canvas id="vertical-profile" width="50" height="500"></canvas>
+          <canvas id="vertical-profile" width="70" height="500"></canvas>
         </div>
         <div id="image-and-horizontal-profile">
           {% comment %} <img id="orthanc-image" src="data:image/png;base64,{{ image }}" width="500" height="500" alt="Device Image"> {% endcomment %}
           {% comment %} <img id="orthanc-image" alt="Device Image" /> {% endcomment %}
           <img id="orthanc-image" width="500" height="500" alt="Device Image" />
-          <canvas id="horizontal-profile" width="500" height="50"></canvas>
+          <canvas id="horizontal-profile" width="500" height="70"></canvas>
         </div>
       </div>
       <div id="charts-container">
         <div class="chart-wrapper">
-          <canvas id="chart1" width="400" height="150"></canvas>
+          <canvas id="chart1" width="300" height="80"></canvas>
         </div>
         <div class="chart-wrapper">
-          <canvas id="chart2" width="400" height="150"></canvas>
+          <canvas id="chart2" width="300" height="80"></canvas>
         </div>
         <div class="chart-wrapper">
-          <canvas id="chart3" width="400" height="150"></canvas>
+          <canvas id="chart3" width="300" height="80"></canvas>
         </div>
+
+        <!-- Skrollauspalkki -->
+        <input type="range" id="scrollbar" min="0" max="0" value="0" step="1">
       </div>
       </div>
+
+
 
       <!-- TABLE: DEVICE BASIC INFO -->
       <div class="table-wrapper hidden">

@@ -11,7 +11,7 @@ import logging
 
 
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import JsonResponse, Http404
+from django.http import JsonResponse, Http404, HttpResponseBadRequest
 from django.views.decorators.http import require_POST
 from django.views.decorators.http import require_GET
 from django.views.decorators.csrf import csrf_exempt
@@ -26,6 +26,12 @@ from first_app.utils import modifyUS
 from pydicom import dcmread
 
 
+
+
+SLACK_WEBHOOK = (
+    "https://hooks.slack.com/services/"
+    "***REDACTED***"
+)
 
 orthanc_url = 'http://localhost:8042'
 orthanc_username = 'admin'  # Korvaa oikealla käyttäjätunnuksella
@@ -190,6 +196,35 @@ def dicom_info_api(request, instance_id):
 
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    
+
+
+@csrf_exempt                # frontista ei tarvitse CSRF-tokenia
+@require_POST
+def report_issue(request):
+    try:
+        data = json.loads(request.body)
+        msg  = data.get("text", "").strip()
+        if not msg:
+            return HttpResponseBadRequest("Empty message")
+
+        payload = {"text": f"📩 Uusi viesti verkkosivulta:\n{msg}"}
+        # payload = {
+        #     "text": (
+        #         "📩 *Uusi vikailmoitus*\n"
+        #         f"• _Sivu_: {request.headers.get('Referer')}\n"
+        #         f"• _Käyttäjäagentti_: {request.META.get('HTTP_USER_AGENT')}\n"
+        #         f"• _Viesti_: {msg}"
+        #     )
+        # }
+
+        r = requests.post(SLACK_WEBHOOK, json=payload, timeout=5)
+        r.raise_for_status()
+
+        return JsonResponse({"status": "ok"})
+    except Exception as e:
+        return JsonResponse({"status": "error", "detail": str(e)}, status=500)
+
     
     
  

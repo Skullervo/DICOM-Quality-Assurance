@@ -30,6 +30,7 @@ body {
 }
 
 
+
 /* HTML */
 html, body {
   height: 100%;
@@ -40,9 +41,8 @@ html, body {
 .header {
   z-index: 100000;
   position: relative;
-  top: 10px;     /* siirtää alas */
+  top: -20px;     /* siirtää alas */
   left: 350px;    /* siirtää oikealle */
- /* Varmistaa, että header on päällimmäisenä */
 }
 
 /* .header {
@@ -257,7 +257,7 @@ html, body {
   display: flex;
   gap: 20px;
   align-items: flex-start;
-  margin-left: 280px;
+  margin-left: 260px;
 }
 
 #image-profile-wrapper {
@@ -265,6 +265,8 @@ html, body {
   flex-direction: row;
   align-items: flex-start;
   /* gap: 10px; */
+  position: relative;
+  top: -20px;  /* Liikuttaa ylös 20px verran */
 }
 
 #vertical-profile-container {
@@ -277,7 +279,7 @@ html, body {
   background: black;
   border-radius: 8px;
   margin-right: 20px;
-  border: 0.5px solid #393939;;
+  border: 0.5px solid #393939;
   display: block;
 }
 
@@ -305,7 +307,7 @@ html, body {
 }
 
 
-#charts-container {
+/* #charts-container {
   flex-basis: 50%;
   background-color: black;
   display: flex;
@@ -314,9 +316,33 @@ html, body {
   align-items: center; 
   overflow-x: auto; 
   gap: 20px; 
+} */
+
+#charts-container {
+  width: 800px;                  /* Määritä kiinteä leveys */
+  background-color: black;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start; 
+  align-items: center; 
+  gap: 20px;                     /* väli elementeille */
+  padding: 20px;                /* sisämarginaali */
+  border-radius: 10px;
+  /* border: 1px solid black; */
+  border: 0.5px solid #393939;
+  overflow: hidden;             /* tärkeä: estää ylimääräinen skrollipalkki */
+  margin: 0 auto;               /* keskittää boksin */
+  position: relative;
+  top: -20px;  /* Liikuttaa ylös 20px verran */
+  left: 20px;  /* Siirtää oikealle 20px verran */
+  /* overflow-x: auto; */
+  /* white-space: nowrap;  */
+  /* width: 100%; */
+  /* position: relative; */
 }
 
-#charts-container .chart-wrapper {
+
+/* #charts-container .chart-wrapper {
   padding: 10px;
   display: flex;
   justify-content: center;
@@ -325,7 +351,19 @@ html, body {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); 
   height: 20%;
   border: 0.5px solid #393939;  
+} */
+
+#charts-container .chart-wrapper {
+  padding: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 10px; 
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); 
+  border: 0.5px solid black;  
+  width: 100%;                  /* täyttää koko containerin leveyden */
 }
+
 
 
 #chart1, #chart2, #chart3 {
@@ -350,12 +388,12 @@ html, body {
   position: fixed;         /* irrotetaan normaalista virrasta */
   left: 20px;             /* säädä vasemman reunan etäisyyttä sivupaneelin mukaan */
   width: 200px;            /* laatikon leveys */
-  background: #1e1e1e;
+  background: rgba(19, 19, 19);
   padding: 1rem;
   border-radius: 8px;
   box-shadow: 0 0 8px rgba(0,0,0,0.5);
   z-index: 9999;           /* menee kaiken muun päälle */
-  border: 1px solid #333;
+  border: .5px solid #393939;
   color: white;
   font-size: 0.9rem;
 }
@@ -383,9 +421,9 @@ html, body {
 
 /* Tekstialue kysymystä varten */
 #question {
-  background-color: #2c2c2c;
+  background-color: #000000;
   color: #fff;
-  border: 1px solid #444;
+  border: 1px solid #393939;
   border-radius: 4px;
   padding: 0.5rem;
   width: 100%;
@@ -397,7 +435,7 @@ html, body {
 
 
 /* AI-vastauslaatikko */
-#answer-box {
+/* #answer-box {
   margin-top: 1rem;
   background-color: #2c2c2c;
   padding: 1rem;
@@ -407,6 +445,20 @@ html, body {
   overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-word;
+  transition: max-height 0.3s ease;
+} */
+
+#answer-box {
+  margin-top: 1rem;
+  background-color: #000000;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 0.5px solid #393939;
+  max-height: 5vh;             /* Maksimikorkeus */
+  height: 5vh;                 /* Kiinteä korkeus */
+  overflow-y: auto;             /* Vieritys pystysuunnassa */
+  white-space: pre-wrap;        /* Pitkät rivit katkaistaan */
+  word-break: break-word;       /* Pitkät sanat katkaistaan */
   transition: max-height 0.3s ease;
 }
 
@@ -585,9 +637,9 @@ html, body {
   resize: none;              /* estä venytys */
   width: calc(100% - 20px);
   height: 100px; /* korkeus, joka sopii hyvin sivupaneeliin */
-  background: #2c2c2c;
+  background: #000000;
   color: #fff;
-  border: 1px solid #444;
+  border: .5px solid #393939;
   border-radius: 6px;
   padding: 6px 8px;
   font-size: .9rem;
@@ -624,5 +676,31 @@ html, body {
 #mini-chat-send:hover {
   background: #0d6efd;
 }
+
+
+/* #scrollbar {
+  width: 80%;
+  max-width: 800px;  
+  margin: 20px auto 0 auto; 
+  display: block;
+} */
+
+
+#scrollbar {
+  width: 100%;
+  display: block;
+}
+
+/* #scrollbar {
+  width: 100%;
+  margin-top: 10px;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+} */
+
+
+
+
 
 

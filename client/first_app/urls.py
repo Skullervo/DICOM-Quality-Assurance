@@ -31,6 +31,8 @@ urlpatterns = [
     path('api/ultrasound/<str:instance_value>/', views.get_ultrasound_by_instance),
     
     path("api/dicom_info/<str:instance_id>/", views.dicom_info_api, name="dicom_info_api"),
+    path("api/report-issue/", views.report_issue, name="report_issue"),
+
 ]   
 
 
