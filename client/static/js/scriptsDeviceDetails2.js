@@ -1,12 +1,3 @@
-// document.addEventListener('DOMContentLoaded', function() {
-//   let offsetSDepth = 0;
-//   let offsetUCov = 0;
-//   let offsetUSkew = 0;
-//   const limit = 10;
-//   let isDragging = false;
-//   let startX = 0;
-//   let scrollSpeed = 0.2; // Skrollauksen herkkyys (säädä tätä)
-
 document.addEventListener('DOMContentLoaded', function() {
   // Muuttujat skrollaukseen
   let offsetSDepth = 0;
@@ -18,6 +9,8 @@ document.addEventListener('DOMContentLoaded', function() {
   let scrollSpeed = 0.2;
   let chart1, chart2, chart3;
   let data1, data2, data3;
+  let loadedCount = 0;
+  let selectedInstance = null;
 
 
   // Kaaviot
@@ -48,6 +41,15 @@ document.addEventListener('DOMContentLoaded', function() {
     };
   }
 
+  
+
+  function tryUpdateScrollbarMax() {
+    loadedCount++;
+    if (loadedCount === 3) {
+      updateScrollbarMax();
+    }
+  }
+
   function updateScrollbarMax() {
   if (data1 && data2 && data3) {
     const maxOffset = Math.min(data1.length, data2.length, data3.length) - limit;
@@ -55,29 +57,6 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 }
 
-
-
-//   function buildDashedLine(yValue, color, label) {
-//   return {
-//     type: 'line',
-//     yMin: yValue,
-//     yMax: yValue,
-//     borderColor: color,
-//     borderWidth: 2,
-//     borderDash: [6, 6], // ⬅️ katkoviiva: 6px viiva, 6px väli
-//     label: {
-//       display: true,
-//       content: label,
-//       color: color,
-//       backgroundColor: 'rgba(0,0,0,0.7)',
-//       position: 'end',
-//       font: {
-//         style: 'italic',
-//         size: 10
-//       }
-//     }
-//   };
-// }
 
 
 function buildDashedLine(yValue, colorRGBA, label) {
@@ -172,36 +151,36 @@ function buildDashedLine(yValue, colorRGBA, label) {
 }
 
   // Funktio käsittelee pisteen valinnan ja vaihtaa sen värin
+  // function highlightSelectedPoint(chart, index) {
+  //   const dataset = chart.data.datasets[0];
+  //   const pointColors = dataset.pointBackgroundColor;
+  //   if (!Array.isArray(pointColors)) {
+  //     dataset.pointBackgroundColor = Array(dataset.data.length).fill('rgba(0, 0, 0, 0.1)');
+  //   }
+
+  //   // Nollataan kaikki värit
+  //   dataset.pointBackgroundColor = dataset.pointBackgroundColor.map(() => 'rgba(0, 0, 0, 0.1)');
+
+  //   // Vaihdetaan valitun pisteen väri
+  //   dataset.pointBackgroundColor[index] = 'rgba(255, 0, 0, 1)'; // Punainen valitulle pisteelle
+  //   chart.update();
+  // }
+
   function highlightSelectedPoint(chart, index) {
-    const dataset = chart.data.datasets[0];
-    const pointColors = dataset.pointBackgroundColor;
-    if (!Array.isArray(pointColors)) {
-      dataset.pointBackgroundColor = Array(dataset.data.length).fill('rgba(0, 0, 0, 0.1)');
-    }
-
-    // Nollataan kaikki värit
-    dataset.pointBackgroundColor = dataset.pointBackgroundColor.map(() => 'rgba(0, 0, 0, 0.1)');
-
-    // Vaihdetaan valitun pisteen väri
-    dataset.pointBackgroundColor[index] = 'rgba(255, 0, 0, 1)'; // Punainen valitulle pisteelle
-    chart.update();
+  const dataset = chart.data.datasets[0];
+  if (!Array.isArray(dataset.pointBackgroundColor)) {
+    dataset.pointBackgroundColor = Array(dataset.data.length).fill('rgba(0, 0, 0, 0.1)');
   }
+  // Nollaa kaikki värit
+  dataset.pointBackgroundColor = dataset.pointBackgroundColor.map(() => 'rgba(0, 0, 0, 0.1)');
+  // Jos index on kelvollinen, korosta se
+  if (index >= 0 && index < dataset.pointBackgroundColor.length) {
+    dataset.pointBackgroundColor[index] = 'rgba(255, 0, 0, 1)';
+  }
+  chart.update();
+}
 
-  // Ota stationname suoraan HTML:stä
-  // const stationname = document.getElementById('device-name').innerText;
-  /* ---- S_depth-kuvaaja ---- */
-  // ---- S_depth-värivyöhykkeet ----
-  // const GOOD   = buildBand(2, 3,  'rgba(  0,200,  0,0.1)', 'good');
-  // const WARN_1 = buildBand(1, 2,  'rgba(200,200,  0,0.1)', 'warn1');
-  // const WARN_2 = buildBand(3, 4,  'rgba(200,200,  0,0.1)', 'warn2');
-  // const BAD_LO = buildBand(0, 1,  'rgba(200,  0,  0,0.1)', 'badLo');
-  // const BAD_HI = buildBand(4, 999,'rgba(200,  0,  0,0.1)', 'badHi'); // 999 ≈ ∞
-  // const GOOD_MIN = buildDashedLine(2, 'green', 'Hyvä min');
-  // const GOOD_MAX = buildDashedLine(3, 'green', 'Hyvä max');
-  // const WARN_1   = buildDashedLine(1, 'yellow', 'Varoitus min');
-  // const WARN_2   = buildDashedLine(4, 'yellow', 'Varoitus max');
-  // const BAD_LO   = buildDashedLine(0, 'red', 'Huono min');
-  // const BAD_HI   = buildDashedLine(5, 'red', 'Huono max');
+
   const GOOD_MIN = buildDashedLine(2, 'rgba(0,255,0,0.9)');
   const GOOD_MAX = buildDashedLine(3, 'rgba(0,255,0,0.9)');
   const WARN_1   = buildDashedLine(1, 'rgba(255,255,0,0.9)');
@@ -278,65 +257,30 @@ fetch(`/first_app/api/s_depth/${stationname}/`)
       if (activePoints.length > 0) {
         const clickedIndex = activePoints[0].index + offsetSDepth;
         const instanceValue = data[clickedIndex].instance;
+        selectedInstance = instanceValue; // <-- TÄRKEÄÄ
         updateTableByInstance(instanceValue);
         highlightSelectedPoint(chart1, activePoints[0].index);
       }
     };
 
-    updateScrollbarMax();  // Päivitä skrollauspalkin maksimiarvo
+    // updateScrollbarMax();  // Päivitä skrollauspalkin maksimiarvo
+    // ...chart1:n luonnin jälkeen...
+
+    if (data1 && data1.length > 0) {
+      // Valitse ensimmäinen mittauspiste
+      const firstInstance = data1[0].instance;
+      updateTableByInstance(firstInstance); // Päivitä taulukko ja kuva
+      highlightSelectedPoint(chart1, 0);    // Korosta ensimmäinen piste
+    }
+
+    tryUpdateScrollbarMax();
+
   })
   .catch(error => {
     console.error('There has been a problem with your fetch operation for s_depth:', error);
   });
 
 
-  // Sama logiikka u_coville
-  // fetch(`/first_app/api/u_cov/${stationname}/`)
-  //   .then(response => response.json())
-  //   .then(data => {
-  //     const ctx2 = document.getElementById('chart2').getContext('2d');
-  //     const chart2 = new Chart(ctx2, {
-  //       type: 'line',
-  //       data: {
-  //         labels: limitData(data.map(item => item.seriesdate), offsetUCov, limit),
-  //         datasets: [{
-  //           label: 'Tasaisuus [%]',
-  //           data: limitData(data.map(item => item.u_cov), offsetUCov, limit),
-  //           fill: false,
-  //           borderColor: 'rgb(255, 99, 132)',
-  //           borderWidth: 1,
-  //           tension: 0.1,
-  //           pointBackgroundColor: Array(limit).fill('rgba(0, 0, 0, 0.1)') // Oletusväri
-  //         }]
-  //       },
-  //       options: {
-  //         scales: {
-  //           x: {
-  //             ticks: {
-  //               color: '#f8f9fa' // Vaalea väri X-akselin teksteille
-  //             },
-  //             grid: {
-  //               color: '#6c757d' // Grid-linjat vaaleaksi
-  //             }
-  //           },
-  //           y: {
-  //             ticks: {
-  //               color: '#f8f9fa' // Vaalea väri Y-akselin teksteille
-  //             },
-  //             grid: {
-  //               color: '#6c757d' // Grid-linjat vaaleaksi
-  //             }
-  //           }
-  //         },
-  //         plugins: {
-  //           legend: {
-  //             labels: {
-  //               color: '#f8f9fa' // Vaalea väri legendalle
-  //             }
-  //           }
-  //         }
-  //       }
-  //     });
     fetch(`/first_app/api/u_cov/${stationname}/`)
     .then(response => response.json())
     .then(data => {
@@ -380,22 +324,6 @@ fetch(`/first_app/api/s_depth/${stationname}/`)
               grid: { color: '#6c757d' }
             }
           },
-          // plugins: {
-          //   legend: {
-          //     labels: {
-          //       color: '#f8f9fa'
-          //     }
-          //   },
-          //   annotation: {
-          //     annotations: {
-          //       GOOD,
-          //       WARN_1,
-          //       WARN_2,
-          //       BAD_LO,
-          //       BAD_HI
-          //     }
-          //   }
-          // }
           plugins: {
             annotation: {
               annotations: {
@@ -420,62 +348,24 @@ fetch(`/first_app/api/s_depth/${stationname}/`)
         if (activePoints.length > 0) {
           const clickedIndex = activePoints[0].index + offsetSDepth;
           const instanceValue = data[clickedIndex].instance;
+          selectedInstance = instanceValue; // <-- TÄRKEÄÄ
           updateTableByInstance(instanceValue);
           highlightSelectedPoint(chart2, activePoints[0].index);
         }
       };
+
+      if (data2 && data2.length > 0) {
+      // Valitse ensimmäinen mittauspiste
+      const firstInstance = data2[0].instance;
+      updateTableByInstance(firstInstance); // Päivitä taulukko ja kuva
+      highlightSelectedPoint(chart2, 0);    // Korosta ensimmäinen piste
+    }
+
+      tryUpdateScrollbarMax();
     })
     .catch(error => {
       console.error('There has been a problem with your fetch operation for u_cov:', error);
     });
-
-  // Sama logiikka u_skewille
-  // fetch(`/first_app/api/u_skew/${stationname}/`)
-  //   .then(response => response.json())
-  //   .then(data => {
-  //     const ctx3 = document.getElementById('chart3').getContext('2d');
-  //     const chart3 = new Chart(ctx3, {
-  //       type: 'line',
-  //       data: {
-  //         labels: limitData(data.map(item => item.seriesdate), offsetUSkew, limit),
-  //         datasets: [{
-  //           label: 'Epäsymmetria',
-  //           data: limitData(data.map(item => item.u_skew), offsetUSkew, limit),
-  //           fill: false,
-  //           borderColor: 'rgb(255, 255, 50)',
-  //           borderWidth: 1,
-  //           tension: 0.1,
-  //           pointBackgroundColor: Array(limit).fill('rgba(0, 0, 0, 0.1)') // Oletusväri
-  //         }]
-  //       },
-  //       options: {
-  //         scales: {
-  //           x: {
-  //             ticks: {
-  //               color: '#ffffff' // Vaalea väri X-akselin teksteille
-  //             },
-  //             grid: {
-  //               color: '#ffffff' // Grid-linjat vaaleaksi
-  //             }
-  //           },
-  //           y: {
-  //             ticks: {
-  //               color: '#f8f9fa' // Vaalea väri Y-akselin teksteille
-  //             },
-  //             grid: {
-  //               color: '#6c757d' // Grid-linjat vaaleaksi
-  //             }
-  //           }
-  //         },
-  //         plugins: {
-  //           legend: {
-  //             labels: {
-  //               color: '#f8f9fa' // Vaalea väri legendalle
-  //             }
-  //           }
-  //         }
-  //       }
-  //     });
 
     fetch(`/first_app/api/u_skew/${stationname}/`)
     .then(response => response.json())
@@ -514,28 +404,12 @@ fetch(`/first_app/api/s_depth/${stationname}/`)
               grid: { color: '#6c757d' }
             },
             y: {
-              min: -1,        // Ala-arvo y-akselille
+              min: -2,        // Ala-arvo y-akselille
               max: 1,        // Yläarvo (voit säätää esim. 4, jos tiedät datan raja-arvot)
               ticks: { color: '#f8f9fa' },
               grid: { color: '#6c757d' }
             }
           },
-          // plugins: {
-          //   legend: {
-          //     labels: {
-          //       color: '#f8f9fa'
-          //     }
-          //   },
-          //   annotation: {
-          //     annotations: {
-          //       GOOD,
-          //       WARN_1,
-          //       WARN_2,
-          //       BAD_LO,
-          //       BAD_HI
-          //     }
-          //   }
-          // }
           plugins: {
             annotation: {
               annotations: {
@@ -558,10 +432,20 @@ fetch(`/first_app/api/s_depth/${stationname}/`)
         if (activePoints.length > 0) {
           const clickedIndex = activePoints[0].index + offsetSDepth;
           const instanceValue = data[clickedIndex].instance;
+          selectedInstance = instanceValue; // <-- TÄRKEÄÄ
           updateTableByInstance(instanceValue);
           highlightSelectedPoint(chart3, activePoints[0].index);
         }
       };
+
+      if (data3 && data3.length > 0) {
+      // Valitse ensimmäinen mittauspiste
+      const firstInstance = data3[0].instance;
+      updateTableByInstance(firstInstance); // Päivitä taulukko ja kuva
+      highlightSelectedPoint(chart3, 0);    // Korosta ensimmäinen piste
+    }
+
+      tryUpdateScrollbarMax();
     })
     .catch(error => {
       console.error('There has been a problem with your fetch operation for u_skew:', error);
@@ -814,54 +698,6 @@ function drawProfiles(horizProfile, vertProfile, uLow = [], sDepth = null, uCov 
 }
 
 
-// document.addEventListener("DOMContentLoaded", function () {
-//   const instanceValue = document.getElementById('instance-value').textContent.trim();
-//   if (instanceValue) {
-//     loadOrthancImage(instanceValue);
-//   } else {
-//     console.error("Instance value not found.");
-//   }
-// });
-
-
-// document.addEventListener('keydown', function(event) {
-//   if (event.altKey && event.key === 'd') {
-//     event.preventDefault();
-//     openDicomModal();
-//   }
-// });
-
-// function openDicomModal() {
-//   const modal = document.getElementById('dicom-modal');
-//   modal.style.display = 'block';
-
-//   const instance = document.getElementById('instance-value').textContent.trim();
-//   fetch(`/first_app/api/dicom_metadata/${instance}/`)
-//     .then(response => response.json())
-//     .then(data => {
-//       document.getElementById('dicom-info-box').textContent = JSON.stringify(data, null, 2);
-//     })
-//     .catch(error => {
-//       document.getElementById('dicom-info-box').textContent = 'Virhe: ' + error;
-//     });
-// }
-
-// document.addEventListener('keydown', function(event) {
-//   if (event.key === 'Escape') {
-//     closeDicomModal();
-//   }
-// });
-
-// window.onclick = function(event) {
-//   const modal = document.getElementById('dicom-modal');
-//   if (event.target === modal) {
-//     closeDicomModal();
-//   }
-// };
-
-// function closeDicomModal() {
-//   document.getElementById('dicom-modal').style.display = 'none';
-// }
 
 let isDicomOpen = false;
 
@@ -960,11 +796,6 @@ document
   
 const scrollbar = document.getElementById('scrollbar');
 
-// ⚠️ Oletetaan että nämä muuttujat on määritelty aiemmin globaalisti:
-// let chart1, chart2, chart3;
-// let data1, data2, data3;
-// let offsetSDepth = 0;
-// const limit = 10;
 
 function updateScrollbarMax() {
   if (data1 && data2 && data3) {
@@ -973,37 +804,71 @@ function updateScrollbarMax() {
   }
 }
 
+function updateAllHighlights() {
+  // chart1
+  let idx1 = -1;
+  if (selectedInstance && data1) {
+    for (let i = offsetSDepth; i < offsetSDepth + limit && i < data1.length; i++) {
+      if (data1[i].instance === selectedInstance) {
+        idx1 = i - offsetSDepth;
+        break;
+      }
+    }
+  }
+  highlightSelectedPoint(chart1, idx1);
+
+  // chart2
+  let idx2 = -1;
+  if (selectedInstance && data2) {
+    for (let i = offsetSDepth; i < offsetSDepth + limit && i < data2.length; i++) {
+      if (data2[i].instance === selectedInstance) {
+        idx2 = i - offsetSDepth;
+        break;
+      }
+    }
+  }
+  highlightSelectedPoint(chart2, idx2);
+
+  // chart3
+  let idx3 = -1;
+  if (selectedInstance && data3) {
+    for (let i = offsetSDepth; i < offsetSDepth + limit && i < data3.length; i++) {
+      if (data3[i].instance === selectedInstance) {
+        idx3 = i - offsetSDepth;
+        break;
+      }
+    }
+  }
+  highlightSelectedPoint(chart3, idx3);
+}
+
 // Kun käyttäjä säätää skrollauspalkkia, päivitä kaikkien kuvaajien offset
+// scrollbar.addEventListener('input', () => {
+//   offsetSDepth = parseInt(scrollbar.value);
+//   updateChart(chart1, data1, offsetSDepth, limit, 's_depth');
+//   updateChart(chart2, data2, offsetSDepth, limit, 'u_cov');
+//   updateChart(chart3, data3, offsetSDepth, limit, 'u_skew');
+// });
+
+// scrollbar.addEventListener('input', () => {
+//   offsetSDepth = parseInt(scrollbar.value);
+//   updateChart(chart1, data1, offsetSDepth, limit, 's_depth');
+//   updateChart(chart2, data2, offsetSDepth, limit, 'u_cov');
+//   updateChart(chart3, data3, offsetSDepth, limit, 'u_skew');
+
+//   // Nollaa valinnat kaikista kuvaajista
+//   highlightSelectedPoint(chart1, -1);
+//   highlightSelectedPoint(chart2, -1);
+//   highlightSelectedPoint(chart3, -1);
+// });
+
 scrollbar.addEventListener('input', () => {
   offsetSDepth = parseInt(scrollbar.value);
   updateChart(chart1, data1, offsetSDepth, limit, 's_depth');
   updateChart(chart2, data2, offsetSDepth, limit, 'u_cov');
   updateChart(chart3, data3, offsetSDepth, limit, 'u_skew');
+  updateAllHighlights();
 });
-
-// Ei tarvita containerin scrollLeft-seurantaa → voit poistaa tämän:
-/// container.addEventListener('scroll', () => {
-///   scrollbar.value = container.scrollLeft;
-/// });
-
-
-
-/** Rekisteröi plug-in kerran */
-// Chart.register(window['chartjs-plugin-annotation']);
-
-// function buildBand(yMin, yMax, color, id) {
-//   return {
-//     type: 'box',
-//     yMin, yMax,
-//     xMin: -Infinity,         // koko X-akselin levyinen
-//     xMax:  Infinity,
-//     backgroundColor: color,
-//     borderWidth: 0,
-//     id
-//   };
-// }
-
-
 
 
 
