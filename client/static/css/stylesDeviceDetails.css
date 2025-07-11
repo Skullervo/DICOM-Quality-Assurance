@@ -48,7 +48,7 @@ body {
 
 
 /* NAVBAR */
-.navbar {
+/* .navbar {
   background-color: rgba(19, 19, 19);
   padding: 15px 30px;
   position: fixed;
@@ -57,8 +57,9 @@ body {
   display: flex;
   justify-content: center; 
   align-items: center;
-  z-index: 1000;  /* Varmistaa että navbar tulee päälle */
+  z-index: 1000;  
 }
+
 
 .navbar h3 {
   margin: 0;
@@ -85,6 +86,119 @@ body {
   background-color: #343a40;
   transform: scale(1.1);
 }
+
+.navbar .nav-right {
+  color: white;
+  font-size: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px; 
+  text-align: right;
+  left: 600px;
+} */
+
+/* NAVBAR */
+.navbar {
+  background-color: rgba(19, 19, 19);
+  padding: 15px 30px;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-between; /* Jakaa tilan oikein */
+  align-items: center;
+  z-index: 1000;
+  box-sizing: border-box; /* Sisältää paddingin leveydessä */
+}
+
+.navbar h3 {
+  margin: 0;
+  color: white;
+  font-size: 1.5rem; 
+}
+
+.navbar .nav-links {
+  display: flex;
+  gap: 20px;
+}
+
+.navbar .nav-link {
+  color: white;
+  text-decoration: none;
+  padding: 10px 15px;
+  border-radius: 5px;
+  transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+.nav-link:hover {
+  background-color: #343a40;
+  transform: scale(1.1);
+}
+
+.navbar .nav-right {
+  color: white;
+  font-size: 1rem;
+  white-space: normal; /* Salli rivinvaihto */
+  overflow: hidden; /* Estä ulos työntyminen */
+  text-overflow: ellipsis; /* Näytä "..." jos teksti on liian pitkä */
+  max-width: 300px; /* Voit kasvattaa tätä arvoa tarvittaessa */
+  text-align: right;
+  flex-shrink: 1; /* Salli elementin kutistuminen tarvittaessa */
+}
+
+
+/* NAVBAR */
+/* .navbar {
+  background-color: rgba(19, 19, 19);
+  padding: 15px 30px;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;  
+  align-items: center;
+  z-index: 1000;
+}
+
+
+.navbar-brand {
+  color: white;
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+.navbar .nav-links {
+  display: flex;
+  gap: 20px;
+}
+
+.navbar .nav-link {
+  color: white;
+  text-decoration: none;
+  padding: 10px 15px;
+  border-radius: 5px;
+  transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+.nav-link:hover {
+  background-color: #343a40;
+  transform: scale(1.1);
+}
+
+
+
+.navbar .nav-right {
+  color: white;
+  font-size: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px; 
+  text-align: right;
+  right: 30px;
+} */
+
 
 
 /* CONTAINER */
@@ -243,7 +357,7 @@ body {
   align-items: flex-start;
   /* gap: 10px; */
   position: relative;
-  top: -20px;  /* Liikuttaa ylös 20px verran */
+  top: 60px;  /* Liikuttaa ylös 20px verran */
 }
 
 #vertical-profile-container {
@@ -287,6 +401,7 @@ body {
 #charts-container {
   width: 100%;                  /* Määritä kiinteä leveys */
   max-width: 800px;
+  /* height: 80%; */
   background-color: black;
   display: flex;
   flex-direction: column;
@@ -300,7 +415,7 @@ body {
   overflow: hidden;             /* tärkeä: estää ylimääräinen skrollipalkki */
   margin: 0 auto;               /* keskittää boksin */
   position: relative;
-  top: -20px;  /* Liikuttaa ylös 20px verran */
+  top: 60px;  /* Liikuttaa ylös 20px verran */
   left: 20px;  
 }
 
@@ -353,11 +468,11 @@ body {
 
 /* Aseta eri sijainti näytölle (etteivät ole täysin päällekkäin) */
 .floating-box {
-  bottom: 80px;
+  bottom: 40px;
 }
 
 #ai-chat-box {
-  bottom: 360px;  /* nosta ylemmäksi ettei peitä floating-boxia */
+  bottom: 350px;  /* nosta ylemmäksi ettei peitä floating-boxia */
 }
 
 /* Tekstialue kysymystä varten */
@@ -372,6 +487,7 @@ body {
   font-size: .9rem;
   box-sizing: border-box;
   resize: none;
+  height: 100px;
 }
 
 
@@ -382,8 +498,8 @@ body {
   padding: 1rem;
   border-radius: 8px;
   border: 0.5px solid #393939;
-  max-height: 5vh;             /* Maksimikorkeus */
-  height: 5vh;                 /* Kiinteä korkeus */
+  max-height: 20vh;             /* Maksimikorkeus */
+  height: 19vh;                 /* Kiinteä korkeus */
   overflow-y: auto;             /* Vieritys pystysuunnassa */
   white-space: pre-wrap;        /* Pitkät rivit katkaistaan */
   word-break: break-word;       /* Pitkät sanat katkaistaan */

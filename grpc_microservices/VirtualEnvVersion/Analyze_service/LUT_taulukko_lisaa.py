@@ -43,47 +43,89 @@ def checkIfInLut(excel_file, dict_to_read):
             
     return isInLut
 
-def AddToLUT(dicomPath):
-    print("AddToLUT entered")
-    #Parser:    
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-                                     description='Lisataan probe-LUT - taulukkoon antureita')
-    #parser.add_argument('--data_path', type = dir_path, default = 'C:/ultra/Codes/Codes/QA_analysis/US_samsun/dcms2',
-                        #help='hakemisto joka sisaltaa listattavat dicom tiedostot') 
-    #parser.add_argument('--excel_writer_path', type = str, default = 'C:/ultra/Codes/Codes/QA_analysis/LUT.xls',
-                        #help='Hakemistopolku excel tiedostoon johon tiedot lisataan automaattisesti')
+# def AddToLUT(dicomPath):
+#     print("AddToLUT entered")
+#     #Parser:    
+#     # parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+#     #                                  description='Lisataan probe-LUT - taulukkoon antureita')
+#     # #parser.add_argument('--data_path', type = dir_path, default = 'C:/ultra/Codes/Codes/QA_analysis/US_samsun/dcms2',
+#     #                     #help='hakemisto joka sisaltaa listattavat dicom tiedostot') 
+#     # #parser.add_argument('--excel_writer_path', type = str, default = 'C:/ultra/Codes/Codes/QA_analysis/LUT.xls',
+#     #                     #help='Hakemistopolku excel tiedostoon johon tiedot lisataan automaattisesti')
                         
-    #parser.add_argument('--data_path', type = dir_path, default = 'C:/ImageQualityAnalysisProjects/ultra/QA_analysis/data/dcm_files',
-                        #help='hakemisto joka sisaltaa listattavat dicom tiedostot')
-    parser.add_argument('--excel_writer_path', type = str, default = 'C:/Users/sylisiur/Desktop/LV_new/Automated IQ Tool/QA_analysis/probe-LUT.xls',
-                        help='Hakemistopolku excel tiedostoon johon tiedot lisataan automaattisesti') 
+#     # #parser.add_argument('--data_path', type = dir_path, default = 'C:/ImageQualityAnalysisProjects/ultra/QA_analysis/data/dcm_files',
+#     #                     #help='hakemisto joka sisaltaa listattavat dicom tiedostot')
+#     # parser.add_argument('--excel_writer_path', type = str, default = 'C:/Users/sylisiur/Desktop/LV_new/Automated IQ Tool/QA_analysis/probe-LUT.xls',
+#     #                     help='Hakemistopolku excel tiedostoon johon tiedot lisataan automaattisesti') 
      
-    args = parser.parse_args()
-    #data_path  = args.data_path
-    excel_writer = args.excel_writer_path
+#     # args = parser.parse_args()
+#     # #data_path  = args.data_path
+#     # excel_writer = args.excel_writer_path
+
+#     excel_writer = os.path.join(os.path.dirname(__file__), 'probe-LUT.xls')
     
-    #filenames = os.listdir(data_path)
-    #import pdb; pdb.set_trace()
+#     #filenames = os.listdir(data_path)
+#     #import pdb; pdb.set_trace()
     
-    #for filename in filenames: #Tama looppi kay dcm tiedostot lapi ja lisaa metatiedot taulukkoon
-        
-    data = pydicom.dcmread(dicomPath)
-    dct_params = extract_parameters(data, get_name = True)
+#     #for filename in filenames: #Tama looppi kay dcm tiedostot lapi ja lisaa metatiedot taulukkoon
+
+#     print("AddToLUT entered")
+
+#     # Tarkista onko syöte valmiiksi ladattu FileDataset-olio
+#     if isinstance(dicom_input, pydicom.dataset.FileDataset):
+#         data = dicom_input
+#     else:
+#         data = pydicom.dcmread(dicom_input)
+
+#     # data = pydicom.dcmread(dicomPath)
+#     dct_params = extract_parameters(data, get_name = True)
                 
-    #Only add the transducer into LUT, if it already isn't there
-    if checkIfInLut(excel_writer, dct_params) == False:
-        df1 = pd.DataFrame(data = dct_params)
-        try: 
+#     #Only add the transducer into LUT, if it already isn't there
+#     if checkIfInLut(excel_writer, dct_params) == False:
+#         df1 = pd.DataFrame(data = dct_params)
+#         try: 
+#             df = pd.read_excel(excel_writer)
+#         except:
+#             df = pd.DataFrame({})
+#         try:
+#             df.drop(['Unnamed: 0'], axis = 1, inplace=True)
+#         except:
+#             None
+        
+#         frames = [df, df1]
+#         df_total = pd.concat(frames)        
+#         df_total.to_excel(excel_writer)
+        
+#     print("Reached end of AddToLUT")
+
+
+def AddToLUT(dicom_input):
+    print("AddToLUT entered")
+
+    # 1. Valitse ladattu objekti tai lue polusta
+    if isinstance(dicom_input, pydicom.dataset.FileDataset):
+        data = dicom_input
+    else:
+        data = pydicom.dcmread(dicom_input)
+
+    # 2. Aseta LUT-polku tähän (voit halutessasi siirtää tämän myös parametriksi)
+    excel_writer = os.path.join(os.path.dirname(__file__), 'probe-LUT.xls')
+
+    # 3. Hae parametrit
+    dct_params = extract_parameters(data, get_name=True)
+
+    # 4. Tarkista onko jo LUTissa
+    if not checkIfInLut(excel_writer, dct_params):
+        df1 = pd.DataFrame(data=dct_params)
+        try:
             df = pd.read_excel(excel_writer)
         except:
             df = pd.DataFrame({})
         try:
-            df.drop(['Unnamed: 0'], axis = 1, inplace=True)
+            df.drop(['Unnamed: 0'], axis=1, inplace=True)
         except:
-            None
-        
-        frames = [df, df1]
-        df_total = pd.concat(frames)        
+            pass
+        df_total = pd.concat([df, df1])
         df_total.to_excel(excel_writer)
-        
+
     print("Reached end of AddToLUT")

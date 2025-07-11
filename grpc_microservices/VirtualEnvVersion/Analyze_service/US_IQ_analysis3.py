@@ -18,6 +18,7 @@ import matplotlib as mpl
 from PIL import Image as im_module
 import PIL
 mpl.rcParams['figure.dpi']= 72
+import logging
 
 #%%
 
@@ -185,13 +186,19 @@ class imageQualityUS:
             filename = f"{id(self)}.png"
         save_path = os.path.join(save_dir, filename)
 
-        # Muunna kuva uint8-muotoon ja tallenna
+        # ✅ Tarkista ennen tallennusta
+        if im_crop is None or not isinstance(im_crop, np.ndarray) or im_crop.size == 0:
+            print(f"⚠️ im_crop is empty or invalid, skipping save for: {filename}")
+            return im_crop
+
+        # 🧮 Muunna kuva uint8-muotoon ja tallenna
         im_to_save = np.uint8(255 * (im_crop - np.min(im_crop)) / (np.ptp(im_crop)))
         img = im_module.fromarray(im_to_save)
         img.save(save_path)
-        print(f"Cropped image saved to: {save_path}")
-        
+        print(f"✅ Cropped image saved to: {save_path}")
+
         return im_crop
+
 
 
     #%%
@@ -796,7 +803,13 @@ class imageQualityUS:
         label = data[0x00081010].value
        
         try:
-            transducer_name = data[0x00186031].value #read in transducer name
+            # transducer_name = data[0x00186031].value #read in transducer name
+            transducer_name = data.get(0x00186031, None)
+            if transducer_name is not None:
+                transducer_name = transducer_name.value
+            else:
+                transducer_name = "Unknown"
+
         except:
             # ----- if the name cannot be found --> then search from the look up table (LUT)  for corresponding transducer. 
             df = pd.read_excel(self.path_LUT_table)
@@ -894,6 +907,13 @@ class imageQualityUS:
             reverb_lines = 4 #number of reverberation lines to be detected is set to 4 for all  linear transducers
             
         
+        # Tarkista että im_crop ei ole tyhjä ennen analyysia
+        if im_crop is None or not isinstance(im_crop, np.ndarray) or im_crop.size == 0:
+            print(f"⚠️ im_crop is empty, skipping US_air_image_analysis for UID: {instance_uid}")
+            logging.warning(f"⚠️ im_crop is empty, skipping analysis for UID: {instance_uid}")
+            return None
+
+
         # --- Analysis ---
         vert_profile, horizon_profile, S_depth, U_cov, U_skew, U_low = self.US_air_image_analysis(im_crop, reverb_lines )
        
