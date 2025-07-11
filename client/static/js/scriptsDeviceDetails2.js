@@ -201,7 +201,7 @@ fetch(`/first_app/api/s_depth/${stationname}/`)
           label: 'Herkkyys [mm]',
           data: limitData(data.map(item => item.s_depth), offsetSDepth, limit),
           fill: false,
-          borderColor: 'rgb(75, 192, 192)',
+          borderColor: 'rgb(2, 13, 163)',
           borderWidth: 1,
           tension: 0.1,
           pointBackgroundColor: Array(limit).fill('rgba(0, 0, 0, 0.1)')
@@ -294,7 +294,7 @@ fetch(`/first_app/api/s_depth/${stationname}/`)
             label: 'Tasaisuus [%]',
             data: limitData(data.map(item => item.u_cov), offsetSDepth, limit),
             fill: false,
-            borderColor: 'rgb(75, 192, 192)',
+            borderColor: 'rgb(2, 13, 163)',
             borderWidth: 1,
             tension: 0.1,
             pointBackgroundColor: Array(limit).fill('rgba(0, 0, 0, 0.1)')
@@ -380,7 +380,7 @@ fetch(`/first_app/api/s_depth/${stationname}/`)
             label: 'Epäsymmetria',
             data: limitData(data.map(item => item.u_skew), offsetSDepth, limit),
             fill: false,
-            borderColor: 'rgb(75, 192, 192)',
+            borderColor: 'rgb(2, 13, 163)',
             borderWidth: 1,
             tension: 0.1,
             pointBackgroundColor: Array(limit).fill('rgba(0, 0, 0, 0.1)')
@@ -656,10 +656,13 @@ function drawProfiles(horizProfile, vertProfile, uLow = [], sDepth = null, uCov 
     annotations: {}
   };
   if (sDepth !== null && !isNaN(sDepth)) {
+    const scaledSDepth = sDepth; // Kerrotaan sDepth kymmenellä
     vertAnnotation.annotations['s_depth_line'] = {
       type: 'line',
-      yMin: sDepth,
-      yMax: sDepth,
+      // yMin: sDepth,
+      // yMax: sDepth,
+      yMin: scaledSDepth,
+      yMax: scaledSDepth,
       borderColor: 'orange',
       borderWidth: 2,
       borderDash: [6, 6],

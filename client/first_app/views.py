@@ -447,7 +447,7 @@ def get_orthanc_image(request, instance_value):
             horiz_prof = us.horiz_prof or []
             vert_prof  = us.vert_prof  or []
             u_low      = us.u_low      or []
-            s_depth    = us.s_depth
+            s_depth    = us.s_depth *100
             u_cov      = us.u_cov
             u_skew     = us.u_skew
         except Ultrasound.DoesNotExist:

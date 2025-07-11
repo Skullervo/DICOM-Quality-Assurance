@@ -34,7 +34,9 @@ SECRET_KEY = 'django-insecure-a+$=05!2k8i3_#i&vh#2y#kw0!r=ptb(*p3+55gvugq(5wv^b1
 DEBUG = True
 
 
-ALLOWED_HOSTS = []
+# ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'host.docker.internal']
+
 
 
 # Application definition
@@ -45,7 +47,7 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'django.contrib.staticfiles',
+    'django.contrib.staticfiles', 
     'first_app'
 ]
 

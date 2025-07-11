@@ -29,8 +29,7 @@
 <body class="bg-dark text-light">
   
   <!-- Header -->
-  <header>
-    <!-- NAVBAR -->
+  <!-- <header>
     <nav class="navbar">
       <h3 class="navbar-brand" href="#">LV-automaatti</h3>
       <div class="nav-links">
@@ -39,9 +38,37 @@
         <a class="nav-link" href="#">Yhteystiedot</a>
         <a class="nav-link" href="/admin/" target="_blank" rel="noopener noreferrer">Tietokanta</a>
         <a class="nav-link" href="http://localhost:8042/app/explorer.html">Kuvat</a>
+
+        <div class="nav-right">
+          <h3>{{ device.institutionname }} \ {{ device.institutionaldepartmentname }} \ {{ device.stationname }}</h3>
+        </div>
+      </div>
+    </nav>
+  </header> -->
+
+  <header>
+    <!-- NAVBAR -->
+    <nav class="navbar">
+      <h3 class="navbar-brand">LV-automaatti</h3>
+  
+      <div class="nav-links">
+        <a class="nav-link" href="#">Aloitus</a>
+        <a class="nav-link" href="#">Tietoa</a>
+        <a class="nav-link" href="#">Yhteystiedot</a>
+        <a class="nav-link" href="/admin/" target="_blank" rel="noopener noreferrer">Tietokanta</a>
+        <a class="nav-link" href="http://localhost:8042/app/explorer.html">Kuvat</a>
+      </div>
+  
+      <div class="nav-right">
+        <a class="device-name" href="#">{{ device.institutionname }} \ {{ device.institutionaldepartmentname }} \ {{ device.stationname }}</a>
+        <!-- <a class="device-name" href="#">{{ device.stationname }}</a> -->
+        <!-- <h5 class="device-name">
+          {{ device.institutionname }} \ {{ device.institutionaldepartmentname }} \ {{ device.stationname }}
+        </h5> -->
       </div>
     </nav>
   </header>
+  
 
   <div class="container">
     <nav id="sidebarMenu" class="sidebar">
@@ -68,32 +95,32 @@
     </nav>
 
     <main class="main-content">
-      <div class="header">
+      <!-- <div class="header">
         <h3>{{ device.institutionname }} \ {{ device.institutionaldepartmentname }} \ {{ device.stationname }}</h3>
-      </div>
+      </div> -->
 
 
       <div id="charts-image-wrapper">
       <div id="image-profile-wrapper">
         <div id="vertical-profile-container">
-          <canvas id="vertical-profile" width="70" height="500"></canvas>
+          <canvas id="vertical-profile" width="70" height="640"></canvas>
         </div>
         <div id="image-and-horizontal-profile">
-          {% comment %} <img id="orthanc-image" src="data:image/png;base64,{{ image }}" width="500" height="500" alt="Device Image"> {% endcomment %}
+          {% comment %} <img id="orthanc-image" src="data:image/png;base64,{{ image }}" width="640" height="640" alt="Device Image"> {% endcomment %}
           {% comment %} <img id="orthanc-image" alt="Device Image" /> {% endcomment %}
-          <img id="orthanc-image" width="500" height="500" alt="Device Image" />
-          <canvas id="horizontal-profile" width="500" height="70"></canvas>
+          <img id="orthanc-image" width="640" height="640" alt="Device Image" />
+          <canvas id="horizontal-profile" width="640" height="70"></canvas>
         </div>
       </div>
       <div id="charts-container">
         <div class="chart-wrapper">
-          <canvas id="chart1" width="300" height="80"></canvas>
+          <canvas id="chart1" width="300" height="70"></canvas>
         </div>
         <div class="chart-wrapper">
-          <canvas id="chart2" width="300" height="80"></canvas>
+          <canvas id="chart2" width="300" height="70"></canvas>
         </div>
         <div class="chart-wrapper">
-          <canvas id="chart3" width="300" height="80"></canvas>
+          <canvas id="chart3" width="300" height="70"></canvas>
         </div>
 
         <!-- Skrollauspalkki -->
@@ -233,8 +260,9 @@
       <div style="height: 5px;"></div>
 
       <script>
-      window.horizProfile = {{ horiz_prof|default:"[]"|safe }};
-      window.vertProfile = {{ vert_prof|default:"[]"|safe }};
+      // window.horizProfile = {{ horiz_prof|default:"[]"|safe }};
+      // window.vertProfile = {{ vert_prof|default:"[]"|safe }};
+      
       console.log("Horisontaalinen profiili:", window.horizProfile);
       console.log("Vertikaalinen profiili:", window.vertProfile);
       </script>

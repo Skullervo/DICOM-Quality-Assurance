@@ -46,7 +46,8 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
-        logging.StreamHandler(sys.stdout)  # Ei FileHandleria nyt
+        logging.StreamHandler(sys.stdout),  # Ei FileHandleria nyt
+        logging.FileHandler("analyze_service.log", encoding="utf-8")
     ]
 )
 
@@ -242,7 +243,22 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
                 # 📊 Analysoidaan kuva
                 image_array = dicom_dataset.pixel_array
                 analysis = imageQualityUS(dicom_dataset, dicom_bytes, image_array, "probe-LUT.xls")
+                # result = analysis.MAIN_US_analysis()
                 result = analysis.MAIN_US_analysis()
+                if result is None:
+                    logging.warning(f"⚠️ MAIN_US_analysis returned None, skipping instance {instance_id}")
+                    continue
+
+                # if result is None:
+                #     logging.warning(f"⚠️ MAIN_US_analysis returned None, skipping instance {instance_id}")
+                #     continue
+
+                # result = {
+                #     key: psycopg2.extras.Json(value) if isinstance(value, list)
+                #     else value for key, value in result.items()
+                # }
+                
+
                 # import matplotlib.pyplot as plt
                 # plt.imshow(result['im'], cmap='gray')
                 # plt.title('DICOM Image')
@@ -280,58 +296,119 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
                 #     [float(val) for val in json_result['U_low']]
                 # ))
                 
-                cur.execute("""
-                    INSERT INTO ultrasound (
-                        contentdate, contenttime, deviceserialnumber, instancenumber, institutionname,
-                        institutionaldepartmentname, manufacturer, manufacturermodelname, modality,
-                        patientid, patientname, sopclassuid, sopinstanceuid, seriesdate,
-                        seriesinstanceuid, seriesnumber, seriestime, stationname, studydate,
-                        studyid, instance, studytime, tranducertype, serie,
-                        S_depth, U_cov, U_skew, U_low, horiz_prof, vert_prof
-                    )
-                    VALUES (%s, %s, %s, %s, %s,
-                            %s, %s, %s, %s, %s,
-                            %s, %s, %s, %s, %s,
-                            %s, %s, %s, %s, %s,
-                            %s, %s, %s, %s, %s,
-                            %s, %s, %s, %s, %s)
-                """, (
-                    metadata["ContentDate"],
-                    metadata["ContentTime"],
-                    metadata["DeviceSerialNumber"],
-                    metadata["InstanceNumber"],
-                    metadata["InstitutionName"],
-                    metadata["InstitutionalDepartmentName"],
-                    metadata["Manufacturer"],
-                    metadata["ManufacturerModelName"],
-                    metadata["Modality"],
-                    metadata["PatientID"],
-                    metadata["PatientName"],
-                    str(metadata["SOPClassUID"]),
-                    str(metadata["SOPInstanceUID"]),
-                    metadata["SeriesDate"],
-                    metadata["SeriesInstanceUID"],
-                    metadata["SeriesNumber"],
-                    metadata["SeriesTime"],
-                    metadata["StationName"],
-                    metadata["StudyDate"],
-                    metadata["StudyID"],
-                    # metadata["StudyInstanceUID"],
-                    instance_id,
-                    metadata["StudyTime"],
-                    str(metadata["TranducerType"]),
-                    series_id,
-                    float(json_result['S_depth']),
-                    float(json_result['U_cov']),
-                    float(json_result['U_skew']),
-                    # [float(val) for val in json_result['U_low']]
-                    psycopg2.extras.Json([float(val) for val in json_result['U_low']]),
-                    psycopg2.extras.Json([float(val) for val in json_result['horiz_profile']]),
-                    psycopg2.extras.Json([float(val) for val in json_result['vert_profiles']])
-                ))
+                logging.info(f"📤 Tallennetaan tulokset tietokantaan instanssille {instance_id}")
+
+                # cur.execute("""
+                #     INSERT INTO ultrasound (
+                #         contentdate, contenttime, deviceserialnumber, instancenumber, institutionname,
+                #         institutionaldepartmentname, manufacturer, manufacturermodelname, modality,
+                #         patientid, patientname, sopclassuid, sopinstanceuid, seriesdate,
+                #         seriesinstanceuid, seriesnumber, seriestime, stationname, studydate,
+                #         studyid, instance, studytime, tranducertype, serie,
+                #         S_depth, U_cov, U_skew, U_low, horiz_prof, vert_prof
+                #     )
+                #     VALUES (%s, %s, %s, %s, %s,
+                #             %s, %s, %s, %s, %s,
+                #             %s, %s, %s, %s, %s,
+                #             %s, %s, %s, %s, %s,
+                #             %s, %s, %s, %s, %s,
+                #             %s, %s, %s, %s, %s)
+                # """, (
+                #     metadata["ContentDate"],
+                #     metadata["ContentTime"],
+                #     metadata["DeviceSerialNumber"],
+                #     metadata["InstanceNumber"],
+                #     metadata["InstitutionName"],
+                #     metadata["InstitutionalDepartmentName"],
+                #     metadata["Manufacturer"],
+                #     metadata["ManufacturerModelName"],
+                #     metadata["Modality"],
+                #     metadata["PatientID"],
+                #     metadata["PatientName"],
+                #     str(metadata["SOPClassUID"]),
+                #     str(metadata["SOPInstanceUID"]),
+                #     metadata["SeriesDate"],
+                #     metadata["SeriesInstanceUID"],
+                #     metadata["SeriesNumber"],
+                #     metadata["SeriesTime"],
+                #     metadata["StationName"],
+                #     metadata["StudyDate"],
+                #     metadata["StudyID"],
+                #     # metadata["StudyInstanceUID"],
+                #     instance_id,
+                #     metadata["StudyTime"],
+                #     str(metadata["TranducerType"]),
+                #     series_id,
+                #     float(json_result['S_depth']),
+                #     float(json_result['U_cov']),
+                #     float(json_result['U_skew']),
+                #     # [float(val) for val in json_result['U_low']]
+                #     psycopg2.extras.Json([float(val) for val in json_result['U_low']]),
+                #     psycopg2.extras.Json([float(val) for val in json_result['horiz_profile']]),
+                #     psycopg2.extras.Json([float(val) for val in json_result['vert_profiles']])
+                # ))
 
 
-        conn.commit()
+                # conn.commit()
+        
+                try:
+                    cur.execute("""
+                        INSERT INTO ultrasound (
+                            contentdate, contenttime, deviceserialnumber, instancenumber, institutionname,
+                            institutionaldepartmentname, manufacturer, manufacturermodelname, modality,
+                            patientid, patientname, sopclassuid, sopinstanceuid, seriesdate,
+                            seriesinstanceuid, seriesnumber, seriestime, stationname, studydate,
+                            studyid, instance, studytime, tranducertype, serie,
+                            S_depth, U_cov, U_skew, U_low, horiz_prof, vert_prof
+                        )
+                        VALUES (%s, %s, %s, %s, %s,
+                                %s, %s, %s, %s, %s,
+                                %s, %s, %s, %s, %s,
+                                %s, %s, %s, %s, %s,
+                                %s, %s, %s, %s, %s,
+                                %s, %s, %s, %s, %s)
+                    """, (
+                        metadata["ContentDate"],
+                        metadata["ContentTime"],
+                        metadata["DeviceSerialNumber"],
+                        metadata["InstanceNumber"],
+                        metadata["InstitutionName"],
+                        metadata["InstitutionalDepartmentName"],
+                        metadata["Manufacturer"],
+                        metadata["ManufacturerModelName"],
+                        metadata["Modality"],
+                        metadata["PatientID"],
+                        metadata["PatientName"],
+                        str(metadata["SOPClassUID"]),
+                        str(metadata["SOPInstanceUID"]),
+                        metadata["SeriesDate"],
+                        metadata["SeriesInstanceUID"],
+                        metadata["SeriesNumber"],
+                        metadata["SeriesTime"],
+                        metadata["StationName"],
+                        metadata["StudyDate"],
+                        metadata["StudyID"],
+                        instance_id,
+                        metadata["StudyTime"],
+                        str(metadata["TranducerType"]),
+                        series_id,
+                        float(json_result['S_depth']),
+                        float(json_result['U_cov']),
+                        float(json_result['U_skew']),
+                        psycopg2.extras.Json([float(val) for val in json_result['U_low']]),
+                        psycopg2.extras.Json([float(val) for val in json_result['horiz_profile']]),
+                        psycopg2.extras.Json([float(val) for val in json_result['vert_profiles']])
+                    ))
+                    conn.commit()
+                    logging.info(f"✅ Tulokset tallennettu tietokantaan instanssille {instance_id}")
+
+                except Exception as e:
+                    conn.rollback()
+                    logging.error(f"❌ Virhe tallennettaessa tietokantaan instanssia {instance_id}: {e}")
+                    continue  # Siirrytään seuraavaan instanssiin
+
+
+
         cur.close()
         conn.close()
 
