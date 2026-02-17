@@ -201,7 +201,7 @@ fetch(`/first_app/api/s_depth/${stationname}/`)
           label: 'Herkkyys [mm]',
           data: limitData(data.map(item => item.s_depth), offsetSDepth, limit),
           fill: false,
-          borderColor: 'rgb(2, 13, 163)',
+          borderColor: 'rgb(100, 200, 255)',
           borderWidth: 1,
           tension: 0.1,
           pointBackgroundColor: Array(limit).fill('rgba(0, 0, 0, 0.1)')
@@ -292,9 +292,9 @@ fetch(`/first_app/api/s_depth/${stationname}/`)
           labels: limitData(data.map(item => item.seriesdate), offsetSDepth, limit),
           datasets: [{
             label: 'Tasaisuus [%]',
-            data: limitData(data.map(item => item.u_cov), offsetSDepth, limit),
+            data: limitData(data.map(item => item.u_cov), offsetUCov, limit),
             fill: false,
-            borderColor: 'rgb(2, 13, 163)',
+            borderColor: 'rgb(100, 200, 255)',
             borderWidth: 1,
             tension: 0.1,
             pointBackgroundColor: Array(limit).fill('rgba(0, 0, 0, 0.1)')
@@ -378,9 +378,9 @@ fetch(`/first_app/api/s_depth/${stationname}/`)
           labels: limitData(data.map(item => item.seriesdate), offsetSDepth, limit),
           datasets: [{
             label: 'Epäsymmetria',
-            data: limitData(data.map(item => item.u_skew), offsetSDepth, limit),
+            data: limitData(data.map(item => item.u_skew), offsetUSkew, limit),
             fill: false,
-            borderColor: 'rgb(2, 13, 163)',
+            borderColor: 'rgb(100, 200, 255)',
             borderWidth: 1,
             tension: 0.1,
             pointBackgroundColor: Array(limit).fill('rgba(0, 0, 0, 0.1)')
@@ -584,7 +584,7 @@ function drawProfiles(horizProfile, vertProfile, uLow = [], sDepth = null, uCov 
   const profileDataset = {
     label: 'Horisontaalinen profiili',
     data: horizProfile,
-    borderColor: '#66ccff',
+    borderColor: '#33aaff',
     borderWidth: 1,
     fill: false,
     pointRadius: 0,
@@ -682,7 +682,7 @@ function drawProfiles(horizProfile, vertProfile, uLow = [], sDepth = null, uCov 
       datasets: [{
         // label: 'Vertikaalinen profiili', // voit poistaa labelin jos et halua legendaa
         data: vertProfile,
-        borderColor: '#66ccff',
+        borderColor: '#33aaff',
         borderWidth: 1,
         fill: false,
         pointRadius: 0
@@ -780,7 +780,10 @@ document
     try {
       const res = await fetch("/first_app/api/report-issue/", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCSRFToken()
+        },
         body: JSON.stringify({ text: message })
       });
       const data = await res.json();
