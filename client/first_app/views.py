@@ -16,7 +16,7 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.http import require_GET
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import F
-from .models import Ultrasound
+from .models import Ultrasound, XrayAnalysis  # Lisätään XrayAnalysis import
 from datetime import datetime
 from collections import defaultdict
 from .ai_chat import generate_response  # tuodaan ai_chat-funktio
@@ -54,17 +54,141 @@ def laadunvalvonta_tietoa(request):
     return render(request, 'tietoa.html')
 
 def institutions(request):
-    institutions = Ultrasound.objects.values_list('institutionname', flat=True).distinct()
-    print(institutions)  # Debug-tulostus
+    """Ultraääni-instituutiot"""
+    institutions = list(Ultrasound.objects.values_list('institutionname', flat=True).distinct())
+    logger.debug("Institutions retrieved: %s", institutions)
     return render(request, 'institutions.html', {'institutions': institutions})
 
+# RÖNTGEN VIEWS - sama logiikka kuin ultraäänellä
+def xray_institutions(request):
+    """Näytä kaikki instituutiot ja niiden instanssit röntgen-datasta"""
+    try:
+        # Hae kaikki röntgen-instanssit ryhmiteltynä instituutioittain
+        xray_data = XrayAnalysis.objects.values(
+            'institution_name', 'instance', 'station_name', 'manufacturer', 'content_date'
+        ).order_by('institution_name', 'content_date')
+        
+        # Ryhmittele data instituutioittain
+        institutions_data = {}
+        for item in xray_data:
+            institution = item['institution_name'] or 'Tuntematon instituutio'
+            if institution not in institutions_data:
+                institutions_data[institution] = []
+            institutions_data[institution].append({
+                'instance': item['instance'],
+                'station_name': item['station_name'],
+                'manufacturer': item['manufacturer'],
+                'content_date': item['content_date']
+            })
+        
+        context = {
+            'institutions_data': institutions_data
+        }
+        return render(request, 'xray_institutions.html', context)
+    except Exception as e:
+        return render(request, 'xray_institutions.html', {'error': str(e), 'institutions_data': {}})
+
 def units_view(request):
+    """Ultraääni-yksiköt"""
     units = Ultrasound.objects.values_list('institutionaldepartmentname', flat=True).distinct()
     return render(request, 'units.html', {'units': units})
 
+def xray_units_view(request, institution_name):
+    """Näytä kaikki yksiköt ja niiden laitteet röntgen-datasta tietyssä instituutiossa"""
+    try:
+        # Hae kaikki röntgen-laitteet kyseisessä instituutiossa ryhmiteltynä yksiköittäin
+        xray_data = XrayAnalysis.objects.filter(
+            institution_name=institution_name
+        ).values(
+            'institutional_department_name', 'station_name', 'manufacturer', 
+            'manufacturer_model_name', 'modality', 'content_date'
+        ).order_by('institutional_department_name', 'station_name')
+        
+        # Ryhmittele data yksiköittäin
+        units_data = {}
+        for item in xray_data:
+            unit = item['institutional_department_name'] or 'Tuntematon yksikkö'
+            if unit not in units_data:
+                units_data[unit] = []
+            units_data[unit].append({
+                'station_name': item['station_name'],
+                'manufacturer': item['manufacturer'],
+                'manufacturer_model_name': item['manufacturer_model_name'],
+                'modality': item['modality'],
+                'content_date': item['content_date']
+            })
+        
+        context = {
+            'institution_name': institution_name,
+            'units_data': units_data
+        }
+        return render(request, 'xray_units.html', context)
+    except Exception as e:
+        return render(request, 'xray_units.html', {
+            'error': str(e), 
+            'institution_name': institution_name, 
+            'units_data': {}
+        })
+
 def unit_details_view(request, unit_name):
+    """Ultraääni-yksikön tiedot"""
     unit_details = Ultrasound.objects.filter(institutionaldepartmentname=unit_name).values('stationname', 'manufacturer', 'modality').distinct()
     return render(request, 'unitDetails.html', {'unit_name': unit_name, 'unit_details': unit_details})
+
+def xray_unit_details_view(request, institution_name, unit_name):
+    """Röntgen-yksikön tiedot"""
+    # Haetaan kyseisen yksikön kaikki laitteet
+    unit_devices = XrayAnalysis.objects.filter(
+        institution_name=institution_name,
+        institutional_department_name=unit_name
+    ).values('station_name').distinct()
+    
+    return render(request, 'xray_unitDetails.html', {
+        'institution_name': institution_name,
+        'unit_name': unit_name,
+        'unit_devices': unit_devices
+    })
+
+def xray_device_details(request, institution_name, unit_name):
+    """Röntgen-yksikön kaikki laitteet ja niiden QA-tulokset"""
+    try:
+        device_data = XrayAnalysis.objects.filter(
+            institution_name=institution_name,
+            institutional_department_name=unit_name
+        ).order_by('station_name', '-processed_at')
+        
+        # Ryhmittele data laitteittain
+        devices_data = {}
+        for item in device_data:
+            device_key = item.station_name or 'Tuntematon laite'
+            if device_key not in devices_data:
+                devices_data[device_key] = []
+            devices_data[device_key].append({
+                'instance': item.instance,
+                'content_date': item.content_date,
+                'processed_at': item.processed_at,
+                'uniformity_center': item.uniformity_center,
+                'median_contrast': item.median_contrast,
+                'mtf_50_percent': item.mtf_50_percent
+            })
+        
+        # Muunna devices_data JSON-stringiksi template-käyttöön
+        import json
+        devices_data_json = json.dumps(devices_data, default=str)
+        
+        context = {
+            'institution_name': institution_name,
+            'unit_name': unit_name,
+            'devices_data': devices_data_json
+        }
+        return render(request, 'xray_deviceDetails_pro.html', context)
+    except Exception as e:
+        return render(request, 'xray_deviceDetails_pro.html', {
+            'error': str(e),
+            'institution_name': institution_name,
+            'unit_name': unit_name,
+            'devices_data': '{}'
+        })
 
 
 def device_details_by_id(request, device_id):
@@ -121,6 +245,164 @@ def get_u_skew(request, stationname):
     data = list(Ultrasound.objects.filter(stationname=stationname).values('u_skew', 'instance', 'seriesdate'))
     return JsonResponse(data, safe=False)
 
+# RÖNTGEN API-ENDPOINTIT
+def get_xray_uniformity(request, stationname):
+    """Röntgen-tasaisuusdata trendikaavioon"""
+    data = list(XrayAnalysis.objects.filter(station_name=stationname).values(
+        'uniformity_center', 'instance', 'content_date', 'processed_at'
+    ).order_by('content_date'))
+    return JsonResponse(data, safe=False)
+
+def get_xray_contrast(request, stationname):
+    """Röntgen-kontrastidata trendikaavioon"""
+    data = list(XrayAnalysis.objects.filter(station_name=stationname).values(
+        'median_contrast', 'instance', 'content_date', 'processed_at'
+    ).order_by('content_date'))
+    return JsonResponse(data, safe=False)
+
+def get_xray_mtf(request, stationname):
+    """Röntgen-spatial resolution (MTF) data trendikaavioon"""
+    data = list(XrayAnalysis.objects.filter(station_name=stationname).values(
+        'mtf_50_percent', 'instance', 'content_date', 'processed_at'
+    ).order_by('content_date'))
+    return JsonResponse(data, safe=False)
+
+def get_xray_cnr(request, stationname):
+    """Röntgen-contrast-to-noise ratio data trendikaavioon"""
+    data = list(XrayAnalysis.objects.filter(station_name=stationname).values(
+        'median_cnr', 'instance', 'content_date', 'processed_at'
+    ).order_by('content_date'))
+    return JsonResponse(data, safe=False)
+
+def get_xray_low_contrast(request, stationname):
+    """Röntgen-low contrast data (20%) trendikaavioon"""
+    data = list(XrayAnalysis.objects.filter(station_name=stationname).values(
+        'lc_20_contrast', 'instance', 'content_date', 'processed_at'
+    ).order_by('content_date'))
+    return JsonResponse(data, safe=False)
+
+def get_xray_copper(request, stationname):
+    """Röntgen-kuparisuodatin 1.0mm data trendikaavioon"""
+    data = list(XrayAnalysis.objects.filter(station_name=stationname).values(
+        'cu_100_mean', 'instance', 'content_date', 'processed_at'
+    ).order_by('content_date'))
+    return JsonResponse(data, safe=False)
+
+def get_xray_instance(request, instance_value):
+    """Hae röntgen-analyysin tiedot instance-arvon perusteella"""
+    try:
+        data = XrayAnalysis.objects.get(instance=instance_value)
+        response_data = {
+            'station_name': data.station_name,
+            'manufacturer': data.manufacturer,
+            'manufacturer_model_name': data.manufacturer_model_name,
+            'modality': data.modality,
+            'device_serial_number': data.device_serial_number,
+            'content_date': data.content_date,
+            'uniformity_center': data.uniformity_center,
+            'uniformity_deviation': data.uniformity_deviation,
+            'median_contrast': data.median_contrast,
+            'median_cnr': data.median_cnr,
+            'mtf_50_percent': data.mtf_50_percent,
+            'kvp': data.kvp,
+            'tube_current': data.tube_current,
+            'exposure_time': data.exposure_time,
+            'instance': data.instance,
+            'patient_id': data.patient_id,
+            'patient_name': data.patient_name,
+            'study_date': data.study_date,
+            'series_id': data.series_id,
+            'instance_number': data.instance_number
+        }
+        return JsonResponse(response_data)
+    except XrayAnalysis.DoesNotExist:
+        return JsonResponse({'error': 'Instance not found'}, status=404)
+
+def get_xray_image(request, instance_value):
+    """Hae NORMI-13 phantom kuva instance-arvon perusteella Orthanc PACS:sta"""
+    logger.info(f"get_xray_image kutsuttu instance_value: {instance_value}")
+    
+    try:
+        # 1) Lataa DICOM Orthancista
+        url = f"{orthanc_url}/instances/{instance_value}/file"
+        logger.info(f"Yritetään ladata kuva URL:sta: {url}")
+        
+        r = requests.get(url, auth=(orthanc_username, orthanc_password), timeout=10)
+        logger.info(f"Orthanc vastaus status: {r.status_code}")
+        r.raise_for_status()
+
+        logger.info(f"DICOM tiedosto ladattu, koko: {len(r.content)} tavua")
+        ds = pydicom.dcmread(BytesIO(r.content))
+        im = ds.pixel_array  # numpy-taulukko
+        logger.info(f"Pixel array shape: {im.shape}, dtype: {im.dtype}")
+
+        # 2) Normalisoi röntgenkuva (8-bittiseksi)
+        def dicom_to_uint8_rgb_xray(pixel_array):
+            """Muunna röntgen DICOM pixel array RGB uint8:ksi"""
+            import numpy as np
+            
+            # Normalisoi 0-1 välille
+            if pixel_array.dtype != np.uint8:
+                pixel_array = pixel_array.astype(np.float32)
+                pixel_array = (pixel_array - pixel_array.min()) / (pixel_array.max() - pixel_array.min())
+                pixel_array = (pixel_array * 255).astype(np.uint8)
+            
+            # Muunna RGB:ksi (grayscale -> 3 kanavaa)
+            if len(pixel_array.shape) == 2:
+                rgb_array = np.stack([pixel_array, pixel_array, pixel_array], axis=2)
+            else:
+                rgb_array = pixel_array
+                
+            return rgb_array
+
+        # 3) Muunna RGB:ksi
+        im_rgb = dicom_to_uint8_rgb_xray(im)
+        logger.info(f"RGB kuva luotu, shape: {im_rgb.shape}")
+
+        # 4) Koodaa PNG:ksi ja palauta
+        from django.http import HttpResponse
+        import io
+        from PIL import Image
+        
+        buffer = io.BytesIO()
+        Image.fromarray(im_rgb).save(buffer, format="PNG")
+        buffer.seek(0)
+        
+        logger.info(f"PNG kuva luotu, koko: {buffer.getbuffer().nbytes} tavua")
+        return HttpResponse(buffer.getvalue(), content_type='image/png')
+        
+    except requests.RequestException as e:
+        logger.error(f"Virhe ladattaessa kuvaa Orthanc:sta: {str(e)}")
+        # Fallback: palauta placeholder kuva
+        return get_xray_placeholder_image()
+    except Exception as e:
+        logger.error(f"Virhe käsiteltäessä DICOM-kuvaa: {str(e)}")
+        # Fallback: palauta placeholder kuva  
+        return get_xray_placeholder_image()
+
+def get_xray_placeholder_image():
+    """Palauta placeholder kuva kun oikea DICOM-kuva ei ole saatavilla"""
+    logger.info("get_xray_placeholder_image kutsuttu")
+    try:
+        import os
+        from django.conf import settings
+        from django.http import FileResponse
+        
+        placeholder_path = os.path.join(settings.STATICFILES_DIRS[0], 'images', 'XRAY.png')
+        logger.info(f"Etsitään placeholder kuvaa polusta: {placeholder_path}")
+        
+        if os.path.exists(placeholder_path):
+            logger.info("Placeholder kuva löytyi, palautetaan FileResponse")
+            return FileResponse(open(placeholder_path, 'rb'), content_type='image/png')
+        
+        logger.error(f"Placeholder kuvaa ei löytynyt polusta: {placeholder_path}")
+        # Jos placeholder:kaan ei löydy
+        raise Http404('Image not found')
+        
+    except Exception as e:
+        logger.error(f"Virhe ladattaessa placeholder-kuvaa: {str(e)}")
+        raise Http404('Image not found')
+
 def get_stationname(request, index):
     try:
         station = Ultrasound.objects.all()[index]
@@ -128,52 +410,6 @@ def get_stationname(request, index):
     except IndexError:
         return JsonResponse({'error': 'Index out of range'}, status=404)
     
-
-
-# @require_GET
-# def dicom_info_api(request, instance_id):
-#     try:
-#         response = requests.get(f"{ORTHANC_URL}/instances/{instance_id}/tags")
-#         response.raise_for_status()
-
-#         tags = response.json()
-        
-#         # Muotoillaan tagit luettavaan muotoon
-#         info = {}
-#         for tag_hex, value in tags.items():
-#             if isinstance(value, dict) and 'Value' in value:
-#                 value = value['Value']
-#             if isinstance(value, list):
-#                 value = ", ".join(str(v) for v in value)
-#             elif not isinstance(value, str):
-#                 value = str(value)
-
-#             info[tag_hex] = value
-
-#         return JsonResponse({'status': 'success', 'data': info})
-    
-#     except Exception as e:
-#         return JsonResponse({'status': 'error', 'message': f"Virhe DICOM-tietojen haussa: {str(e)}"}, status=500)
-
-
-# @require_GET
-# def dicom_info_api(request, instance_id):
-#     try:
-#         url = f"{orthanc_url}/instances/{instance_id}/file"
-#         r = requests.get(url, auth=(orthanc_username, orthanc_password))
-#         r.raise_for_status()
-
-#         ds = pydicom.dcmread(BytesIO(r.content))
-#         info = {}
-#         for elem in ds:
-#             if elem.VR != 'SQ':
-#                 tag_name = elem.name
-#                 value = str(elem.value)
-#                 info[tag_name] = value
-#         return JsonResponse({'status': 'success', 'data': info})
-
-#     except Exception as e:
-#         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 
 @require_GET
@@ -209,14 +445,6 @@ def report_issue(request):
             return HttpResponseBadRequest("Empty message")
 
         payload = {"text": f"📩 Uusi viesti verkkosivulta:\n{msg}"}
-        # payload = {
-        #     "text": (
-        #         "📩 *Uusi vikailmoitus*\n"
-        #         f"• _Sivu_: {request.headers.get('Referer')}\n"
-        #         f"• _Käyttäjäagentti_: {request.META.get('HTTP_USER_AGENT')}\n"
-        #         f"• _Viesti_: {msg}"
-        #     )
-        # }
 
         r = requests.post(SLACK_WEBHOOK, json=payload, timeout=5)
         r.raise_for_status()
@@ -282,126 +510,6 @@ def device_details_view(request, stationname):
         logger.debug("Device not found")  # Debug-tulostus
         raise Http404("Device not found")
 
-# def get_orthanc_image(request, instance_value):
-#     try:
-#         # Hae kuva Orthanc-palvelimelta käyttäen instancen ID:tä
-#         orthanc_url_full = f'{orthanc_url}/instances/{instance_value}/file'
-#         response = requests.get(orthanc_url_full, auth=(orthanc_username, orthanc_password))
-#         response.raise_for_status()
-
-#         # Lue DICOM-tiedosto
-#         dicom_file = BytesIO(response.content)
-#         dicom_data = pydicom.dcmread(dicom_file)
-
-#         # Muunna DICOM-kuva numpy-taulukoksi
-#         image_array = dicom_data.pixel_array
-
-#         # Luo modifyUS-instanssi
-#         modifier = modifyUS(
-#             path_data="",
-#             dicom_bytes=response.content,
-#             image=image_array,
-#             table=None
-#         )
-
-#         # Kutsu modify-funktiota
-#         image_array = modifier.modify()
-        
-#         print("SHAPE:", image_array.shape)
-#         print("DTYPE:", image_array.dtype)
-#         print("MIN:", np.min(image_array))
-#         print("MAX:", np.max(image_array))
-#         print("PTP:", np.ptp(image_array))
-        
-#         img_str = Image.fromarray(image_array)
-
-#         # Tallennus PNG:nä, ei JPEG:nä
-#         img_str.save("DEBUG_IMAGE.png")
-
-
-#         # Normalisoi ja skaalaa uint8-muotoon (0–255)
-#         # image_uint8 = np.uint8(255 * (image_array - np.min(image_array)) / (np.ptp(image_array)))
-#         # range_val = np.ptp(image_array)
-#         # if range_val == 0:
-#         #     image_uint8 = np.uint8(np.clip(image_array, 0, 255))
-#         # else:
-#         #     image_uint8 = np.uint8(255 * (image_array - np.min(image_array)) / range_val)
-            
-#         # if len(image_uint8.shape) == 2:
-#         #     image_uint8 = np.stack((image_uint8,) * 3, axis=-1)
-
-#         # Image.fromarray(image_uint8).save("DEBUG_IMAGE.jpg")
-        
-#         # img = Image.fromarray(image_uint8)
-
-#         # # Muunna kuva base64-muotoon
-#         # buffered = BytesIO()
-#         # img.save(buffered, format="JPEG")
-#         # img_str = base64.b64encode(buffered.getvalue()).decode()
-        
-#         # range_val = np.ptp(image_array)
-#         # if range_val == 0:
-#         #     image_norm = np.zeros_like(image_array, dtype=np.uint8)
-#         # else:
-#         #     image_norm = 255 * (image_array - np.min(image_array)) / range_val
-#         #     image_norm = image_norm.astype(np.uint8)
-
-#         # # Pakota RGB, jos kanavia ei ole 3
-#         # if image_norm.ndim == 2:
-#         #     image_rgb = np.stack((image_norm,) * 3, axis=-1)
-#         # elif image_norm.shape[2] == 1:
-#         #     image_rgb = np.concatenate([image_norm] * 3, axis=2)
-#         # else:
-#         #     image_rgb = image_norm
-
-#         # # Testitallennus
-#         # Image.fromarray(image_rgb).save("DEBUG_IMAGE.jpg")
-
-#         # # Base64
-#         # img = Image.fromarray(image_rgb)
-#         # buffered = BytesIO()
-#         # img.save(buffered, format="JPEG")
-#         # img_str = base64.b64encode(buffered.getvalue()).decode()
-        
-#         import matplotlib.pyplot as plt
-
-#         plt.imshow(image_array, cmap='gray')
-#         plt.axis('off')
-#         plt.savefig("DEBUG_MPL_IMAGE.jpg", bbox_inches='tight', pad_inches=0)
-#         plt.close()
-
-#         # Hae profiilit tietokannasta
-#         # from .models import Ultrasound
-#         try:
-#             us = Ultrasound.objects.get(instance=instance_value)
-#             horiz_prof = us.horiz_prof if us.horiz_prof else []
-#             vert_prof = us.vert_prof if us.vert_prof else []
-#             u_low = us.u_low if us.u_low else []
-#             s_depth = us.s_depth if us.s_depth else None
-#             u_cov = us.u_cov if us.u_cov else None
-#             u_skew = us.u_skew if us.u_skew else None
-#         except Ultrasound.DoesNotExist:
-#             horiz_prof = []
-#             vert_prof = []
-#             u_low = []
-
-#         return JsonResponse({
-#             'image': img_str,
-#             'horiz_prof': horiz_prof,
-#             'vert_prof': vert_prof,
-#             'u_low': u_low,
-#             's_depth': s_depth,
-#             'u_cov': u_cov, 
-#             'u_skew': u_skew
-#         })
-#     except requests.exceptions.RequestException as e:
-#         return JsonResponse({'error': 'Request error', 'details': str(e)}, status=500)
-#     except Exception as e:
-#         import traceback
-#         traceback.print_exc()
-#         return JsonResponse({'error': str(e)}, status=500)
-
-
 def dicom_to_uint8_rgb(arr: np.ndarray) -> np.ndarray:
     """Normalisoi [min,max] -> [0,255] ja pakota 3-kanavaiseksi."""
     arr = arr.astype(np.float32)
@@ -434,12 +542,6 @@ def get_orthanc_image(request, instance_value):
         buffer = BytesIO()
         Image.fromarray(im_rgb).save(buffer, format="PNG")
         img_b64 = base64.b64encode(buffer.getvalue()).decode()
-        
-        # import matplotlib.pyplot as plt
-        # plt.imshow(im_rgb, cmap='gray')
-        # plt.axis('off')
-        # plt.savefig("DEBUG_MPL_IMAGE.jpg", bbox_inches='tight', pad_inches=0)
-        # plt.close()
 
         # 5) Hae profiilit (try/except jätetty ennalleen)
         try:
@@ -462,18 +564,6 @@ def get_orthanc_image(request, instance_value):
                 value = str(elem.value)
                 dicom_info[tag_name] = value
 
-
-        # return JsonResponse({
-        #     "image":      img_b64,                        # nyt string!
-        #     "mime":       "image/png",                    # kerro frontendille
-        #     "horiz_prof": horiz_prof,
-        #     "vert_prof":  vert_prof,
-        #     "u_low":      u_low,
-        #     "s_depth":    s_depth,
-        #     "u_cov":      u_cov,
-        #     "u_skew":     u_skew,
-        # })
-        
         return JsonResponse({
             "image":      img_b64,
             "mime":       "image/png",
@@ -490,7 +580,7 @@ def get_orthanc_image(request, instance_value):
     except requests.exceptions.RequestException as e:
         return JsonResponse({"error": "Request error", "details": str(e)}, status=500)
     except Exception as e:
-        import traceback; traceback.print_exc()
+        logger.exception("Virhe käsiteltäessä ultraäänikuvaa")
         return JsonResponse({"error": str(e)}, status=500)
 
 
@@ -501,10 +591,10 @@ def get_orthanc_image(request, instance_value):
 @require_POST
 @csrf_exempt  # Poista tämä tuotannossa ja käytä CSRF-tokenia JavaScriptissä
 def ask_ai(request):
-    print("DEBUG: Pyyntö vastaanotettu:", request.method)
+    logger.debug("ask_ai called with method %s", request.method)
     try:
         data = json.loads(request.body)
-        print("DEBUG: Pyynnön data:", data)
+        logger.debug("ask_ai payload: %s", data)
         question = data.get("question", "").strip()
 
         if not question:
@@ -515,6 +605,7 @@ def ask_ai(request):
         return JsonResponse({"answer": answer})
 
     except Exception as e:
+        logger.error("ask_ai processing failed: %s", e)
         return JsonResponse({"answer": f"Virhe: {str(e)}"}, status=500)
     
 
@@ -560,7 +651,7 @@ def muokkaa_ultraa(request):
         # 2. Tee kaikki massapäivitykset kerralla
         for old, new in changes['manufacturer']:
             Ultrasound.objects.filter(manufacturer=old).update(manufacturer=new)
-            print(f"Päivitettiin kaikki '{old}' → '{new}'")
+            logger.info("Manufacturer updated in bulk from %s to %s", old, new)
 
         # 3. Tallenna muut yksittäiset rivit (ei enää tee massamuutoksia)
         for row in rows_to_update:
@@ -581,12 +672,17 @@ def muokkaa_ultraa(request):
                 try:
                     us.seriesdate = datetime.strptime(date_val, '%Y-%m-%d').date()
                 except ValueError:
-                    print(f"Virheellinen päivämäärä rivillä {row['pk']}: {date_val}")
+                    logger.warning("Invalid date for row %s: %s", row['pk'], date_val)
                     # Säilytetään aiempi päivämäärä
             else:
-                print(f"Tyhjä päivämäärä rivillä {row['pk']}, säilytetään vanha arvo.")
+                logger.warning("Empty date for row %s, keeping previous value", row['pk'])
 
-            print(f"Tallennetaan pk={us.pk}, seriesdate={us.seriesdate}, s_depth={us.s_depth}")
+            logger.debug(
+                "Saving ultrasound record pk=%s with seriesdate=%s and s_depth=%s",
+                us.pk,
+                us.seriesdate,
+                us.s_depth,
+            )
             us.save()
 
         return redirect('muokkaa_ultraa')
