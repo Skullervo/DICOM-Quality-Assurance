@@ -14,9 +14,9 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse, Http404, HttpResponseBadRequest
 from django.views.decorators.http import require_POST
 from django.views.decorators.http import require_GET
-from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.decorators import login_required
 from django.db.models import F
-from .models import Ultrasound, XrayAnalysis  # Lisätään XrayAnalysis import
+from .models import Ultrasound, XrayAnalysis
 from datetime import datetime
 from collections import defaultdict
 from .ai_chat import generate_response  # tuodaan ai_chat-funktio
@@ -28,14 +28,11 @@ from pydicom import dcmread
 
 
 
-SLACK_WEBHOOK = (
-    "https://hooks.slack.com/services/"
-    "T09462DGBEF/B094BUA4BPX/QXbkETjMcauTXg26xdrAUJ5m"
-)
+SLACK_WEBHOOK = os.getenv("SLACK_WEBHOOK_URL", "")
 
-orthanc_url = 'http://localhost:8042'
-orthanc_username = 'admin'  # Korvaa oikealla käyttäjätunnuksella
-orthanc_password = 'alice'  # Korvaa oikealla salasanalla
+orthanc_url = os.getenv("ORTHANC_URL", "http://localhost:8042")
+orthanc_username = os.getenv("ORTHANC_USERNAME", "admin")
+orthanc_password = os.getenv("ORTHANC_PASSWORD", "")
 logger = logging.getLogger(__name__)
 
 
@@ -44,15 +41,19 @@ logger = logging.getLogger(__name__)
 def index(request):
     return render(request, 'aloitus_sivu1.html')
 
+@login_required
 def ultraaeni_laadunvalvonta_view(request):
     return render(request, 'ultraaeni_laadunvalvonta_laitteet.html')
 
+@login_required
 def laadunvalvonta_modaliteetit(request):
     return render(request, 'modaliteetit.html')
 
+@login_required
 def laadunvalvonta_tietoa(request):
     return render(request, 'tietoa.html')
 
+@login_required
 def institutions(request):
     """Ultraääni-instituutiot"""
     institutions = list(Ultrasound.objects.values_list('institutionname', flat=True).distinct())
@@ -60,6 +61,7 @@ def institutions(request):
     return render(request, 'institutions.html', {'institutions': institutions})
 
 # RÖNTGEN VIEWS - sama logiikka kuin ultraäänellä
+@login_required
 def xray_institutions(request):
     """Näytä kaikki instituutiot ja niiden instanssit röntgen-datasta"""
     try:
@@ -88,11 +90,13 @@ def xray_institutions(request):
     except Exception as e:
         return render(request, 'xray_institutions.html', {'error': str(e), 'institutions_data': {}})
 
+@login_required
 def units_view(request):
     """Ultraääni-yksiköt"""
     units = Ultrasound.objects.values_list('institutionaldepartmentname', flat=True).distinct()
     return render(request, 'units.html', {'units': units})
 
+@login_required
 def xray_units_view(request, institution_name):
     """Näytä kaikki yksiköt ja niiden laitteet röntgen-datasta tietyssä instituutiossa"""
     try:
@@ -130,11 +134,13 @@ def xray_units_view(request, institution_name):
             'units_data': {}
         })
 
+@login_required
 def unit_details_view(request, unit_name):
     """Ultraääni-yksikön tiedot"""
     unit_details = Ultrasound.objects.filter(institutionaldepartmentname=unit_name).values('stationname', 'manufacturer', 'modality').distinct()
     return render(request, 'unitDetails.html', {'unit_name': unit_name, 'unit_details': unit_details})
 
+@login_required
 def xray_unit_details_view(request, institution_name, unit_name):
     """Röntgen-yksikön tiedot"""
     # Haetaan kyseisen yksikön kaikki laitteet
@@ -149,6 +155,7 @@ def xray_unit_details_view(request, institution_name, unit_name):
         'unit_devices': unit_devices
     })
 
+@login_required
 def xray_device_details(request, institution_name, unit_name):
     """Röntgen-yksikön kaikki laitteet ja niiden QA-tulokset"""
     try:
@@ -191,6 +198,7 @@ def xray_device_details(request, institution_name, unit_name):
         })
 
 
+@login_required
 def device_details_by_id(request, device_id):
     device = get_object_or_404(Ultrasound, pk=device_id)
     horiz_prof = json.dumps(device.horiz_prof if device.horiz_prof else [])
@@ -208,14 +216,17 @@ def device_details_by_id(request, device_id):
 
 
 
+@login_required
 def fetch_s_depth(request):
     data = list(Ultrasound.objects.values_list('s_depth', flat=True))
     return JsonResponse(data, safe=False)
 
+@login_required
 def fetch_u_cov(request):
     data = list(Ultrasound.objects.values_list('u_cov', flat=True))
     return JsonResponse(data, safe=False)
 
+@login_required
 def fetch_u_skew(request):
     data = list(Ultrasound.objects.values_list('u_skew', flat=True))
     return JsonResponse(data, safe=False)
@@ -224,6 +235,7 @@ def fetch_u_skew(request):
 
 
 
+@login_required
 def s_depth_api(request, instance):
     data = Ultrasound.objects.filter(instance=instance).values_list('s_depth', flat=True)
     return JsonResponse({'s_depth': list(data)})
@@ -232,20 +244,23 @@ def s_depth_api(request, instance):
 
 
 
+@login_required
 def get_s_depth(request, stationname):
     data = list(Ultrasound.objects.filter(stationname=stationname).values('s_depth', 'instance', 'seriesdate'))
     return JsonResponse(data, safe=False)
 
-
+@login_required
 def get_u_cov(request, stationname):
     data = list(Ultrasound.objects.filter(stationname=stationname).values('u_cov', 'instance', 'seriesdate'))
     return JsonResponse(data, safe=False)
 
+@login_required
 def get_u_skew(request, stationname):
     data = list(Ultrasound.objects.filter(stationname=stationname).values('u_skew', 'instance', 'seriesdate'))
     return JsonResponse(data, safe=False)
 
 # RÖNTGEN API-ENDPOINTIT
+@login_required
 def get_xray_uniformity(request, stationname):
     """Röntgen-tasaisuusdata trendikaavioon"""
     data = list(XrayAnalysis.objects.filter(station_name=stationname).values(
@@ -253,6 +268,7 @@ def get_xray_uniformity(request, stationname):
     ).order_by('content_date'))
     return JsonResponse(data, safe=False)
 
+@login_required
 def get_xray_contrast(request, stationname):
     """Röntgen-kontrastidata trendikaavioon"""
     data = list(XrayAnalysis.objects.filter(station_name=stationname).values(
@@ -260,6 +276,7 @@ def get_xray_contrast(request, stationname):
     ).order_by('content_date'))
     return JsonResponse(data, safe=False)
 
+@login_required
 def get_xray_mtf(request, stationname):
     """Röntgen-spatial resolution (MTF) data trendikaavioon"""
     data = list(XrayAnalysis.objects.filter(station_name=stationname).values(
@@ -267,6 +284,7 @@ def get_xray_mtf(request, stationname):
     ).order_by('content_date'))
     return JsonResponse(data, safe=False)
 
+@login_required
 def get_xray_cnr(request, stationname):
     """Röntgen-contrast-to-noise ratio data trendikaavioon"""
     data = list(XrayAnalysis.objects.filter(station_name=stationname).values(
@@ -274,6 +292,7 @@ def get_xray_cnr(request, stationname):
     ).order_by('content_date'))
     return JsonResponse(data, safe=False)
 
+@login_required
 def get_xray_low_contrast(request, stationname):
     """Röntgen-low contrast data (20%) trendikaavioon"""
     data = list(XrayAnalysis.objects.filter(station_name=stationname).values(
@@ -281,6 +300,7 @@ def get_xray_low_contrast(request, stationname):
     ).order_by('content_date'))
     return JsonResponse(data, safe=False)
 
+@login_required
 def get_xray_copper(request, stationname):
     """Röntgen-kuparisuodatin 1.0mm data trendikaavioon"""
     data = list(XrayAnalysis.objects.filter(station_name=stationname).values(
@@ -288,6 +308,7 @@ def get_xray_copper(request, stationname):
     ).order_by('content_date'))
     return JsonResponse(data, safe=False)
 
+@login_required
 def get_xray_instance(request, instance_value):
     """Hae röntgen-analyysin tiedot instance-arvon perusteella"""
     try:
@@ -318,6 +339,7 @@ def get_xray_instance(request, instance_value):
     except XrayAnalysis.DoesNotExist:
         return JsonResponse({'error': 'Instance not found'}, status=404)
 
+@login_required
 def get_xray_image(request, instance_value):
     """Hae NORMI-13 phantom kuva instance-arvon perusteella Orthanc PACS:sta"""
     logger.info(f"get_xray_image kutsuttu instance_value: {instance_value}")
@@ -403,6 +425,7 @@ def get_xray_placeholder_image():
         logger.error(f"Virhe ladattaessa placeholder-kuvaa: {str(e)}")
         raise Http404('Image not found')
 
+@login_required
 def get_stationname(request, index):
     try:
         station = Ultrasound.objects.all()[index]
@@ -412,6 +435,7 @@ def get_stationname(request, index):
     
 
 
+@login_required
 @require_GET
 def dicom_info_api(request, instance_id):
     try:
@@ -435,7 +459,7 @@ def dicom_info_api(request, instance_id):
     
 
 
-@csrf_exempt                # frontista ei tarvitse CSRF-tokenia
+@login_required
 @require_POST
 def report_issue(request):
     try:
@@ -458,6 +482,7 @@ def report_issue(request):
  
     
 
+@login_required
 def device_details_view(request, stationname):
     logger.debug(f"Fetching device details for stationname: {stationname}")  # Debug-tulostus
     device = Ultrasound.objects.filter(stationname=stationname).first() #Hakee Ultrasound-olion tietokannasta
@@ -522,6 +547,7 @@ def dicom_to_uint8_rgb(arr: np.ndarray) -> np.ndarray:
         arr_n = np.stack([arr_n]*3, axis=-1)
     return arr_n
 
+@login_required
 def get_orthanc_image(request, instance_value):
     try:
         # 1) Lataa DICOM Orthancista
@@ -588,8 +614,8 @@ def get_orthanc_image(request, instance_value):
 
 
 
+@login_required
 @require_POST
-@csrf_exempt  # Poista tämä tuotannossa ja käytä CSRF-tokenia JavaScriptissä
 def ask_ai(request):
     logger.debug("ask_ai called with method %s", request.method)
     try:
@@ -612,6 +638,7 @@ def ask_ai(request):
 
 
 
+@login_required
 def muokkaa_ultraa(request):
     if request.method == 'POST':
         changes = defaultdict(set)  # esim: {'manufacturer': set(('vanha', 'uusi'))}
@@ -692,6 +719,7 @@ def muokkaa_ultraa(request):
 
 
 
+@login_required
 def get_profiles(request, instance_uid):
     try:
         # Hae ja käsittele DICOM-tiedosto kuten `get_orthanc_image`-funktiossa
@@ -710,6 +738,7 @@ def get_profiles(request, instance_uid):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
     
+@login_required
 def get_ultrasound_by_instance(request, instance_value):
     try:
         us = Ultrasound.objects.get(instance=instance_value)

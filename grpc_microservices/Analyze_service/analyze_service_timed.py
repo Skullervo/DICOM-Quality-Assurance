@@ -19,6 +19,7 @@ import os
 import requests
 import threading
 import time
+import logging
 
 # 🔹 Orthanc ja Fetch Service osoitteet
 #ORTHANC_URL = os.getenv("ORTHANC_URL", "http://localhost:8042") #virtuaaliympäristössä
@@ -26,23 +27,15 @@ ORTHANC_URL = os.getenv("ORTHANC_URL", "http://host.docker.internal:8042") #kont
 #FETCH_SERVICE_ADDRESS = os.getenv("FETCH_SERVICE_HOST", "fetch-service:50051")
 FETCH_SERVICE_ADDRESS = os.getenv("FETCH_SERVICE_HOST", "host.docker.internal:50051")
 
-# 🔹 Tietokanta-asetukset kontissa
 DB_CONFIG = {
     "dbname": os.getenv("DATABASE_NAME", "QA-results"),
     "user": os.getenv("DATABASE_USER", "postgres"),
-    "password": os.getenv("DATABASE_PASSWORD", "pohde24"),
+    "password": os.getenv("DATABASE_PASSWORD", ""),
     "host": os.getenv("DATABASE_HOST", "postgres-db-distributedQA"),
     "port": os.getenv("DATABASE_PORT", "5432"),
 }
 
-# # Database settings
-# DB_CONFIG = {
-#     "dbname": os.getenv("DATABASE_NAME", "QA-results"),
-#     "user": os.getenv("DATABASE_USER", "postgres"),
-#     "password": os.getenv("DATABASE_PASSWORD", "pohde24"),
-#     "host": os.getenv("DATABASE_HOST", "localhost"),
-#     "port": os.getenv("DATABASE_PORT", "5432"),
-# }
+logger = logging.getLogger(__name__)
 
 # 🔹 Luo tietokantayhteys ja varmista, että taulu on olemassa
 def connect_db():
@@ -85,19 +78,19 @@ def get_fetch_stub():
 
 class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
     def AnalyzeAllDicomData(self, request, context):
-        print("📡 Received request to analyze all series in Orthanc")
+        logger.info("📡 Received request to analyze all series in Orthanc")
 
         # 🔍 Haetaan kaikki sarjat Orthancista
         response = requests.get(f"{ORTHANC_URL}/series")
         if response.status_code != 200:
-            print("❌ Error: Could not fetch series from Orthanc")
+            logger.error("❌ Error: Could not fetch series from Orthanc")
             if context:
                 context.set_code(grpc.StatusCode.NOT_FOUND)
             return analyze_service_timed_pb2.AnalyzeResponse(message="No series found", series_id="ALL")
 
         series_list = response.json()
         if not series_list:
-            print("❌ No series found in Orthanc")
+            logger.warning("❌ No series found in Orthanc")
             if context:
                 context.set_code(grpc.StatusCode.NOT_FOUND)
             return analyze_service_timed_pb2.AnalyzeResponse(message="No series available", series_id="ALL")
@@ -107,42 +100,42 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
         cur = conn.cursor()
 
         for series_id in series_list:
-            print(f"📡 Processing series ID: {series_id}")
+            logger.info("📡 Processing series ID: %s", series_id)
 
             # 🔍 Haetaan sarjan instanssit Orthancista
             instance_response = requests.get(f"{ORTHANC_URL}/series/{series_id}/instances")
             if instance_response.status_code != 200:
-                print(f"❌ Could not fetch instances for series {series_id}")
+                logger.error("❌ Could not fetch instances for series %s", series_id)
                 continue  # Ohitetaan tämä sarja
 
             instance_list = instance_response.json()
             if not instance_list:
-                print(f"❌ No instances found for series {series_id}")
+                logger.warning("❌ No instances found for series %s", series_id)
                 continue  # Ohitetaan tämä sarja
 
             for instance in instance_list:
                 instance_id = instance["ID"]
                 # Tarkista onko jo analysoitu
                 if is_instance_analyzed(cur, instance_id):
-                    print(f"⏩ Instance {instance_id} already analyzed, skipping.")
+                    logger.info("⏩ Instance %s already analyzed, skipping.", instance_id)
                     continue
 
-                print(f"📡 Fetching instance ID: {instance_id}")
+                logger.info("📡 Fetching instance ID: %s", instance_id)
 
                 # 🔍 Haetaan DICOM-data Fetch-palvelulta
                 fetch_response = fetch_stub.FetchDicomData(fetch_service_pb2.FetchRequest(instance_id=instance_id))
 
                 if not fetch_response.dicom_data:
-                    print(f"❌ No data received for instance {instance_id}")
+                    logger.warning("❌ No data received for instance %s", instance_id)
                     continue  # Ohitetaan tämä instanssi
 
                 # 🔄 Muutetaan binääridata DICOM-muotoon
                 dicom_bytes = io.BytesIO(fetch_response.dicom_data)
                 try:
                     dicom_dataset = pydicom.dcmread(dicom_bytes, force=True)
-                    print("✅ DICOM data successfully read!")
+                    logger.info("✅ DICOM data successfully read!")
                 except InvalidDicomError as e:
-                    print(f"❌ Error reading DICOM file: {e}")
+                    logger.error("❌ Error reading DICOM file: %s", e)
                     continue  # Ohitetaan tämä instanssi
 
                 # 🔍 Haetaan metadata
@@ -156,7 +149,7 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
                 }
 
                 if metadata["Modality"] != "US":
-                    print("❌ Not an ultrasound image. Skipping...")
+                    logger.info("❌ Not an ultrasound image. Skipping instance %s", instance_id)
                     continue  # Ohitetaan tämä instanssi
 
                 # 📊 Analysoidaan kuva
@@ -204,22 +197,23 @@ def serve():
     analyze_service_timed_pb2_grpc.add_AnalyzeServiceServicer_to_server(AnalyzeService(), server)
     server.add_insecure_port("[::]:50052")
     server.start()
-    print("🚀 Analyze Service running on port 50052")
+    logger.info("🚀 Analyze Service running on port 50052")
     server.wait_for_termination()
 
 def start_analyze_scheduler(interval_seconds=3600):
     def loop():
         while True:
-            print("⏰ Ajastettu analyysi käynnistyy")
+            logger.info("⏰ Ajastettu analyysi käynnistyy")
             service = AnalyzeService()
             class DummyContext:
                 def set_code(self, code): pass
             service.AnalyzeAllDicomData(None, DummyContext())
-            print(f"🕒 Odotetaan {interval_seconds} sekuntia seuraavaan ajoon...")
+            logger.info("🕒 Odotetaan %s sekuntia seuraavaan ajoon...", interval_seconds)
             time.sleep(interval_seconds)
     t = threading.Thread(target=loop, daemon=True)
     t.start()
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
     start_analyze_scheduler(60)  # Ajastettu analyysi (esim. kerran minuutissa)
     serve()                        # Käynnistää gRPC-palvelimen

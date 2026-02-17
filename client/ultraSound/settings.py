@@ -12,10 +12,17 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 
 from pathlib import Path
 import os
+import logging
 # settings.py
 from dotenv import load_dotenv
 load_dotenv()
-print(os.getenv("OPENAI_API_KEY")) # manage.py tai views.py tai settings.py:
+
+logger = logging.getLogger(__name__)
+
+if os.getenv("OPENAI_API_KEY"):
+    logger.debug("OpenAI API key detected in environment variables.")
+else:
+    logger.warning("OpenAI API key missing from environment variables.")
 
 
 
@@ -28,14 +35,12 @@ TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-a+$=05!2k8i3_#i&vh#2y#kw0!r=ptb(*p3+55gvugq(5wv^b1'
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-a+$=05!2k8i3_#i&vh#2y#kw0!r=ptb(*p3+55gvugq(5wv^b1")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() in ("true", "1", "yes")
 
-
-# ALLOWED_HOSTS = []
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'host.docker.internal']
+ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,host.docker.internal").split(",")
 
 
 
@@ -85,21 +90,14 @@ WSGI_APPLICATION = 'ultraSound.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'QA-results',  # Käytä omaa tietokantasi nimeä
-        'USER': 'postgres',  # Käytä omaa käyttäjänimeäsi
-        'PASSWORD': 'pohde24',  # Käytä omaa salasanaasi
-        'HOST': 'localhost',  # Tai muu palvelimen osoite
-        'PORT': '5432',  # Oletusportti PostgreSQL:lle
+        'NAME': os.getenv("DATABASE_NAME", "QA-results"),
+        'USER': os.getenv("DATABASE_USER", "postgres"),
+        'PASSWORD': os.getenv("DATABASE_PASSWORD", ""),
+        'HOST': os.getenv("DATABASE_HOST", "localhost"),
+        'PORT': os.getenv("DATABASE_PORT", "5432"),
     }
 }
 
@@ -147,8 +145,27 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static'),]
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
+# Kehitysasetukset - päivittää staattiset tiedostot automaattisesti
+if DEBUG:
+    # Lisää timestamp cache bustingia varten kehityksessä
+    import time
+    STATIC_VERSION = str(int(time.time()))
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Login URL for @login_required decorator
+LOGIN_URL = '/admin/login/'
+
+# Security settings for production
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    X_FRAME_OPTIONS = 'DENY'

@@ -23,11 +23,20 @@ spec:
         - name: DATABASE_PORT
           value: "5432"
         - name: DATABASE_NAME
-          value: "QA-results"
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: POSTGRES_DB
         - name: DATABASE_USER
-          value: "postgres"
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: POSTGRES_USER
         - name: DATABASE_PASSWORD
-          value: "pohde24"
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: POSTGRES_PASSWORD
         - name: ORTHANC_URL
           value: "http://host.docker.internal:8042"
 ---
