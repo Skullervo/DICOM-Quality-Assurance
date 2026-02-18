@@ -8,6 +8,9 @@ venv/
 __pycache__/
 *.pyc
 
+# Django collected static files
+staticfiles/
+
 # Junk files from Django and other development environments
 *.log
 db.sqlite3

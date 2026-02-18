@@ -1,12 +1,12 @@
 import pandas as pd
 from django.core.management.base import BaseCommand
-from first_app.models import Transducer
+from qa_core.models import Transducer
 
 class Command(BaseCommand):
     help = "Import transducer data from Excel"
 
     def handle(self, *args, **kwargs):
-        file_path = 'first_app/transducers.xls'  # Muuta tarvittaessa
+        file_path = 'qa_core/transducers.xls'  # Muuta tarvittaessa
 
         try:
             df = pd.read_excel(file_path)

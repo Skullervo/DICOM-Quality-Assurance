@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // }
 
   function updateTableByInstance(instanceValue) {
-  fetch(`/first_app/api/ultrasound/${instanceValue}/`)
+  fetch(`/qa/api/ultrasound/${instanceValue}/`)
     .then(response => response.json())
     .then(data => {
       document.getElementById('s-depth-value').innerText = data.s_depth ?? 'unknown';
@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const stationname = document.getElementById('device-name').innerText;
 
   // Fetch chart data and initialize charts for s_depth
-  fetch(`/first_app/api/s_depth/${stationname}/`)
+  fetch(`/qa/api/s_depth/${stationname}/`)
     .then(response => response.json())
     .then(data => {
       const ctx1 = document.getElementById('chart1').getContext('2d');
@@ -117,7 +117,7 @@ document.addEventListener('DOMContentLoaded', function() {
             label: 'Herkkyys (S Depth)',
             data: limitData(data.map(item => item.s_depth), offsetSDepth, limit),
             fill: false,
-            borderColor: 'rgb(75, 192, 192)',
+            borderColor: 'rgb(100, 200, 255)',
             borderWidth: 1,
             tension: 0.1,
             pointBackgroundColor: Array(limit).fill('rgba(0, 0, 0, 0.1)') // Oletusväri
@@ -179,7 +179,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
   // Sama logiikka u_coville
-  fetch(`/first_app/api/u_cov/${stationname}/`)
+  fetch(`/qa/api/u_cov/${stationname}/`)
     .then(response => response.json())
     .then(data => {
       const ctx2 = document.getElementById('chart2').getContext('2d');
@@ -251,7 +251,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
   // Sama logiikka u_skewille
-  fetch(`/first_app/api/u_skew/${stationname}/`)
+  fetch(`/qa/api/u_skew/${stationname}/`)
     .then(response => response.json())
     .then(data => {
       const ctx3 = document.getElementById('chart3').getContext('2d');
@@ -324,7 +324,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Function to load image from Orthanc server based on instance value
   function loadOrthancImage(instanceValue) {
-    fetch(`/first_app/get_orthanc_image/instance/${instanceValue}/`)
+    fetch(`/qa/get_orthanc_image/instance/${instanceValue}/`)
       .then(response => response.json())
       .then(data => {
         console.log("AJAX-vastaus:", data);
@@ -370,7 +370,7 @@ document.addEventListener('DOMContentLoaded', function() {
       answerBox.textContent = "Haetaan vastausta...";
 
       try {
-        const response = await fetch("/first_app/ask-ai/", {
+        const response = await fetch("/qa/ask-ai/", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -569,7 +569,7 @@ function drawProfiles(horizProfile, vertProfile, uLow = [], sDepth = null, uCov 
   const profileDataset = {
     label: 'Horisontaalinen profiili',
     data: horizProfile,
-    borderColor: '#66ccff',
+    borderColor: '#33aaff',
     borderWidth: 1,
     fill: false,
     pointRadius: 0,
@@ -692,7 +692,7 @@ function drawProfiles(horizProfile, vertProfile, uLow = [], sDepth = null, uCov 
       datasets: [{
         // label: 'Vertikaalinen profiili', // voit poistaa labelin jos et halua legendaa
         data: vertProfile,
-        borderColor: '#66ccff',
+        borderColor: '#33aaff',
         borderWidth: 1,
         fill: false,
         pointRadius: 0

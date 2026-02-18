@@ -87,7 +87,7 @@ function buildDashedLine(yValue, colorRGBA, label) {
 
 
   function updateTableByInstance(instanceValue) {
-  fetch(`/first_app/api/ultrasound/${instanceValue}/`)
+  fetch(`/qa/api/ultrasound/${instanceValue}/`)
     .then(response => response.json())
     .then(data => {
       document.getElementById('s-depth-value').innerText = data.s_depth ?? 'unknown';
@@ -189,7 +189,7 @@ function buildDashedLine(yValue, colorRGBA, label) {
   const BAD_HI   = buildDashedLine(5, 'rgba(255,0,0,0.9)');
 
 
-fetch(`/first_app/api/s_depth/${stationname}/`)
+fetch(`/qa/api/s_depth/${stationname}/`)
   .then(response => response.json())
   .then(data => {
     data1 = data;  // Tallenna data globaaliin muuttujaan
@@ -281,7 +281,7 @@ fetch(`/first_app/api/s_depth/${stationname}/`)
   });
 
 
-    fetch(`/first_app/api/u_cov/${stationname}/`)
+    fetch(`/qa/api/u_cov/${stationname}/`)
     .then(response => response.json())
     .then(data => {
       // const chart2 = new Chart(ctx2, {
@@ -367,7 +367,7 @@ fetch(`/first_app/api/s_depth/${stationname}/`)
       console.error('There has been a problem with your fetch operation for u_cov:', error);
     });
 
-    fetch(`/first_app/api/u_skew/${stationname}/`)
+    fetch(`/qa/api/u_skew/${stationname}/`)
     .then(response => response.json())
     .then(data => {
       // const chart3 = new Chart(ctx3, {
@@ -453,7 +453,7 @@ fetch(`/first_app/api/s_depth/${stationname}/`)
 
   // Function to load image from Orthanc server based on instance value
   function loadOrthancImage(instanceValue) {
-    fetch(`/first_app/get_orthanc_image/instance/${instanceValue}/`)
+    fetch(`/qa/get_orthanc_image/instance/${instanceValue}/`)
       .then(response => response.json())
       .then(data => {
         console.log("AJAX-vastaus:", data);
@@ -499,7 +499,7 @@ fetch(`/first_app/api/s_depth/${stationname}/`)
       answerBox.textContent = "Haetaan vastausta...";
 
       try {
-        const response = await fetch("/first_app/ask-ai/", {
+        const response = await fetch("/qa/ask-ai/", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -729,8 +729,8 @@ document.addEventListener('keydown', function (e) {
 
 
 function openDicomModal(instanceId) {
-  // fetch(`/first_app/api/dicom_info/${instanceId}/`)
-  fetch(`/first_app/api/dicom_info/${instanceId}/`)      // <= etuliite + alaviiva
+  // fetch(`/qa/api/dicom_info/${instanceId}/`)
+  fetch(`/qa/api/dicom_info/${instanceId}/`)      // <= etuliite + alaviiva
   // fetch(`/api/dicom_info/${instanceId}/`)
     // .then(response => response.json())
     .then(response => {
@@ -778,7 +778,7 @@ document
     if (!message) return;
 
     try {
-      const res = await fetch("/first_app/api/report-issue/", {
+      const res = await fetch("/qa/api/report-issue/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
