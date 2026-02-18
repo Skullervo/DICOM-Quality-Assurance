@@ -5,7 +5,7 @@ function updateDeviceName(stationname) {
   }
   
   // Fetch chart data and initialize charts
-  fetch('/first_app/api/s_depth/')
+  fetch('/qa/api/s_depth/')
     .then(response => response.json())
     .then(data => {
       var ctx1 = document.getElementById('chart1').getContext('2d');
@@ -17,7 +17,7 @@ function updateDeviceName(stationname) {
             label: 'S Depth Values',
             data: data,
             fill: false,
-            borderColor: 'rgb(75, 192, 192)',
+            borderColor: 'rgb(100, 200, 255)',
             tension: 0.1
           }]
         },
@@ -26,7 +26,7 @@ function updateDeviceName(stationname) {
             if (elements.length > 0) {
               const index = elements[0].index;
               console.log("Clicked on element index:", index); // Debug log
-              fetch(`/first_app/ultraääni_laadunvalvonta/OYS/uatesti_OYS/get_stationname/${index}/`)
+              fetch(`/qa/ultraääni_laadunvalvonta/OYS/uatesti_OYS/get_stationname/${index}/`)
                 .then(response => {
                   if (!response.ok) {
                     throw new Error('Network response was not ok ' + response.statusText);
@@ -46,7 +46,7 @@ function updateDeviceName(stationname) {
       });
     });
   
-  fetch('/first_app/api/u_cov/')
+  fetch('/qa/api/u_cov/')
     .then(response => response.json())
     .then(data => {
       var ctx2 = document.getElementById('chart2').getContext('2d');
@@ -67,7 +67,7 @@ function updateDeviceName(stationname) {
             if (elements.length > 0) {
               const index = elements[0].index;
               console.log("Clicked on element index:", index); // Debug log
-              fetch(`/first_app/ultraääni_laadunvalvonta/OYS/uatesti_OYS/get_stationname/${index}/`)
+              fetch(`/qa/ultraääni_laadunvalvonta/OYS/uatesti_OYS/get_stationname/${index}/`)
                 .then(response => {
                   if (!response.ok) {
                     throw new Error('Network response was not ok ' + response.statusText);
@@ -87,7 +87,7 @@ function updateDeviceName(stationname) {
       });
     });
   
-  fetch('/first_app/api/u_skew/')
+  fetch('/qa/api/u_skew/')
    .then(response => response.json())
    .then(data => {
       var ctx3 = document.getElementById('chart3').getContext('2d');
@@ -108,7 +108,7 @@ function updateDeviceName(stationname) {
             if (elements.length > 0) {
               const index = elements[0].index;
               console.log("Clicked on element index:", index); // Debug log
-              fetch(`/first_app/ultraääni_laadunvalvonta/OYS/uatesti_OYS/get_stationname/${index}/`)
+              fetch(`/qa/ultraääni_laadunvalvonta/OYS/uatesti_OYS/get_stationname/${index}/`)
                 .then(response => {
                   if (!response.ok) {
                     throw new Error('Network response was not ok ' + response.statusText);
