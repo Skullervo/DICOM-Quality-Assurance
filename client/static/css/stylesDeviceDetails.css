@@ -16,6 +16,10 @@
 }
 
 /* ── LIGHT THEME OVERRIDE ── */
+[data-theme="light"] .us-image-wrap {
+  background: var(--bg);
+}
+
 [data-theme="light"] .us-profile,
 [data-theme="light"] .us-waveform {
   background: var(--surface2);
@@ -29,7 +33,7 @@
   --accent:  #2d52b0;
   --accent2: #1a3a8a;
   --ok:      #1a7c3a;
-  --warn:    #9a6800;
+  --warn:    #f59e0b;
   --bad:     #c0392b;
   --neutral: #1a2e5a;
   --muted:   #4e6a94;
