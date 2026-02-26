@@ -1,0 +1,389 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{{ institution_name }} \ {{ unit_name }} - CT QA{% endblock %}
+
+{% block extra_css %}
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="{% static 'css/stylesCTPro.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block extra_head %}
+<script src="{% static 'js/scriptsCTDeviceDetails.js' %}" defer></script>
+{% endblock %}
+
+{% block nav_active_modalities %}active{% endblock %}
+
+{% block nav_right %}
+<div class="nav-right">
+  <div class="topbar-status">
+    <div class="status-dot"></div>
+    <span>{% trans "Järjestelmä toimii" %}</span>
+    <span class="status-sep">|</span>
+    <span class="sys-date" id="topbar-date">-</span>
+  </div>
+</div>
+{% endblock %}
+
+{% block main_class %}{% endblock %}
+
+{% block content %}
+<div class="layout">
+
+  <!-- LEFT PANEL -->
+  <div class="left">
+    <div class="panel-label">{% trans "Laite" %} <span class="modality-tag">CT</span></div>
+
+    <div class="image-tabs">
+      <button class="image-tab active" data-tab="hu_linearity">{% trans "HU-lineaarisuus" %}</button>
+      <button class="image-tab" data-tab="thickness">{% trans "Leikepaksuus" %}</button>
+      <button class="image-tab" data-tab="uniformity">{% trans "Uniformiteetti" %}</button>
+      <button class="image-tab" data-tab="mtf">{% trans "Spatiaalinen resoluutio" %}</button>
+      <button class="image-tab" data-tab="low_contrast">{% trans "Matala kontrasti" %}</button>
+    </div>
+
+    <div class="ct-image-wrap">
+      <img id="orthanc-image" alt="CT Phantom" />
+      <div id="loading-indicator">{% trans "Valitse piste kaaviosta" %}</div>
+    </div>
+
+    <div class="chart-tabs">
+      <button class="chart-tab active" data-chart="hu_linearity_chart">HU scatter</button>
+      <button class="chart-tab" data-chart="mtf_chart">{% trans "MTF-käyrä" %}</button>
+      <button class="chart-tab" data-chart="uniformity_profile">{% trans "Profiilit" %}</button>
+      <button class="chart-tab" data-chart="side_view">{% trans "Sivunäkymä" %}</button>
+    </div>
+
+    <div class="ct-chart-wrap">
+      <img id="chart-image" alt="Analyysikuvaaja" />
+      <div id="chart-loading">{% trans "Valitse piste kaaviosta" %}</div>
+    </div>
+
+    <div class="left-scroll">
+      <div class="meta-section-title">{% trans "Laitetiedot" %}</div>
+      <div class="meta-row"><span class="meta-key">{% trans "Laite" %}</span><span class="meta-val" id="device-name">{% trans "Valitse piste kaaviosta" %}</span></div>
+      <div class="meta-row"><span class="meta-key">{% trans "Päivämäärä" %}</span><span class="meta-val" id="content-date">-</span></div>
+      <div class="meta-row"><span class="meta-key">{% trans "Fantomi" %}</span><span class="meta-val" id="phantom-model">-</span></div>
+      <div class="meta-row"><span class="meta-key">kVp</span><span class="meta-val" id="kvp">-</span></div>
+      <div class="meta-row"><span class="meta-key">{% trans "Putkivirta (mA)" %}</span><span class="meta-val" id="tube-current">-</span></div>
+      <div class="meta-row"><span class="meta-key">{% trans "Leikepaksuus" %} (mm)</span><span class="meta-val" id="slice-thickness">-</span></div>
+      <div class="meta-row"><span class="meta-key">Kernel</span><span class="meta-val" id="reconstruction-kernel">-</span></div>
+      <div class="meta-row"><span class="meta-key">CTDIvol (mGy)</span><span class="meta-val" id="ctdi-vol">-</span></div>
+      <span id="instance-value" style="display:none">-</span>
+      <span id="uniformity-index" style="display:none">-</span>
+      <span id="mtf-50" style="display:none">-</span>
+      <span id="noise-hu-std" style="display:none">-</span>
+      <span id="overall-pass" style="display:none">-</span>
+    </div>
+  </div>
+
+  <!-- CENTER PANEL -->
+  <div class="center">
+    <div class="chips">
+      <div class="chip">
+        <div class="chip-label">{% trans "Uniformiteetti-indeksi" %}</div>
+        <div class="chip-val" id="chip-uniformity">–</div>
+        <div class="chip-sub" id="chip-uniformity-sub"></div>
+        <div class="chip-bar"><div class="chip-fill" id="chip-uniformity-fill" style="width:0%;background:var(--ok)"></div></div>
+      </div>
+      <div class="chip">
+        <div class="chip-label">MTF 50%</div>
+        <div class="chip-val" id="chip-mtf">– <span style="font-size:11px;font-weight:400">lp/cm</span></div>
+        <div class="chip-sub" id="chip-mtf-sub"></div>
+        <div class="chip-bar"><div class="chip-fill" id="chip-mtf-fill" style="width:0%;background:var(--ok)"></div></div>
+      </div>
+      <div class="chip">
+        <div class="chip-label">{% trans "Kohina (HU SD)" %}</div>
+        <div class="chip-val" id="chip-noise">–</div>
+        <div class="chip-sub" id="chip-noise-sub"></div>
+        <div class="chip-bar"><div class="chip-fill" id="chip-noise-fill" style="width:0%;background:var(--ok)"></div></div>
+      </div>
+    </div>
+
+    <div class="chips">
+      <div class="chip">
+        <div class="chip-label">HU {% trans "Akryyli" %} ({% trans "HU-lineaarisuus" %})</div>
+        <div class="chip-val" id="chip-hu-acrylic">–</div>
+        <div class="chip-sub" id="chip-hu-acrylic-sub"></div>
+        <div class="chip-bar"><div class="chip-fill" id="chip-hu-acrylic-fill" style="width:0%;background:var(--ok)"></div></div>
+      </div>
+      <div class="chip">
+        <div class="chip-label">{% trans "Matala kontrasti" %} (ROI:t)</div>
+        <div class="chip-val" id="chip-low-contrast">–</div>
+        <div class="chip-sub" id="chip-low-contrast-sub"></div>
+        <div class="chip-bar"><div class="chip-fill" id="chip-low-contrast-fill" style="width:0%;background:var(--ok)"></div></div>
+      </div>
+      <div class="chip">
+        <div class="chip-label">{% trans "Leikepaksuus" %} (mm)</div>
+        <div class="chip-val" id="chip-slice-thickness">–</div>
+        <div class="chip-sub" id="chip-slice-thickness-sub"></div>
+        <div class="chip-bar"><div class="chip-fill" id="chip-slice-thickness-fill" style="width:0%;background:var(--ok)"></div></div>
+      </div>
+    </div>
+
+    <div class="chart-panel">
+      <div class="chart-panel-header">
+        <span class="chart-panel-title">{% trans "Trendikäyrät" %}</span>
+        <div class="chart-panel-badges" id="chart-badges"></div>
+      </div>
+
+      <div class="charts-grid">
+
+        <!-- 1: Uniformiteetti-indeksi -->
+        <div class="chart-block" id="block-uniformity">
+          <div class="chart-block-head">
+            <span class="chart-block-title">{% trans "Uniformiteetti-indeksi" %}</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-uniformity"></span>
+              <span class="badge" id="badge-uniformity"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-uniformity"></div>
+            <div class="chart-scroll" id="scroll-uniformity"></div>
+          </div>
+        </div>
+
+        <!-- 2: HU Ilma (Air) -->
+        <div class="chart-block" id="block-hu-air">
+          <div class="chart-block-head">
+            <span class="chart-block-title">{% trans "HU Ilma (Air)" %}</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-hu-air"></span>
+              <span class="badge" id="badge-hu-air"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-hu-air"></div>
+            <div class="chart-scroll" id="scroll-hu-air"></div>
+          </div>
+        </div>
+
+        <!-- 3: HU PMP -->
+        <div class="chart-block" id="block-hu-pmp">
+          <div class="chart-block-head">
+            <span class="chart-block-title">HU PMP</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-hu-pmp"></span>
+              <span class="badge" id="badge-hu-pmp"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-hu-pmp"></div>
+            <div class="chart-scroll" id="scroll-hu-pmp"></div>
+          </div>
+        </div>
+
+        <!-- 4: HU LDPE -->
+        <div class="chart-block" id="block-hu-ldpe">
+          <div class="chart-block-head">
+            <span class="chart-block-title">HU LDPE</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-hu-ldpe"></span>
+              <span class="badge" id="badge-hu-ldpe"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-hu-ldpe"></div>
+            <div class="chart-scroll" id="scroll-hu-ldpe"></div>
+          </div>
+        </div>
+
+        <!-- 5: HU Polystyreeni -->
+        <div class="chart-block" id="block-hu-poly">
+          <div class="chart-block-head">
+            <span class="chart-block-title">HU {% trans "Polystyreeni" %}</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-hu-poly"></span>
+              <span class="badge" id="badge-hu-poly"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-hu-poly"></div>
+            <div class="chart-scroll" id="scroll-hu-poly"></div>
+          </div>
+        </div>
+
+        <!-- 6: HU Akryyli -->
+        <div class="chart-block" id="block-hu-acrylic">
+          <div class="chart-block-head">
+            <span class="chart-block-title">HU {% trans "Akryyli" %}</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-hu-acrylic"></span>
+              <span class="badge" id="badge-hu-acrylic"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-hu-acrylic"></div>
+            <div class="chart-scroll" id="scroll-hu-acrylic"></div>
+          </div>
+        </div>
+
+        <!-- 7: HU Delrin -->
+        <div class="chart-block" id="block-hu-delrin">
+          <div class="chart-block-head">
+            <span class="chart-block-title">HU Delrin</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-hu-delrin"></span>
+              <span class="badge" id="badge-hu-delrin"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-hu-delrin"></div>
+            <div class="chart-scroll" id="scroll-hu-delrin"></div>
+          </div>
+        </div>
+
+        <!-- 8: HU Teflon -->
+        <div class="chart-block" id="block-hu-teflon">
+          <div class="chart-block-head">
+            <span class="chart-block-title">HU Teflon</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-hu-teflon"></span>
+              <span class="badge" id="badge-hu-teflon"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-hu-teflon"></div>
+            <div class="chart-scroll" id="scroll-hu-teflon"></div>
+          </div>
+        </div>
+
+        <!-- 9: MTF 50% -->
+        <div class="chart-block" id="block-mtf">
+          <div class="chart-block-head">
+            <span class="chart-block-title">MTF 50% [lp/cm]</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-mtf"></span>
+              <span class="badge" id="badge-mtf"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-mtf"></div>
+            <div class="chart-scroll" id="scroll-mtf"></div>
+          </div>
+        </div>
+
+        <!-- 4: Matala kontrasti -->
+        <div class="chart-block" id="block-low-contrast">
+          <div class="chart-block-head">
+            <span class="chart-block-title">{% trans "Matala kontrasti" %} (ROI:t)</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-low-contrast"></span>
+              <span class="badge" id="badge-low-contrast"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-low-contrast"></div>
+            <div class="chart-scroll" id="scroll-low-contrast"></div>
+          </div>
+        </div>
+
+        <!-- 5: Kohina -->
+        <div class="chart-block" id="block-noise">
+          <div class="chart-block-head">
+            <span class="chart-block-title">{% trans "Kohina (HU SD)" %}</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-noise"></span>
+              <span class="badge" id="badge-noise"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-noise"></div>
+            <div class="chart-scroll" id="scroll-noise"></div>
+          </div>
+        </div>
+
+        <!-- 6: Leikepaksuus -->
+        <div class="chart-block" id="block-slice-thickness">
+          <div class="chart-block-head">
+            <span class="chart-block-title">{% trans "Leikepaksuus" %} (mm)</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-slice-thickness"></span>
+              <span class="badge" id="badge-slice-thickness"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-slice-thickness"></div>
+            <div class="chart-scroll" id="scroll-slice-thickness"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="chart-panel-legend">
+        <div class="legend-item">
+          <div class="legend-dash" style="border-color:#fbbf24"></div>
+          <span>{% trans "Hyväksyntäraja" %}</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dash" style="border-color:#fb7185"></div>
+          <span>{% trans "Virheraja" %}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="report-section">
+      <div class="report-label">{% trans "Raportoi ongelmasta" %}</div>
+      <form id="mini-chat-form">
+        <textarea class="report-textarea" id="mini-chat-input" placeholder="{% trans 'Kuvaile havaittu ongelma…' %}"></textarea>
+        <div class="report-actions">
+          <button type="button" class="report-btn">{% trans "Peruuta" %}</button>
+          <button type="submit" class="report-btn primary" id="mini-chat-send">{% trans "Lähetä raportti" %}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right">
+    <div class="panel-label">{% trans "Kysy tekoälyltä" %}</div>
+    <div class="ai-messages" id="answer-box"></div>
+    <div class="ai-footer">
+      <div class="ai-input-row">
+        <form id="chat-form" style="display:contents">
+          <textarea class="ai-input" id="question" placeholder="{% trans 'Kirjoita kysymys…' %}"></textarea>
+          <button class="ai-send" id="chat-send-button" type="submit">&#8594;</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- DICOM-modaali -->
+<div id="dicom-modal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeDicomModal()">&times;</span>
+    <h2>{% trans "DICOM-metatiedot" %}</h2>
+    <div id="dicom-grid" class="dicom-grid">
+      <div class="dicom-col" id="dicom-col-left"></div>
+      <div class="dicom-col" id="dicom-col-right"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  window.devicesData = {{ devices_data|safe }};
+  window.T = {
+    loading:       '{% trans "Ladataan leikekuvaa..." %}',
+    loadingChart:  '{% trans "Ladataan kuvaajaa..." %}',
+    noImage:       '{% trans "Analyysikuvaa ei saatavilla" %}',
+    fetching:      '{% trans "Haetaan vastausta..." %}',
+    noAnswer:      '{% trans "Ei saatu vastausta." %}',
+    messageSent:   '{% trans "Viesti lähetetty!" %}',
+    metrics:       '{% trans "Mittaustulokset" %}',
+    aiLabel:       '{% trans "Tekoäly" %}',
+    imageError:    '{% trans "Virhe" %}',
+    selectPoint:   '{% trans "Valitse piste kaaviosta" %}',
+    uniformity:    '{% trans "Uniformiteetti" %}',
+    noise:         '{% trans "Kohina (HU SD)" %}',
+    lowContrast:   '{% trans "Matala kontrasti" %}',
+    thickness:     '{% trans "Leikepaksuus" %}',
+    overall:       '{% trans "Kokonaistulos" %}',
+  };
+  window.LANG = '{{ LANGUAGE_CODE }}';
+</script>
+{% endblock %}

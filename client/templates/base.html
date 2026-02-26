@@ -1,0 +1,71 @@
+{% load static i18n %}
+<!doctype html>
+<html lang="{{ LANGUAGE_CODE }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="{% static 'css/theme.css' %}" rel="stylesheet">
+  {% block extra_css %}{% endblock %}
+  {% block extra_head %}{% endblock %}
+  <title>{% block title %}{% trans "LV-automaatti" %}{% endblock %}</title>
+  <script>
+    (function(){
+      var t = localStorage.getItem('autoqad-theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+</head>
+<body>
+  <header>
+    <nav class="navbar">
+      <h3 class="navbar-brand"><a href="{% url 'index' %}">{% trans "LV-automaatti" %}</a></h3>
+      <div class="nav-links">
+        <a class="nav-link {% block nav_active_index %}{% endblock %}" href="{% url 'index' %}">{% trans "Aloitus" %}</a>
+        <a class="nav-link {% block nav_active_modalities %}{% endblock %}" href="{% url 'modaliteetit' %}">{% trans "Modaliteetit" %}</a>
+        <a class="nav-link {% block nav_active_tietoa %}{% endblock %}" href="{% url 'tietoa' %}">{% trans "Tietoa" %}</a>
+      </div>
+      {% block nav_right %}{% endblock %}
+      <div class="nav-controls">
+        <button class="theme-btn" id="theme-toggle" aria-label="Toggle theme" title="Toggle theme">☀</button>
+        <div class="lang-switcher">
+          <form action="{% url 'set_language' %}" method="post">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <button type="submit" name="language" value="fi"
+                    class="lang-btn {% if LANGUAGE_CODE == 'fi' %}active{% endif %}">FI</button>
+            <button type="submit" name="language" value="en"
+                    class="lang-btn {% if LANGUAGE_CODE == 'en' %}active{% endif %}">EN</button>
+          </form>
+        </div>
+      </div>
+    </nav>
+  </header>
+
+  {% block breadcrumb %}{% endblock %}
+
+  <main class="{% block main_class %}main-content{% endblock %}">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer>
+    <p>{% trans "Lääketieteellisen fysiikan asiantuntijapalvelut" %}, <a href="https://github.com/Skullervo">@skullervo</a>.</p>
+  </footer>
+
+  {% block extra_js %}{% endblock %}
+  <script>
+    (function(){
+      var btn = document.getElementById('theme-toggle');
+      if (!btn) return;
+      var current = document.documentElement.getAttribute('data-theme') || 'dark';
+      btn.textContent = current === 'light' ? '🌙' : '☀';
+      btn.addEventListener('click', function(){
+        var next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('autoqad-theme', next);
+        btn.textContent = next === 'light' ? '🌙' : '☀';
+      });
+    })();
+  </script>
+</body>
+</html>

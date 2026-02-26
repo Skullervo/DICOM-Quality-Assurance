@@ -1,528 +1,751 @@
-document.addEventListener('DOMContentLoaded', function() {
-  // Muuttujat skrollaukseen
-  let offsetSDepth = 0;
-  let offsetUCov = 0;
-  let offsetUSkew = 0;
-  const limit = 10;
-  let isDragging = false;
-  let startX = 0;
-  let scrollSpeed = 0.2;
-  let chart1, chart2, chart3;
-  let data1, data2, data3;
-  let loadedCount = 0;
-  let selectedInstance = null;
+// ─────────────────────────────────────────────
+// DeviceDetails v6 — SVG trend charts + profiles
+// ─────────────────────────────────────────────
 
-
-  // Kaaviot
-  const ctx1 = document.getElementById('chart1').getContext('2d');
-  const ctx2 = document.getElementById('chart2').getContext('2d');
-  const ctx3 = document.getElementById('chart3').getContext('2d');
+document.addEventListener('DOMContentLoaded', function () {
 
   const stationname = document.getElementById('device-name').innerText;
 
-  function limitData(data, offset, limit) {
-    return data.slice(offset, offset + limit);
+  // ── SVG Chart engine ──────────────────────────
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const VISIBLE_STUDIES = 5;
+  const H = 150;
+  const PAD_TOP = 12;
+  const PAD_BOT = 18;
+  const CHART_H = H - PAD_TOP - PAD_BOT;
+
+  function norm2y(n) {
+    return PAD_TOP + (1 - n) * CHART_H;
   }
 
-  // 📌 Rekisteröi plugin
-  Chart.register(window['chartjs-plugin-annotation']);
+  function buildChart(cfg) {
+    const container = document.getElementById(cfg.scrollId);
+    if (!container) return;
+    container.innerHTML = '';
 
-  function buildBand(yMin, yMax, color, label) {
-    return {
-      type: 'box',
-      yMin: yMin,
-      yMax: yMax,
-      backgroundColor: color,
-      borderWidth: 0,
-      label: {
-        content: label,
-        enabled: false
+    const n = cfg.data.length;
+    if (n === 0) return;
+
+    const PAD_X = 12;  // small padding at edges
+    const visibleW = container.clientWidth || VISIBLE_STUDIES * 90;
+    // When n <= VISIBLE_STUDIES: fit all points in container (no scroll)
+    // When n > VISIBLE_STUDIES: SVG wider than container (scroll to see more)
+    const colW = visibleW / Math.min(n, VISIBLE_STUDIES);
+    const svgW = n > VISIBLE_STUDIES
+      ? PAD_X * 2 + (n - 1) * colW
+      : visibleW;
+
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('width', svgW);
+    svg.setAttribute('height', H);
+    svg.setAttribute('viewBox', '0 0 ' + svgW + ' ' + H);
+    svg.style.minWidth = svgW + 'px';
+
+    function x(i) {
+      if (n === 1) return svgW / 2;
+      return PAD_X + (i / (n - 1)) * (svgW - PAD_X * 2);
+    }
+
+    // Defs (gradient)
+    const defs = document.createElementNS(SVG_NS, 'defs');
+    const grad = document.createElementNS(SVG_NS, 'linearGradient');
+    const gid = 'grad_' + cfg.scrollId;
+    grad.setAttribute('id', gid);
+    grad.setAttribute('x1', '0'); grad.setAttribute('y1', '0');
+    grad.setAttribute('x2', '0'); grad.setAttribute('y2', '1');
+    const s1 = document.createElementNS(SVG_NS, 'stop');
+    s1.setAttribute('offset', '0%');
+    s1.setAttribute('stop-color', cfg.gradColor);
+    s1.setAttribute('stop-opacity', '0.18');
+    const s2 = document.createElementNS(SVG_NS, 'stop');
+    s2.setAttribute('offset', '100%');
+    s2.setAttribute('stop-color', cfg.gradColor);
+    s2.setAttribute('stop-opacity', '0');
+    grad.appendChild(s1); grad.appendChild(s2);
+    defs.appendChild(grad);
+    svg.appendChild(defs);
+
+    // Horizontal grid lines
+    [0.25, 0.5, 0.75].forEach(function (f) {
+      const line = document.createElementNS(SVG_NS, 'line');
+      const yy = norm2y(f);
+      line.setAttribute('x1', 0); line.setAttribute('x2', svgW);
+      line.setAttribute('y1', yy); line.setAttribute('y2', yy);
+      line.setAttribute('stroke', '#1e3048'); line.setAttribute('stroke-width', '0.5');
+      svg.appendChild(line);
+    });
+
+    // Vertical separators (midpoints between data points)
+    for (var i = 1; i < n; i++) {
+      const vl = document.createElementNS(SVG_NS, 'line');
+      const xx = (x(i - 1) + x(i)) / 2;
+      vl.setAttribute('x1', xx); vl.setAttribute('x2', xx);
+      vl.setAttribute('y1', PAD_TOP); vl.setAttribute('y2', H - PAD_BOT);
+      vl.setAttribute('stroke', '#1e3048'); vl.setAttribute('stroke-width', '0.5');
+      svg.appendChild(vl);
+    }
+
+    // Zero line
+    if (cfg.zeroLine) {
+      const zl = document.createElementNS(SVG_NS, 'line');
+      const yy = norm2y(0.5);
+      zl.setAttribute('x1', 0); zl.setAttribute('x2', svgW);
+      zl.setAttribute('y1', yy); zl.setAttribute('y2', yy);
+      zl.setAttribute('stroke', '#2a3a50'); zl.setAttribute('stroke-width', '1.5');
+      svg.appendChild(zl);
+    }
+
+    // Limit lines
+    cfg.limits.forEach(function (lim) {
+      const ll = document.createElementNS(SVG_NS, 'line');
+      const yy = norm2y(lim.y);
+      ll.setAttribute('x1', 0); ll.setAttribute('x2', svgW);
+      ll.setAttribute('y1', yy); ll.setAttribute('y2', yy);
+      ll.setAttribute('stroke', lim.color);
+      ll.setAttribute('stroke-width', '1.2');
+      ll.setAttribute('stroke-dasharray', '6,4');
+      svg.appendChild(ll);
+    });
+
+    // Area fill
+    const pts = cfg.data.map(function (v, i) { return x(i) + ',' + norm2y(v); }).join(' ');
+    const firstX = x(0), lastX = x(n - 1);
+    const botY = H - PAD_BOT;
+    const area = document.createElementNS(SVG_NS, 'polygon');
+    area.setAttribute('points',
+      pts + ' ' + lastX + ',' + botY + ' ' + firstX + ',' + botY
+    );
+    area.setAttribute('fill', 'url(#' + gid + ')');
+    svg.appendChild(area);
+
+    // Line
+    const polyline = document.createElementNS(SVG_NS, 'polyline');
+    polyline.setAttribute('points', pts);
+    polyline.setAttribute('fill', 'none');
+    polyline.setAttribute('stroke', cfg.lineColor);
+    polyline.setAttribute('stroke-width', '2.5');
+    polyline.setAttribute('stroke-linejoin', 'round');
+    polyline.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(polyline);
+
+    // Points
+    cfg.data.forEach(function (v, i) {
+      const isBad = cfg.badThreshold !== null && v <= cfg.badThreshold;
+      const isLast = i === n - 1;
+      const c = document.createElementNS(SVG_NS, 'circle');
+      c.setAttribute('cx', x(i));
+      c.setAttribute('cy', norm2y(v));
+      c.setAttribute('r', isLast ? '5' : '3.5');
+      c.setAttribute('fill', isBad ? '#fb7185' : cfg.lineColor);
+      if (isLast) {
+        c.setAttribute('stroke', '#080c10');
+        c.setAttribute('stroke-width', '2');
       }
-    };
+      // Click handler for point selection
+      if (cfg.instances && cfg.instances[i]) {
+        c.style.cursor = 'pointer';
+        c.addEventListener('click', function () {
+          updateTableByInstance(cfg.instances[i]);
+        });
+      }
+      svg.appendChild(c);
+    });
+
+    // Date labels
+    cfg.dates.forEach(function (d, i) {
+      const t = document.createElementNS(SVG_NS, 'text');
+      t.setAttribute('x', x(i));
+      t.setAttribute('y', H - 2);
+      t.setAttribute('text-anchor', 'middle');
+      t.setAttribute('fill', '#64748b');
+      t.setAttribute('font-size', '7');
+      t.setAttribute('font-family', 'monospace');
+      t.textContent = d;
+      svg.appendChild(t);
+    });
+
+    container.appendChild(svg);
+
+    // Scroll to end (latest data)
+    container.scrollLeft = container.scrollWidth;
   }
 
-  
 
-  function tryUpdateScrollbarMax() {
+  // ── Chart configurations (populated from API) ──
+  var CHARTS = [];
+
+  function initCharts() {
+    CHARTS.forEach(buildChart);
+  }
+
+  window.addEventListener('resize', function () {
+    CHARTS.forEach(function (cfg) {
+      var c = document.getElementById(cfg.scrollId);
+      if (c) c.innerHTML = '';
+    });
+    initCharts();
+  });
+
+
+  // ── Normalise raw values to 0..1 range ──
+  function normalise(val, min, max) {
+    return (val - min) / (max - min);
+  }
+
+  function formatDate(raw) {
+    // raw = '20210211' → '11.02'
+    if (!raw || raw.length < 8) return raw || '';
+    return raw.slice(6, 8) + '.' + raw.slice(4, 6);
+  }
+
+
+  // ── Badge helpers ──
+  function setBadge(el, cls, text) {
+    if (!el) return;
+    el.className = 'badge ' + cls;
+    el.textContent = text;
+  }
+
+  function classifySDeph(v) {
+    if (v === null || v === undefined) return { cls: '', text: '' };
+    if (v < 4.0) return { cls: 'ok', text: 'OK' };
+    if (v < 5.0) return { cls: 'warn', text: (window.T&&window.T.check||'Tarkista') };
+    return { cls: 'bad', text: (window.T&&window.T.limitExceeded||'Raja ylitetty') };
+  }
+
+  function classifyUCov(v) {
+    if (v === null || v === undefined) return { cls: '', text: '' };
+    if (v < 4.0) return { cls: 'ok', text: 'OK' };
+    if (v < 5.0) return { cls: 'warn', text: (window.T&&window.T.check||'Tarkista') };
+    return { cls: 'bad', text: (window.T&&window.T.limitExceeded||'Raja ylitetty') };
+  }
+
+  function classifyUSkew(v) {
+    if (v === null || v === undefined) return { cls: '', text: '' };
+    if (Math.abs(v) < 1.0) return { cls: 'ok', text: 'OK' };
+    return { cls: 'bad', text: (window.T&&window.T.limitExceeded||'Raja ylitetty') };
+  }
+
+
+  // ── Update chips ──
+  function updateChips(sDepth, uCov, uSkew) {
+    // Also report to AI chat panel
+    reportMetricsToChat(sDepth, uCov, uSkew);
+
+    var el;
+    // s_depth
+    var sClass = classifySDeph(sDepth);
+    el = document.getElementById('chip-s-depth');
+    if (el && sDepth != null) {
+      el.className = 'chip-val ' + sClass.cls;
+      el.innerHTML = Number(sDepth).toFixed(2) + ' <span style="font-size:11px;font-weight:400">mm</span>';
+    }
+    var sRatio = sDepth != null ? Math.min(sDepth / 4.0, 1) : 0;
+    var sFill = document.getElementById('chip-s-depth-fill');
+    if (sFill) { sFill.style.width = (sRatio * 100) + '%'; sFill.style.background = 'var(--' + (sClass.cls || 'ok') + ')'; }
+    var sSub = document.getElementById('chip-s-depth-sub');
+    if (sSub && sDepth != null) sSub.textContent = sClass.cls === 'ok' ? (window.T&&window.T.stable||'→ Vakaa · raja') + ' 4.0 mm' : (window.T&&window.T.limitOf||'↑ Raja') + ' ' + Number(sDepth).toFixed(2) + ' / 4.0 mm';
+
+    // u_cov
+    var cClass = classifyUCov(uCov);
+    el = document.getElementById('chip-u-cov');
+    if (el && uCov != null) {
+      el.className = 'chip-val ' + cClass.cls;
+      el.innerHTML = Number(uCov).toFixed(2) + ' <span style="font-size:11px;font-weight:400">%</span>';
+    }
+    var cRatio = uCov != null ? Math.min(uCov / 5.0, 1) : 0;
+    var cFill = document.getElementById('chip-u-cov-fill');
+    if (cFill) { cFill.style.width = (cRatio * 100) + '%'; cFill.style.background = 'var(--' + (cClass.cls || 'ok') + ')'; }
+    var cSub = document.getElementById('chip-u-cov-sub');
+    if (cSub && uCov != null) cSub.textContent = cClass.cls === 'ok' ? (window.T&&window.T.stable||'→ Vakaa · raja') + ' 5.0 %' : (window.T&&window.T.limitOf||'↑ Raja') + ' ' + Number(uCov).toFixed(2) + ' / 5.0 %';
+
+    // u_skew
+    var kClass = classifyUSkew(uSkew);
+    el = document.getElementById('chip-u-skew');
+    if (el && uSkew != null) {
+      el.className = 'chip-val ' + kClass.cls;
+      el.textContent = Number(uSkew).toFixed(2);
+    }
+    var kRatio = uSkew != null ? Math.min(Math.abs(uSkew) / 2.0, 1) : 0;
+    var kFill = document.getElementById('chip-u-skew-fill');
+    if (kFill) { kFill.style.width = (kRatio * 100) + '%'; kFill.style.background = 'var(--' + (kClass.cls || 'ok') + ')'; }
+    var kSub = document.getElementById('chip-u-skew-sub');
+    if (kSub && uSkew != null) kSub.textContent = kClass.cls === 'ok' ? (window.T&&window.T.stable||'→ Vakaa · raja') + ' ±1.0' : (window.T&&window.T.limitExceededFull||'↓ Raja ylitetty · raja') + ' ±1.0';
+  }
+
+
+  // ── Update header badges ──
+  function updateHeaderBadges(sDepth, uCov, uSkew) {
+    var s = classifySDeph(sDepth);
+    var c = classifyUCov(uCov);
+    var k = classifyUSkew(uSkew);
+
+    setBadge(document.getElementById('badge-s-depth'), s.cls, (window.T&&window.T.sdepth||'Herkkyys (s_depth)') + ' ' + (s.text || ''));
+    setBadge(document.getElementById('badge-u-cov'), c.cls, (window.T&&window.T.ucov||'Tasaisuus (U_cov)') + ' ' + (c.text || ''));
+    setBadge(document.getElementById('badge-u-skew'), k.cls, (window.T&&window.T.uskew||'Epäsymmetria (U_skew)') + ' ' + (k.text || ''));
+
+    // Per-chart badges
+    if (sDepth != null) {
+      setBadge(document.getElementById('badge-chart-s-depth'), s.cls, s.text);
+      var v1 = document.getElementById('val-s-depth');
+      if (v1) v1.textContent = (window.T&&window.T.latest||'viim.') + ' ' + Number(sDepth).toFixed(2) + ' mm';
+    }
+    if (uCov != null) {
+      setBadge(document.getElementById('badge-chart-u-cov'), c.cls, c.text);
+      var v2 = document.getElementById('val-u-cov');
+      if (v2) v2.textContent = (window.T&&window.T.latest||'viim.') + ' ' + Number(uCov).toFixed(2) + ' %';
+    }
+    if (uSkew != null) {
+      setBadge(document.getElementById('badge-chart-u-skew'), k.cls, k.text);
+      var v3 = document.getElementById('val-u-skew');
+      if (v3) v3.textContent = (window.T&&window.T.latest||'viim.') + ' ' + Number(uSkew).toFixed(2);
+    }
+  }
+
+
+  // ── Update profiles (SVG-based) ──
+  // viewBox matches actual px size → no distortion on text/circles
+  function updateProfileSVG(vertProfile, sDepthPx) {
+    var container = document.getElementById('profile-svg-container');
+    if (!container || !vertProfile || vertProfile.length === 0) return;
+
+    var maxVal = Math.max.apply(null, vertProfile);
+    if (maxVal === 0) return;
+
+    // Match actual rendered size of container
+    var W = container.clientWidth || 56;
+    var H = container.clientHeight || 350;
+    var PAD = 4;
+    var CX = W / 2;
+    var AMP = (W / 2) - PAD - 2;
+
+    var svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    // No preserveAspectRatio="none" needed — viewBox matches container
+
+    // Center line
+    var cl = document.createElementNS(SVG_NS, 'line');
+    cl.setAttribute('x1', CX); cl.setAttribute('y1', 0);
+    cl.setAttribute('x2', CX); cl.setAttribute('y2', H);
+    cl.setAttribute('stroke', '#1e3048'); cl.setAttribute('stroke-width', '1');
+    svg.appendChild(cl);
+
+    // Profile polyline
+    var points = vertProfile.map(function (val, i) {
+      var yPos = (i / (vertProfile.length - 1)) * (H - 2 * PAD) + PAD;
+      var amplitude = (val / maxVal) * AMP;
+      var xPos = CX + amplitude;
+      return xPos.toFixed(1) + ',' + yPos.toFixed(1);
+    }).join(' ');
+
+    var polyline = document.createElementNS(SVG_NS, 'polyline');
+    polyline.setAttribute('points', points);
+    polyline.setAttribute('fill', 'none');
+    polyline.setAttribute('stroke', '#00b4d8');
+    polyline.setAttribute('stroke-width', '1.5');
+    polyline.setAttribute('stroke-linejoin', 'round');
+    polyline.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(polyline);
+
+    // S Depth dashed line
+    if (sDepthPx != null && !isNaN(sDepthPx) && vertProfile.length > 0) {
+      var sDepthY = (sDepthPx / (vertProfile.length - 1)) * (H - 2 * PAD) + PAD;
+      if (sDepthY >= PAD && sDepthY <= H - PAD) {
+        var sl = document.createElementNS(SVG_NS, 'line');
+        sl.setAttribute('x1', 0); sl.setAttribute('x2', W);
+        sl.setAttribute('y1', sDepthY.toFixed(1)); sl.setAttribute('y2', sDepthY.toFixed(1));
+        sl.setAttribute('stroke', '#fbbf24');
+        sl.setAttribute('stroke-width', '1.5');
+        sl.setAttribute('stroke-dasharray', '4,3');
+        svg.appendChild(sl);
+
+      }
+    }
+
+    container.innerHTML = '';
+    container.appendChild(svg);
+  }
+
+  // Horizontal waveform — viewBox matches rendered px
+  function updateWaveformSVG(horizProfile) {
+    var container = document.getElementById('waveform-container');
+    if (!container || !horizProfile || horizProfile.length === 0) return;
+
+    var maxVal = Math.max.apply(null, horizProfile);
+    if (maxVal === 0) return;
+
+    // Measure actual container width; fallback 180
+    var W = container.clientWidth || 180;
+    var H = 72;            // extra height for percentage labels
+    var CY = 26;           // center of waveform area
+    var AMP = CY - 4;     // max amplitude = 22
+
+    var svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+
+    // Profile polyline
+    var N = horizProfile.length;
+    var PAD_H = 6;  // horizontal padding so edge circles aren't clipped
+    var dataW = W - PAD_H * 2;
+    var points = horizProfile.map(function (val, i) {
+      var xPos = PAD_H + (i / (N - 1)) * dataW;
+      var amplitude = (val / maxVal) * AMP;
+      var yPos = CY - amplitude;
+      return xPos.toFixed(1) + ',' + yPos.toFixed(1);
+    }).join(' ');
+
+    var polyline = document.createElementNS(SVG_NS, 'polyline');
+    polyline.setAttribute('points', points);
+    polyline.setAttribute('fill', 'none');
+    polyline.setAttribute('stroke', '#00b4d8');
+    polyline.setAttribute('stroke-width', '1.5');
+    polyline.setAttribute('stroke-linejoin', 'round');
+    svg.appendChild(polyline);
+
+    // Segment borders (10% | 20% | 40% | 20% | 10%) and min points
+    var seg1 = Math.round(N * 0.1);
+    var seg2 = seg1 + Math.round(N * 0.2);
+    var seg3 = seg2 + Math.round(N * 0.4);
+    var seg4 = seg3 + Math.round(N * 0.2);
+    var segBorders = [0, seg1, seg2, seg3, seg4, N];
+
+    // Segment border lines
+    for (var b = 1; b < segBorders.length - 1; b++) {
+      var bx = PAD_H + (segBorders[b] / (N - 1)) * dataW;
+      var bl = document.createElementNS(SVG_NS, 'line');
+      bl.setAttribute('x1', bx.toFixed(1)); bl.setAttribute('x2', bx.toFixed(1));
+      bl.setAttribute('y1', 4); bl.setAttribute('y2', H - 4);
+      bl.setAttribute('stroke', 'rgba(150,150,150,0.5)');
+      bl.setAttribute('stroke-width', '1');
+      bl.setAttribute('stroke-dasharray', '3,3');
+      svg.appendChild(bl);
+    }
+
+    // Min points per segment (u_low markers) + update u_low chips
+    var segMinValues = [];
+    for (var s = 0; s < 5; s++) {
+      var start = segBorders[s];
+      var end = segBorders[s + 1];
+      var minVal = Infinity, minIdx = -1;
+      for (var j = start; j < end; j++) {
+        if (horizProfile[j] < minVal) {
+          minVal = horizProfile[j];
+          minIdx = j;
+        }
+      }
+      segMinValues.push(minVal === Infinity ? 0 : minVal);
+      if (minIdx >= 0) {
+        var cx = PAD_H + (minIdx / (N - 1)) * dataW;
+        var cy = CY - (minVal / maxVal) * AMP;
+        var circle = document.createElementNS(SVG_NS, 'circle');
+        circle.setAttribute('cx', cx.toFixed(1));
+        circle.setAttribute('cy', cy.toFixed(1));
+        circle.setAttribute('r', '3');
+        circle.setAttribute('fill', 'rgba(255,60,60,0.7)');
+        circle.setAttribute('stroke', '#fb7185');
+        circle.setAttribute('stroke-width', '1');
+        svg.appendChild(circle);
+      }
+    }
+
+    // Update u_low chip values (normalized as % of max intensity)
+    updateUlowChips(segMinValues, maxVal);
+
+    // Percentage labels below waveform (10% | 20% | 40% | 20% | 10%)
+    var segLabels = ['10%', '20%', '40%', '20%', '10%'];
+    for (var p = 0; p < 5; p++) {
+      var lx1 = PAD_H + (segBorders[p] / (N - 1)) * dataW;
+      var lx2 = PAD_H + (segBorders[p + 1] / (N - 1)) * dataW;
+      var midX = (lx1 + lx2) / 2;
+      var txt = document.createElementNS(SVG_NS, 'text');
+      txt.setAttribute('x', midX.toFixed(1));
+      txt.setAttribute('y', (H - 4).toFixed(1));
+      txt.setAttribute('fill', '#64748b');
+      txt.setAttribute('font-size', '9');
+      txt.setAttribute('font-family', "'JetBrains Mono', monospace");
+      txt.setAttribute('text-anchor', 'middle');
+      txt.textContent = segLabels[p];
+      svg.appendChild(txt);
+    }
+
+    container.innerHTML = '';
+    container.appendChild(svg);
+  }
+
+
+  // ── Update u_low chips (5 segments) ──
+  function updateUlowChips(segMinValues, maxVal) {
+    if (!segMinValues || segMinValues.length < 5 || maxVal === 0) return;
+
+    for (var i = 0; i < 5; i++) {
+      var el = document.getElementById('chip-ulow-val-' + i);
+      if (!el) continue;
+
+      var pct = (segMinValues[i] / maxVal) * 100;
+      el.textContent = pct.toFixed(1) + ' %';
+
+      // Classify: >60% ok, >40% warn, <=40% bad
+      el.className = 'chip-ulow-val';
+      if (pct > 60) {
+        el.classList.add('ok');
+      } else if (pct > 40) {
+        el.classList.add('warn');
+      } else {
+        el.classList.add('bad');
+      }
+    }
+  }
+
+
+  // ── Data loading ──
+  var data1, data2, data3;
+  var loadedCount = 0;
+
+  function tryBuildCharts() {
     loadedCount++;
-    if (loadedCount === 3) {
-      updateScrollbarMax();
-    }
+    if (loadedCount < 3) return;
+
+    // All data loaded — build SVG charts
+    buildChartsFromData();
   }
 
-  function updateScrollbarMax() {
-  if (data1 && data2 && data3) {
-    const maxOffset = Math.min(data1.length, data2.length, data3.length) - limit;
-    scrollbar.max = maxOffset >= 0 ? maxOffset : 0;
-  }
-}
+  function buildChartsFromData() {
+    CHARTS = [];
 
-
-
-function buildDashedLine(yValue, colorRGBA, label) {
-  return {
-    type: 'line',
-    yMin: yValue,
-    yMax: yValue,
-    borderColor: colorRGBA,         // esim. 'rgba(0,255,0,0.3)'
-    borderWidth: 0.5,                 // pienempi paksuus
-    borderDash: [4, 4],             // katkoviiva
-    label: {
-      display: false,
-      content: label,
-      color: colorRGBA,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      position: 'end',
-      font: {
-        style: 'italic',
-        size: 10
-      }
-    }
-  };
-}
-
-
-  
-
-
-
-  function updateTableByInstance(instanceValue) {
-  fetch(`/qa/api/ultrasound/${instanceValue}/`)
-    .then(response => response.json())
-    .then(data => {
-      document.getElementById('s-depth-value').innerText = data.s_depth ?? 'unknown';
-      document.getElementById('u-cov-value').innerText = data.u_cov ?? 'unknown';
-      document.getElementById('u-skew-value').innerText = data.u_skew ?? 'unknown';
-      document.getElementById('u-low-value').innerText = data.u_low ?? 'unknown';
-      document.getElementById('instance-value').innerText = data.instance ?? 'unknown';
-      loadOrthancImage(instanceValue);
-    });
-}
-
-  // Funktio, joka rajoittaa datan haluttuun määrään
-  function limitData(data, offset, limit) {
-    return data.slice(offset, offset + limit);
-  }
-
-  // Funktio päivittää Chart.js -kuvaajan
-  function updateChart(chart, data, offset, limit, fieldName) {
-    chart.data.labels = limitData(data.map(item => item.seriesdate), offset, limit);
-    chart.data.datasets[0].data = limitData(data.map(item => item[fieldName]), offset, limit);
-    chart.update();
-  }
-
-  // Funktio käsittelee hiiren vedon kuvaajassa ja tekee liikkeestä dynaamisempaa
-  function handleDrag(chart, data, offsetName, limit, fieldName) {
-  chart.canvas.addEventListener('mousedown', function(evt) {
-    isDragging = true;
-    startX = evt.clientX;
-    chart.canvas.style.cursor = 'grabbing';
-  });
-
-  chart.canvas.addEventListener('mousemove', function(evt) {
-    if (isDragging) {
-      const deltaX = evt.clientX - startX;
-      startX = evt.clientX;
-      const dataShift = Math.round(deltaX * scrollSpeed);
-
-      // Käytä offsetName-muuttujaa globaalisti
-      if (chart === chart1) {
-        if (dataShift < 0) {
-          offsetSDepth = Math.min(offsetSDepth + Math.abs(dataShift), data.length - limit);
-        } else if (dataShift > 0) {
-          offsetSDepth = Math.max(offsetSDepth - dataShift, 0);
-        }
-        updateChart(chart1, data1, offsetSDepth, limit, 's_depth');
-        scrollbar.value = offsetSDepth;
-      }
-      // Lisää vastaavat chart2 ja chart3 myöhemmin
-    }
-  });
-
-  chart.canvas.addEventListener('mouseup', function() {
-    isDragging = false;
-    chart.canvas.style.cursor = 'default';
-  });
-
-  chart.canvas.addEventListener('mouseleave', function() {
-    isDragging = false;
-    chart.canvas.style.cursor = 'default';
-  });
-}
-
-  // Funktio käsittelee pisteen valinnan ja vaihtaa sen värin
-  // function highlightSelectedPoint(chart, index) {
-  //   const dataset = chart.data.datasets[0];
-  //   const pointColors = dataset.pointBackgroundColor;
-  //   if (!Array.isArray(pointColors)) {
-  //     dataset.pointBackgroundColor = Array(dataset.data.length).fill('rgba(0, 0, 0, 0.1)');
-  //   }
-
-  //   // Nollataan kaikki värit
-  //   dataset.pointBackgroundColor = dataset.pointBackgroundColor.map(() => 'rgba(0, 0, 0, 0.1)');
-
-  //   // Vaihdetaan valitun pisteen väri
-  //   dataset.pointBackgroundColor[index] = 'rgba(255, 0, 0, 1)'; // Punainen valitulle pisteelle
-  //   chart.update();
-  // }
-
-  function highlightSelectedPoint(chart, index) {
-  const dataset = chart.data.datasets[0];
-  if (!Array.isArray(dataset.pointBackgroundColor)) {
-    dataset.pointBackgroundColor = Array(dataset.data.length).fill('rgba(0, 0, 0, 0.1)');
-  }
-  // Nollaa kaikki värit
-  dataset.pointBackgroundColor = dataset.pointBackgroundColor.map(() => 'rgba(0, 0, 0, 0.1)');
-  // Jos index on kelvollinen, korosta se
-  if (index >= 0 && index < dataset.pointBackgroundColor.length) {
-    dataset.pointBackgroundColor[index] = 'rgba(255, 0, 0, 1)';
-  }
-  chart.update();
-}
-
-
-  const GOOD_MIN = buildDashedLine(2, 'rgba(0,255,0,0.9)');
-  const GOOD_MAX = buildDashedLine(3, 'rgba(0,255,0,0.9)');
-  const WARN_1   = buildDashedLine(1, 'rgba(255,255,0,0.9)');
-  const WARN_2   = buildDashedLine(4, 'rgba(255,255,0,0.9)');
-  const BAD_LO   = buildDashedLine(0, 'rgba(255,0,0,0.9)');
-  const BAD_HI   = buildDashedLine(5, 'rgba(255,0,0,0.9)');
-
-
-fetch(`/qa/api/s_depth/${stationname}/`)
-  .then(response => response.json())
-  .then(data => {
-    data1 = data;  // Tallenna data globaaliin muuttujaan
-    chart1 = new Chart(ctx1, {
-      type: 'line',
-      data: {
-        labels: limitData(data.map(item => item.seriesdate), offsetSDepth, limit),
-        datasets: [{
-          label: 'Herkkyys [mm]',
-          data: limitData(data.map(item => item.s_depth), offsetSDepth, limit),
-          fill: false,
-          borderColor: 'rgb(100, 200, 255)',
-          borderWidth: 1,
-          tension: 0.1,
-          pointBackgroundColor: Array(limit).fill('rgba(0, 0, 0, 0.1)')
-        }]
-      },
-      options: {
-        scales: {
-          x: {
-            ticks: {
-              color: '#f8f9fa',
-              callback: function(value) {
-                const raw = this.getLabelForValue(value);
-                const year = raw.slice(0, 4);
-                const month = raw.slice(4, 6);
-                const day = raw.slice(6, 8);
-                return `${day}.${month}.${year}`;
-              }
-            },
-            grid: { color: '#6c757d' }
-          },
-          y: {
-            min: 0,
-            max: 5,
-            ticks: { color: '#f8f9fa' },
-            grid: { color: '#6c757d' }
-          }
-        },
-        plugins: {
-          annotation: {
-            annotations: {
-              GOOD_MIN,
-              GOOD_MAX,
-              WARN_1,
-              WARN_2,
-              BAD_LO,
-              BAD_HI
-            }
-          }
-        }
-      }
-    });
-
-    
-    updateScrollbarMax();
-
-    // Lisää vedon käsittely
-    // handleDrag(chart1, data, offsetSDepth, limit, 's_depth');
-    handleDrag(chart1, data1, 'offsetSDepth', limit, 's_depth');
-
-    // Klikkaus valitsee pisteen
-    document.getElementById('chart1').onclick = function(evt) {
-      const activePoints = chart1.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
-      if (activePoints.length > 0) {
-        const clickedIndex = activePoints[0].index + offsetSDepth;
-        const instanceValue = data[clickedIndex].instance;
-        selectedInstance = instanceValue; // <-- TÄRKEÄÄ
-        updateTableByInstance(instanceValue);
-        highlightSelectedPoint(chart1, activePoints[0].index);
-      }
-    };
-
-    // updateScrollbarMax();  // Päivitä skrollauspalkin maksimiarvo
-    // ...chart1:n luonnin jälkeen...
-
+    // s_depth chart
     if (data1 && data1.length > 0) {
-      // Valitse ensimmäinen mittauspiste
-      const firstInstance = data1[0].instance;
-      updateTableByInstance(firstInstance); // Päivitä taulukko ja kuva
-      highlightSelectedPoint(chart1, 0);    // Korosta ensimmäinen piste
+      var yMin1 = 0, yMax1 = 4;
+      CHARTS.push({
+        scrollId: 'scroll-herkkyys',
+        data: data1.map(function (d) { return normalise(d.s_depth, yMin1, yMax1); }),
+        dates: data1.map(function (d) { return formatDate(d.seriesdate); }),
+        instances: data1.map(function (d) { return d.instance; }),
+        lineColor: '#52e3a0',
+        gradColor: '#52e3a0',
+        limits: [{ y: 1.0, color: '#fbbf24' }],
+        badThreshold: null,
+        zeroLine: false,
+      });
     }
 
-    tryUpdateScrollbarMax();
+    // u_cov chart
+    if (data2 && data2.length > 0) {
+      var yMin2 = 0, yMax2 = 5;
+      CHARTS.push({
+        scrollId: 'scroll-tasaisuus',
+        data: data2.map(function (d) { return normalise(d.u_cov, yMin2, yMax2); }),
+        dates: data2.map(function (d) { return formatDate(d.seriesdate); }),
+        instances: data2.map(function (d) { return d.instance; }),
+        lineColor: '#fbbf24',
+        gradColor: '#fbbf24',
+        limits: [{ y: 1.0, color: '#fbbf24' }],
+        badThreshold: null,
+        zeroLine: false,
+      });
+    }
 
-  })
-  .catch(error => {
-    console.error('There has been a problem with your fetch operation for s_depth:', error);
-  });
+    // u_skew chart
+    if (data3 && data3.length > 0) {
+      var yMin3 = -2, yMax3 = 2;
+      CHARTS.push({
+        scrollId: 'scroll-epa',
+        data: data3.map(function (d) { return normalise(d.u_skew, yMin3, yMax3); }),
+        dates: data3.map(function (d) { return formatDate(d.seriesdate); }),
+        instances: data3.map(function (d) { return d.instance; }),
+        lineColor: '#00b4d8',
+        gradColor: '#fb7185',
+        limits: [
+          { y: 0.75, color: '#fb7185' },
+          { y: 0.25, color: '#fb7185' },
+        ],
+        zeroLine: true,
+        badThreshold: 0.25,
+      });
+    }
+
+    initCharts();
+
+    // Update UI with latest values
+    if (data1 && data1.length > 0) {
+      var latest = data1[0];
+      var latestUCov = data2 && data2.length > 0 ? data2[0].u_cov : null;
+      var latestUSkew = data3 && data3.length > 0 ? data3[0].u_skew : null;
+      updateChips(latest.s_depth, latestUCov, latestUSkew);
+      updateHeaderBadges(latest.s_depth, latestUCov, latestUSkew);
+      updateTableByInstance(latest.instance);
+    }
+  }
 
 
-    fetch(`/qa/api/u_cov/${stationname}/`)
-    .then(response => response.json())
-    .then(data => {
-      // const chart2 = new Chart(ctx2, {
+  // ── API fetches ──
+  fetch('/qa/api/s_depth/' + stationname + '/')
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      data1 = data;
+      tryBuildCharts();
+    })
+    .catch(function (e) { console.error('s_depth fetch error:', e); loadedCount++; });
+
+  fetch('/qa/api/u_cov/' + stationname + '/')
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
       data2 = data;
-      chart2 = new Chart(ctx2, {
-        type: 'line',
-        data: {
-          labels: limitData(data.map(item => item.seriesdate), offsetSDepth, limit),
-          datasets: [{
-            label: 'Tasaisuus [%]',
-            data: limitData(data.map(item => item.u_cov), offsetUCov, limit),
-            fill: false,
-            borderColor: 'rgb(100, 200, 255)',
-            borderWidth: 1,
-            tension: 0.1,
-            pointBackgroundColor: Array(limit).fill('rgba(0, 0, 0, 0.1)')
-          }]
-        },
-        options: {
-          scales: {
-            x: {
-              // ticks: { color: '#f8f9fa' },
-                ticks: {
-                  color: '#f8f9fa',
-                  callback: function(value) {
-                    const raw = this.getLabelForValue(value);
-                    // Odotetaan muotoa '20210603'
-                    const year = raw.slice(0, 4);
-                    const month = raw.slice(4, 6);
-                    const day = raw.slice(6, 8);
-                    return `${day}.${month}.${year}`;  // → dd.mm.yyyy
-                  }
-                },
-              grid: { color: '#6c757d' }
-            },
-            y: {
-              min: 0,        // Ala-arvo y-akselille
-              max: 5,        // Yläarvo (voit säätää esim. 4, jos tiedät datan raja-arvot)
-              ticks: { color: '#f8f9fa' },
-              grid: { color: '#6c757d' }
-            }
-          },
-          plugins: {
-            annotation: {
-              annotations: {
-                GOOD_MIN,
-                GOOD_MAX,
-                WARN_1,
-                WARN_2,
-                BAD_LO,
-                BAD_HI
-              }
-            }
-          }
-        }
-      });
-
-  
-
-      handleDrag(chart2, data, offsetUCov, limit, 'u_cov');
-
-      document.getElementById('chart2').onclick = function(evt) {
-        const activePoints = chart2.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
-        if (activePoints.length > 0) {
-          const clickedIndex = activePoints[0].index + offsetSDepth;
-          const instanceValue = data[clickedIndex].instance;
-          selectedInstance = instanceValue; // <-- TÄRKEÄÄ
-          updateTableByInstance(instanceValue);
-          highlightSelectedPoint(chart2, activePoints[0].index);
-        }
-      };
-
-      if (data2 && data2.length > 0) {
-      // Valitse ensimmäinen mittauspiste
-      const firstInstance = data2[0].instance;
-      updateTableByInstance(firstInstance); // Päivitä taulukko ja kuva
-      highlightSelectedPoint(chart2, 0);    // Korosta ensimmäinen piste
-    }
-
-      tryUpdateScrollbarMax();
+      tryBuildCharts();
     })
-    .catch(error => {
-      console.error('There has been a problem with your fetch operation for u_cov:', error);
-    });
+    .catch(function (e) { console.error('u_cov fetch error:', e); loadedCount++; });
 
-    fetch(`/qa/api/u_skew/${stationname}/`)
-    .then(response => response.json())
-    .then(data => {
-      // const chart3 = new Chart(ctx3, {
+  fetch('/qa/api/u_skew/' + stationname + '/')
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
       data3 = data;
-      chart3 = new Chart(ctx3, { 
-        type: 'line',
-        data: {
-          labels: limitData(data.map(item => item.seriesdate), offsetSDepth, limit),
-          datasets: [{
-            label: 'Epäsymmetria',
-            data: limitData(data.map(item => item.u_skew), offsetUSkew, limit),
-            fill: false,
-            borderColor: 'rgb(100, 200, 255)',
-            borderWidth: 1,
-            tension: 0.1,
-            pointBackgroundColor: Array(limit).fill('rgba(0, 0, 0, 0.1)')
-          }]
-        },
-        options: {
-          scales: {
-            x: {
-              // ticks: { color: '#f8f9fa' },
-                ticks: {
-                  color: '#f8f9fa',
-                  callback: function(value) {
-                    const raw = this.getLabelForValue(value);
-                    // Odotetaan muotoa '20210603'
-                    const year = raw.slice(0, 4);
-                    const month = raw.slice(4, 6);
-                    const day = raw.slice(6, 8);
-                    return `${day}.${month}.${year}`;  // → dd.mm.yyyy
-                  }
-                },
-              grid: { color: '#6c757d' }
-            },
-            y: {
-              min: -2,        // Ala-arvo y-akselille
-              max: 1,        // Yläarvo (voit säätää esim. 4, jos tiedät datan raja-arvot)
-              ticks: { color: '#f8f9fa' },
-              grid: { color: '#6c757d' }
-            }
-          },
-          plugins: {
-            annotation: {
-              annotations: {
-                GOOD_MIN,
-                GOOD_MAX,
-                WARN_1,
-                WARN_2,
-                BAD_LO,
-                BAD_HI
-              }
-            }
-          }
-        }
-      });
-
-      handleDrag(chart3, data, offsetUSkew, limit, 'u_skew');
-
-      document.getElementById('chart3').onclick = function(evt) {
-        const activePoints = chart3.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
-        if (activePoints.length > 0) {
-          const clickedIndex = activePoints[0].index + offsetSDepth;
-          const instanceValue = data[clickedIndex].instance;
-          selectedInstance = instanceValue; // <-- TÄRKEÄÄ
-          updateTableByInstance(instanceValue);
-          highlightSelectedPoint(chart3, activePoints[0].index);
-        }
-      };
-
-      if (data3 && data3.length > 0) {
-      // Valitse ensimmäinen mittauspiste
-      const firstInstance = data3[0].instance;
-      updateTableByInstance(firstInstance); // Päivitä taulukko ja kuva
-      highlightSelectedPoint(chart3, 0);    // Korosta ensimmäinen piste
-    }
-
-      tryUpdateScrollbarMax();
+      tryBuildCharts();
     })
-    .catch(error => {
-      console.error('There has been a problem with your fetch operation for u_skew:', error);
-    });
+    .catch(function (e) { console.error('u_skew fetch error:', e); loadedCount++; });
 
-  // Function to load image from Orthanc server based on instance value
+
+  // ── Update metadata table by instance ──
+  function updateTableByInstance(instanceValue) {
+    fetch('/qa/api/ultrasound/' + instanceValue + '/')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var el;
+        el = document.getElementById('u-low-value');
+        if (el) el.innerText = data.u_low != null ? Number(data.u_low).toFixed(2) : '-';
+        el = document.getElementById('instance-value');
+        if (el) el.innerText = data.instance || 'unknown';
+
+        // Update chips with selected values
+        updateChips(data.s_depth, data.u_cov, data.u_skew);
+
+        loadOrthancImage(instanceValue);
+      });
+  }
+
+
+  // ── Load image from Orthanc ──
   function loadOrthancImage(instanceValue) {
-    fetch(`/qa/get_orthanc_image/instance/${instanceValue}/`)
-      .then(response => response.json())
-      .then(data => {
-        console.log("AJAX-vastaus:", data);
+    fetch('/qa/get_orthanc_image/instance/' + instanceValue + '/')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
         if (data.image) {
           document.getElementById('orthanc-image').src = 'data:image/jpeg;base64,' + data.image;
-        // TÄRKEÄÄ: päivitä profiilit ja piirrä ne
-        if (data.horiz_prof && data.vert_prof) {
-          window.horizProfile = data.horiz_prof;
-          window.vertProfile = data.vert_prof;
-          console.log("Piirretään profiilit:", window.horizProfile, window.vertProfile);
-          // drawProfiles(window.horizProfile, window.vertProfile);
-          window.uLow = data.u_low; // oletetaan että tämä on lista indeksejä
-          window.sDepth = data.s_depth; // oletetaan että tämä on lista indeksejä
-          window.uCov = data.u_cov; // oletetaan että tämä on lista indeksejä
-          window.uSkew = data.u_skew; // oletetaan että tämä on lista indeksejä
-          drawProfiles(window.horizProfile, window.vertProfile, window.uLow, window.sDepth, window.uCov, window.uSkew);
-        }
+          if (data.vert_prof) updateProfileSVG(data.vert_prof, data.s_depth);
+          if (data.horiz_prof) updateWaveformSVG(data.horiz_prof);
         } else {
           console.error('Error loading image:', data.error);
         }
       })
-      .catch(error => {
-        console.error('There has been a problem with your fetch operation for Orthanc image:', error);
-      });
+      .catch(function (e) { console.error('Orthanc image fetch error:', e); });
   }
 
-  
 
-    // AI-kysymyslomakkeen käsittely
-  const chatForm = document.getElementById('chat-form');
+  // ── Metrics summary in AI chat ──
+  function reportMetricsToChat(sDepth, uCov, uSkew) {
+    var answerBox = document.getElementById('answer-box');
+    if (!answerBox) return;
+
+    // Remove any existing metrics message
+    var existing = answerBox.querySelector('.ai-msg.metrics');
+    if (existing) existing.remove();
+
+    // Remove any existing alert message
+    var existingAlert = answerBox.querySelector('.ai-msg.alert');
+    if (existingAlert) existingAlert.remove();
+
+    var sClass = classifySDeph(sDepth);
+    var cClass = classifyUCov(uCov);
+    var kClass = classifyUSkew(uSkew);
+
+    // Build metrics card
+    var msg = document.createElement('div');
+    msg.className = 'ai-msg metrics';
+    msg.innerHTML =
+      '<div class="ai-msg-label">' + (window.T&&window.T.metrics||'Mittaustulokset') + '</div>' +
+      '<div class="metric-line"><span class="metric-label">' + (window.T&&window.T.sdepth||'Herkkyys (s_depth)') + '</span><span class="metric-value ' + sClass.cls + '">' + (sDepth != null ? Number(sDepth).toFixed(2) + ' mm' : '–') + '</span></div>' +
+      '<div class="metric-line"><span class="metric-label">' + (window.T&&window.T.ucov||'Tasaisuus (U_cov)') + '</span><span class="metric-value ' + cClass.cls + '">' + (uCov != null ? Number(uCov).toFixed(2) + ' %' : '–') + '</span></div>' +
+      '<div class="metric-line"><span class="metric-label">' + (window.T&&window.T.uskew||'Epäsymmetria (U_skew)') + '</span><span class="metric-value ' + kClass.cls + '">' + (uSkew != null ? Number(uSkew).toFixed(2) : '–') + '</span></div>';
+
+    // Insert at the beginning of the answer box
+    answerBox.insertBefore(msg, answerBox.firstChild);
+
+    // Add alert if any metric exceeds limits
+    var exceedsW  = window.T&&window.T.exceeds          || 'ylittää';
+    var checkLimW = window.T&&window.T.checkLimit       || 'tarkistusrajan';
+    var accLimW   = window.T&&window.T.acceptanceLimit  || 'hyväksyntärajan';
+    var actionW   = window.T&&window.T.actionRecommended|| 'Toimenpide suositellaan.';
+    var alerts = [];
+    if (sClass.cls === 'warn' || sClass.cls === 'bad') {
+      alerts.push('⚠ ' + (window.T&&window.T.sdepth||'Herkkyys (s_depth)') + ' (= ' + Number(sDepth).toFixed(2) + ' mm) ' + exceedsW + ' ' + (sClass.cls === 'warn' ? checkLimW : accLimW) + ' 4.0 mm.');
+    }
+    if (cClass.cls === 'warn' || cClass.cls === 'bad') {
+      alerts.push('⚠ ' + (window.T&&window.T.ucov||'Tasaisuus (U_cov)') + ' (= ' + Number(uCov).toFixed(2) + ' %) ' + exceedsW + ' ' + (cClass.cls === 'warn' ? checkLimW : accLimW) + ' 5.0 %.');
+    }
+    if (kClass.cls === 'bad') {
+      alerts.push('⚠ ' + (window.T&&window.T.uskew||'Epäsymmetria (U_skew)') + ' (= ' + Number(uSkew).toFixed(2) + ') ' + exceedsW + ' ' + accLimW + ' ±1.0. ' + actionW);
+    }
+
+    if (alerts.length > 0) {
+      var alertMsg = document.createElement('div');
+      alertMsg.className = 'ai-msg alert';
+      alertMsg.innerHTML = alerts.join('<br>');
+      // Insert after metrics card
+      msg.insertAdjacentElement('afterend', alertMsg);
+    }
+  }
+
+
+  // ── AI chat ──
+  var chatForm = document.getElementById('chat-form');
   if (chatForm) {
     chatForm.addEventListener('submit', async function (e) {
       e.preventDefault();
 
-      const question = document.getElementById('question').value.trim();
-      const answerBox = document.getElementById('answer-box');
+      var question = document.getElementById('question').value.trim();
+      var answerBox = document.getElementById('answer-box');
 
-      if (!question) {
-        answerBox.textContent = "Kirjoita ensin kysymys.";
-        return;
-      }
+      if (!question) return;
 
-      answerBox.textContent = "Haetaan vastausta...";
+      // Add user message
+      var userMsg = document.createElement('div');
+      userMsg.className = 'ai-msg user';
+      userMsg.textContent = question;
+      answerBox.appendChild(userMsg);
+      document.getElementById('question').value = '';
+      answerBox.scrollTop = answerBox.scrollHeight;
+
+      // Loading indicator
+      var loadingMsg = document.createElement('div');
+      loadingMsg.className = 'ai-msg assistant';
+      loadingMsg.innerHTML = '<div class="ai-msg-label">' + (window.T&&window.T.aiLabel||'Tekoäly') + '</div>' + (window.T&&window.T.fetching||'Haetaan vastausta...');
+      answerBox.appendChild(loadingMsg);
+      answerBox.scrollTop = answerBox.scrollHeight;
 
       try {
-        const response = await fetch("/qa/ask-ai/", {
+        var response = await fetch("/qa/ask-ai/", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "X-CSRFToken": getCSRFToken()
           },
-          body: JSON.stringify({ question: question })
+          body: JSON.stringify({ question: question, lang: window.LANG || 'fi' })
         });
 
-        const data = await response.json();
-        // answerBox.textContent = data.answer || "Ei saatu vastausta.";
-        typeText(answerBox, data.answer || "Ei saatu vastausta.", 20);  // 20 ms merkkiä kohden
+        var data = await response.json();
+        loadingMsg.innerHTML = '<div class="ai-msg-label">' + (window.T&&window.T.aiLabel||'Tekoäly') + '</div>' + (data.answer || (window.T&&window.T.noAnswer||'Ei saatu vastausta.'));
+        answerBox.scrollTop = answerBox.scrollHeight;
       } catch (err) {
-        answerBox.textContent = "Tapahtui virhe: " + err.message;
+        loadingMsg.innerHTML = '<div class="ai-msg-label">' + (window.T&&window.T.aiLabel||'Tekoäly') + '</div>' + (window.T&&window.T.imageError||'Virhe') + ': ' + err.message;
       }
     });
   }
 
-  // CSRF-tokenin hakeminen cookieista
+
+  // ── CSRF token ──
   function getCSRFToken() {
-    const name = 'csrftoken';
-    const cookies = document.cookie.split(';');
-    for (let i = 0; i < cookies.length; i++) {
-      const cookie = cookies[i].trim();
+    var name = 'csrftoken';
+    var cookies = document.cookie.split(';');
+    for (var i = 0; i < cookies.length; i++) {
+      var cookie = cookies[i].trim();
       if (cookie.startsWith(name + '=')) {
         return decodeURIComponent(cookie.substring(name.length + 1));
       }
@@ -530,352 +753,95 @@ fetch(`/qa/api/s_depth/${stationname}/`)
     return '';
   }
 
-  function typeText(element, text, speed) {
-  element.textContent = '';  // Tyhjennä kenttä aluksi
-  let i = 0;
 
-  function type() {
-    if (i < text.length) {
-      element.textContent += text.charAt(i);
-      i++;
-      setTimeout(type, speed);
-    }
-  }
+  // ── Report form (Slack) ──
+  var miniChatForm = document.getElementById('mini-chat-form');
+  if (miniChatForm) {
+    miniChatForm.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var message = document.getElementById('mini-chat-input').value.trim();
+      if (!message) return;
 
-  type();
-}
+      try {
+        var res = await fetch("/qa/api/report-issue/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCSRFToken()
+          },
+          body: JSON.stringify({ text: message })
+        });
+        var data = await res.json();
 
-
-function drawProfiles(horizProfile, vertProfile, uLow = [], sDepth = null, uCov = null, uSkew = null) {
-  const ctxHoriz = document.getElementById('horizontal-profile').getContext('2d');
-  if (window.horizChart) window.horizChart.destroy();
-
-  // 1. Laske mediaani
-  const sorted = [...horizProfile].sort((a, b) => a - b);
-  const median = sorted.length % 2 === 0
-    ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
-    : sorted[Math.floor(sorted.length / 2)];
-
-  // 2. Segmenttirajat
-  const N = horizProfile.length;
-  const seg1 = Math.round(N * 0.1);
-  const seg2 = seg1 + Math.round(N * 0.2);
-  const seg3 = seg2 + Math.round(N * 0.4);
-  const seg4 = seg3 + Math.round(N * 0.2);
-  const segmentBorders = [0, seg1, seg2, seg3, seg4, N];
-
-  // 3. Etsi pienimmät arvot segmenteittäin
-  const minPoints = [];
-  for (let s = 0; s < 5; s++) {
-    const start = segmentBorders[s];
-    const end = segmentBorders[s + 1];
-    let minVal = Infinity;
-    let minIdx = -1;
-    for (let i = start; i < end; i++) {
-      if (horizProfile[i] < minVal) {
-        minVal = horizProfile[i];
-        minIdx = i;
-      }
-    }
-    minPoints.push({ x: minIdx, y: minVal });
-  }
-
-  // 4. Profiiliviiva
-  const profileDataset = {
-    label: 'Horisontaalinen profiili',
-    data: horizProfile,
-    borderColor: '#33aaff',
-    borderWidth: 1,
-    fill: false,
-    pointRadius: 0,
-    showLine: true
-  };
-
-  // 5. Mediaaniviiva
-  const medianDataset = {
-    label: 'Mediaani',
-    data: Array(N).fill(median),
-    borderColor: 'orange',
-    borderWidth: 1,
-    borderDash: [5, 5],
-    fill: false,
-    pointRadius: 0,
-    showLine: false
-  };
-
-  // 6. Scatter-pisteet minimiarvoille
-  const minPointsDataset = {
-    label: 'U_low',
-    data: minPoints,
-    borderColor: 'red',
-    backgroundColor: 'red',
-    pointRadius: 3,
-    pointStyle: 'circle',
-    type: 'scatter',
-    showLine: false
-  };
-
-  // 7. Segmenttirajat (pystysuorat viivat)
-  const annotation = {
-    annotations: {}
-  };
-  for (let i = 1; i < segmentBorders.length - 1; i++) {
-    annotation.annotations['border' + i] = {
-      type: 'line',
-      xMin: segmentBorders[i],
-      xMax: segmentBorders[i],
-      borderColor: 'gray',
-      borderWidth: 2,
-      borderDash: [4, 4]
-    };
-  }
-
-  window.horizChart = new Chart(ctxHoriz, {
-    type: 'line',
-    data: {
-      labels: horizProfile.map((_, i) => i),
-      datasets: [profileDataset, medianDataset, minPointsDataset]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { display: false },
-        annotation: annotation
-      },
-      scales: { x: { display: false }, y: { display: false } }
-    }
-  });
-
-    // Vertikaalinen profiili
-
-  const ctxVert = document.getElementById('vertical-profile').getContext('2d');
-  if (window.vertChart) window.vertChart.destroy();
-
-  // Luo annotation-objekti s_depth-viivalle, jos arvo annettu
-  const vertAnnotation = {
-    annotations: {}
-  };
-  if (sDepth !== null && !isNaN(sDepth)) {
-    const scaledSDepth = sDepth; // Kerrotaan sDepth kymmenellä
-    vertAnnotation.annotations['s_depth_line'] = {
-      type: 'line',
-      // yMin: sDepth,
-      // yMax: sDepth,
-      yMin: scaledSDepth,
-      yMax: scaledSDepth,
-      borderColor: 'orange',
-      borderWidth: 2,
-      borderDash: [6, 6],
-      label: {
-        display: true,
-        content: 'S Depth',
-        position: 'start',
-        color: 'orange'
-      }
-    };
-  }
-
-  window.vertChart = new Chart(ctxVert, {
-    type: 'line',
-    data: {
-      labels: vertProfile.map((_, i) => i),
-      datasets: [{
-        // label: 'Vertikaalinen profiili', // voit poistaa labelin jos et halua legendaa
-        data: vertProfile,
-        borderColor: '#33aaff',
-        borderWidth: 1,
-        fill: false,
-        pointRadius: 0
-      }]
-    },
-    options: {
-      responsive: true,
-      indexAxis: 'y',
-      plugins: {
-        legend: { display: false },
-        annotation: vertAnnotation
-      },
-      scales: { x: { display: false }, y: { display: false } }
-    }
-  });
-}
-
-
-
-let isDicomOpen = false;
-
-document.addEventListener('keydown', function (e) {
-  //  ⌃Ctrl + I (pienellä, isolla, layoutista riippumatta)
-  if (e.ctrlKey && !e.shiftKey && e.code === 'KeyI') {
-    // Älä tee jos kohdistin on input/textarea
-    const t = e.target;
-    if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') return;
-
-    e.preventDefault();
-    const inst = document.getElementById('instance-value')?.textContent.trim();
-    if (inst) {
-      openDicomModal(inst);
-    } else {
-      console.warn('instance-value puuttuu');
-    }
-  }
-
-  // ESC sulkee
-  if (e.key === 'Escape' && isDicomOpen) {
-    e.preventDefault();
-    closeDicomModal();
-  }
-});
-
-
-function openDicomModal(instanceId) {
-  // fetch(`/qa/api/dicom_info/${instanceId}/`)
-  fetch(`/qa/api/dicom_info/${instanceId}/`)      // <= etuliite + alaviiva
-  // fetch(`/api/dicom_info/${instanceId}/`)
-    // .then(response => response.json())
-    .then(response => {
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    return response.json();
-  })
-    .then(data => {
-      if (data.status === 'success') {
-        const tbody = document.querySelector('#dicom-table tbody');
-        tbody.innerHTML = ''; // Tyhjennä vanhat rivit
-
-        for (const [key, value] of Object.entries(data.data)) {
-          const row = document.createElement('tr');
-          row.innerHTML = `<td>${key}</td><td>${value}</td>`;
-          tbody.appendChild(row);
+        if (data.status === "ok") {
+          alert(window.T&&window.T.messageSent||'Viesti lähetetty Slackiin!');
+          document.getElementById('mini-chat-input').value = '';
+        } else {
+          throw new Error(data.detail || "Tuntematon virhe");
         }
-
-        document.getElementById('dicom-modal').style.display = 'block';
-        isDicomOpen = true;
-      } else {
-        alert("Virhe DICOM-tietojen haussa: " + data.message);
+      } catch (err) {
+        console.error("Lähetysvirhe:", err);
+        alert(window.T&&window.T.sendError||'Virhe lähetyksessä.');
       }
-    })
-    .catch(err => {
-      alert("Verkkovirhe DICOM-tietojen haussa: " + err);
     });
-}
-
-function closeDicomModal() {
-  document.getElementById('dicom-modal').style.display = 'none';
-  isDicomOpen = false;
-}
+  }
 
 
-document
-  .getElementById("mini-chat-form")
-  .addEventListener("submit", async function (e) {
-    e.preventDefault();
-    const message = document
-      .getElementById("mini-chat-input")
-      .value
-      .trim();
-    if (!message) return;
+  // ── DICOM modal ──
+  var isDicomOpen = false;
 
-    try {
-      const res = await fetch("/qa/api/report-issue/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRFToken": getCSRFToken()
-        },
-        body: JSON.stringify({ text: message })
-      });
-      const data = await res.json();
+  document.addEventListener('keydown', function (e) {
+    if (e.ctrlKey && !e.shiftKey && e.code === 'KeyI') {
+      var t = e.target;
+      if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') return;
 
-      if (data.status === "ok") {
-        alert("Viesti lähetetty Slackiin!");
-        document.getElementById("mini-chat-input").value = "";
-      } else {
-        throw new Error(data.detail || "Tuntematon virhe");
+      e.preventDefault();
+      var inst = document.getElementById('instance-value');
+      if (inst) {
+        openDicomModal(inst.textContent.trim());
       }
-    } catch (err) {
-      console.error("Lähetysvirhe:", err);
-      alert("Virhe lähetyksessä.");
+    }
+    if (e.key === 'Escape' && isDicomOpen) {
+      e.preventDefault();
+      closeDicomModal();
     }
   });
-  
-const scrollbar = document.getElementById('scrollbar');
 
+  window.openDicomModal = function (instanceId) {
+    fetch('/qa/api/dicom_info/' + instanceId + '/')
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (data) {
+        if (data.status === 'success') {
+          var colLeft = document.getElementById('dicom-col-left');
+          var colRight = document.getElementById('dicom-col-right');
+          colLeft.innerHTML = '';
+          colRight.innerHTML = '';
+          var keys = Object.keys(data.data);
+          var half = Math.ceil(keys.length / 2);
+          keys.forEach(function (key, i) {
+            var row = document.createElement('div');
+            row.className = 'dicom-row';
+            row.innerHTML = '<span class="dicom-key">' + key + '</span><span class="dicom-val">' + data.data[key] + '</span>';
+            if (i < half) colLeft.appendChild(row);
+            else colRight.appendChild(row);
+          });
+          document.getElementById('dicom-modal').style.display = 'block';
+          isDicomOpen = true;
+        } else {
+          alert("Virhe DICOM-tietojen haussa: " + data.message);
+        }
+      })
+      .catch(function (err) {
+        alert("Verkkovirhe: " + err);
+      });
+  };
 
-function updateScrollbarMax() {
-  if (data1 && data2 && data3) {
-    const maxOffset = Math.min(data1.length, data2.length, data3.length) - limit;
-    scrollbar.max = maxOffset >= 0 ? maxOffset : 0;
-  }
-}
-
-function updateAllHighlights() {
-  // chart1
-  let idx1 = -1;
-  if (selectedInstance && data1) {
-    for (let i = offsetSDepth; i < offsetSDepth + limit && i < data1.length; i++) {
-      if (data1[i].instance === selectedInstance) {
-        idx1 = i - offsetSDepth;
-        break;
-      }
-    }
-  }
-  highlightSelectedPoint(chart1, idx1);
-
-  // chart2
-  let idx2 = -1;
-  if (selectedInstance && data2) {
-    for (let i = offsetSDepth; i < offsetSDepth + limit && i < data2.length; i++) {
-      if (data2[i].instance === selectedInstance) {
-        idx2 = i - offsetSDepth;
-        break;
-      }
-    }
-  }
-  highlightSelectedPoint(chart2, idx2);
-
-  // chart3
-  let idx3 = -1;
-  if (selectedInstance && data3) {
-    for (let i = offsetSDepth; i < offsetSDepth + limit && i < data3.length; i++) {
-      if (data3[i].instance === selectedInstance) {
-        idx3 = i - offsetSDepth;
-        break;
-      }
-    }
-  }
-  highlightSelectedPoint(chart3, idx3);
-}
-
-// Kun käyttäjä säätää skrollauspalkkia, päivitä kaikkien kuvaajien offset
-// scrollbar.addEventListener('input', () => {
-//   offsetSDepth = parseInt(scrollbar.value);
-//   updateChart(chart1, data1, offsetSDepth, limit, 's_depth');
-//   updateChart(chart2, data2, offsetSDepth, limit, 'u_cov');
-//   updateChart(chart3, data3, offsetSDepth, limit, 'u_skew');
-// });
-
-// scrollbar.addEventListener('input', () => {
-//   offsetSDepth = parseInt(scrollbar.value);
-//   updateChart(chart1, data1, offsetSDepth, limit, 's_depth');
-//   updateChart(chart2, data2, offsetSDepth, limit, 'u_cov');
-//   updateChart(chart3, data3, offsetSDepth, limit, 'u_skew');
-
-//   // Nollaa valinnat kaikista kuvaajista
-//   highlightSelectedPoint(chart1, -1);
-//   highlightSelectedPoint(chart2, -1);
-//   highlightSelectedPoint(chart3, -1);
-// });
-
-scrollbar.addEventListener('input', () => {
-  offsetSDepth = parseInt(scrollbar.value);
-  updateChart(chart1, data1, offsetSDepth, limit, 's_depth');
-  updateChart(chart2, data2, offsetSDepth, limit, 'u_cov');
-  updateChart(chart3, data3, offsetSDepth, limit, 'u_skew');
-  updateAllHighlights();
-});
-
-
+  window.closeDicomModal = function () {
+    document.getElementById('dicom-modal').style.display = 'none';
+    isDicomOpen = false;
+  };
 
 });

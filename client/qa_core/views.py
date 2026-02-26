@@ -11,12 +11,12 @@ import logging
 
 
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import JsonResponse, Http404, HttpResponseBadRequest
+from django.http import JsonResponse, Http404, HttpResponse, HttpResponseBadRequest
 from django.views.decorators.http import require_POST
 from django.views.decorators.http import require_GET
 from django.contrib.auth.decorators import login_required
-from django.db.models import F
-from .models import Ultrasound, XrayAnalysis
+from django.db.models import F, Count
+from .models import Ultrasound, XrayAnalysis, CTAnalysis
 from datetime import datetime
 from collections import defaultdict
 from .ai_chat import generate_response  # tuodaan ai_chat-funktio
@@ -51,85 +51,95 @@ def laadunvalvonta_tietoa(request):
     return render(request, 'tietoa.html')
 
 def institutions(request):
-    """Ultraääni-instituutiot"""
-    institutions = list(Ultrasound.objects.values_list('institutionname', flat=True).distinct())
-    logger.debug("Institutions retrieved: %s", institutions)
-    return render(request, 'institutions.html', {'institutions': institutions})
+    """Ultraääni-instituutiot — taulukkolistaus"""
+    institutions_qs = Ultrasound.objects.values('institutionname').annotate(
+        device_count=Count('stationname', distinct=True),
+        unit_count=Count('institutionaldepartmentname', distinct=True),
+    ).order_by('institutionname')
+
+    institutions_list = [
+        {
+            'name': item['institutionname'],
+            'device_count': item['device_count'],
+            'unit_count': item['unit_count'],
+        }
+        for item in institutions_qs
+    ]
+    logger.debug("Institutions retrieved: %s", institutions_list)
+    return render(request, 'institutions.html', {'institutions': institutions_list})
 
 # RÖNTGEN VIEWS - sama logiikka kuin ultraäänellä
 def xray_institutions(request):
-    """Näytä kaikki instituutiot ja niiden instanssit röntgen-datasta"""
+    """Röntgen-instituutiot — taulukkolistaus"""
     try:
-        # Hae kaikki röntgen-instanssit ryhmiteltynä instituutioittain
-        xray_data = XrayAnalysis.objects.values(
-            'institution_name', 'instance', 'station_name', 'manufacturer', 'content_date'
-        ).order_by('institution_name', 'content_date')
-        
-        # Ryhmittele data instituutioittain
-        institutions_data = {}
-        for item in xray_data:
-            institution = item['institution_name'] or 'Tuntematon instituutio'
-            if institution not in institutions_data:
-                institutions_data[institution] = []
-            institutions_data[institution].append({
-                'instance': item['instance'],
-                'station_name': item['station_name'],
-                'manufacturer': item['manufacturer'],
-                'content_date': item['content_date']
-            })
-        
-        context = {
-            'institutions_data': institutions_data
-        }
-        return render(request, 'xray_institutions.html', context)
+        institutions_qs = XrayAnalysis.objects.values('institution_name').annotate(
+            device_count=Count('station_name', distinct=True),
+            unit_count=Count('institutional_department_name', distinct=True),
+            instance_count=Count('instance', distinct=True),
+        ).order_by('institution_name')
+
+        institutions_list = [
+            {
+                'name': item['institution_name'] or 'Tuntematon instituutio',
+                'device_count': item['device_count'],
+                'unit_count': item['unit_count'],
+                'instance_count': item['instance_count'],
+            }
+            for item in institutions_qs
+        ]
+        return render(request, 'xray_institutions.html', {'institutions': institutions_list})
     except Exception as e:
-        return render(request, 'xray_institutions.html', {'error': str(e), 'institutions_data': {}})
+        return render(request, 'xray_institutions.html', {'error': str(e), 'institutions': []})
 
 def units_view(request):
-    """Ultraääni-yksiköt"""
-    units = Ultrasound.objects.values_list('institutionaldepartmentname', flat=True).distinct()
-    return render(request, 'units.html', {'units': units})
+    """Ultraääni-yksiköt — taulukkolistaus"""
+    units_qs = Ultrasound.objects.values('institutionaldepartmentname').annotate(
+        device_count=Count('stationname', distinct=True),
+    ).order_by('institutionaldepartmentname')
+
+    units_list = [
+        {
+            'name': item['institutionaldepartmentname'],
+            'device_count': item['device_count'],
+        }
+        for item in units_qs
+    ]
+    return render(request, 'units.html', {'units': units_list})
 
 def xray_units_view(request, institution_name):
-    """Näytä kaikki yksiköt ja niiden laitteet röntgen-datasta tietyssä instituutiossa"""
+    """Röntgen-yksiköt — taulukkolistaus"""
     try:
-        # Hae kaikki röntgen-laitteet kyseisessä instituutiossa ryhmiteltynä yksiköittäin
-        xray_data = XrayAnalysis.objects.filter(
+        units_qs = XrayAnalysis.objects.filter(
             institution_name=institution_name
-        ).values(
-            'institutional_department_name', 'station_name', 'manufacturer', 
-            'manufacturer_model_name', 'modality', 'content_date'
-        ).order_by('institutional_department_name', 'station_name')
-        
-        # Ryhmittele data yksiköittäin
-        units_data = {}
-        for item in xray_data:
-            unit = item['institutional_department_name'] or 'Tuntematon yksikkö'
-            if unit not in units_data:
-                units_data[unit] = []
-            units_data[unit].append({
-                'station_name': item['station_name'],
-                'manufacturer': item['manufacturer'],
-                'manufacturer_model_name': item['manufacturer_model_name'],
-                'modality': item['modality'],
-                'content_date': item['content_date']
-            })
-        
+        ).values('institutional_department_name').annotate(
+            device_count=Count('station_name', distinct=True),
+            instance_count=Count('instance', distinct=True),
+        ).order_by('institutional_department_name')
+
+        units_list = [
+            {
+                'name': item['institutional_department_name'] or 'Tuntematon yksikkö',
+                'device_count': item['device_count'],
+                'instance_count': item['instance_count'],
+            }
+            for item in units_qs
+        ]
+
         context = {
             'institution_name': institution_name,
-            'units_data': units_data
+            'units': units_list,
         }
         return render(request, 'xray_units.html', context)
     except Exception as e:
         return render(request, 'xray_units.html', {
-            'error': str(e), 
-            'institution_name': institution_name, 
-            'units_data': {}
+            'error': str(e),
+            'institution_name': institution_name,
+            'units': [],
         })
 
 def unit_details_view(request, unit_name):
     """Ultraääni-yksikön tiedot"""
-    unit_details = Ultrasound.objects.filter(institutionaldepartmentname=unit_name).values('stationname', 'manufacturer', 'modality').distinct()
+    unit_details = Ultrasound.objects.filter(institutionaldepartmentname=unit_name).values('stationname', 'manufacturer', 'modality').order_by('stationname').distinct()
     return render(request, 'unitDetails.html', {'unit_name': unit_name, 'unit_details': unit_details})
 
 def xray_unit_details_view(request, institution_name, unit_name):
@@ -138,7 +148,7 @@ def xray_unit_details_view(request, institution_name, unit_name):
     unit_devices = XrayAnalysis.objects.filter(
         institution_name=institution_name,
         institutional_department_name=unit_name
-    ).values('station_name').distinct()
+    ).values('station_name').order_by('station_name').distinct()
     
     return render(request, 'xray_unitDetails.html', {
         'institution_name': institution_name,
@@ -284,6 +294,23 @@ def get_xray_copper(request, stationname):
     ).order_by('content_date'))
     return JsonResponse(data, safe=False)
 
+def get_xray_metric(request, field_name, stationname):
+    """Yleinen endpoint: palauttaa minkä tahansa sallitun XrayAnalysis-kentän trendidatan"""
+    ALLOWED_FIELDS = {
+        'uniformity_center', 'uniformity_deviation', 'bg_mean',
+        'cu_000_mean', 'cu_030_mean', 'cu_065_mean', 'cu_100_mean',
+        'cu_140_mean', 'cu_185_mean', 'cu_230_mean',
+        'lc_08_contrast', 'lc_12_contrast', 'lc_20_contrast',
+        'lc_28_contrast', 'lc_40_contrast', 'lc_56_contrast',
+        'median_contrast', 'median_cnr', 'mtf_50_percent',
+    }
+    if field_name not in ALLOWED_FIELDS:
+        return JsonResponse({'error': 'Field not allowed'}, status=400)
+    data = list(XrayAnalysis.objects.filter(station_name=stationname).values(
+        field_name, 'instance', 'content_date', 'processed_at'
+    ).order_by('content_date'))
+    return JsonResponse(data, safe=False)
+
 def get_xray_instance(request, instance_value):
     """Hae röntgen-analyysin tiedot instance-arvon perusteella"""
     try:
@@ -300,6 +327,8 @@ def get_xray_instance(request, instance_value):
             'median_contrast': data.median_contrast,
             'median_cnr': data.median_cnr,
             'mtf_50_percent': data.mtf_50_percent,
+            'cu_100_mean': data.cu_100_mean,
+            'lc_20_contrast': data.lc_20_contrast,
             'kvp': data.kvp,
             'tube_current': data.tube_current,
             'exposure_time': data.exposure_time,
@@ -399,6 +428,30 @@ def get_xray_placeholder_image():
         logger.error(f"Virhe ladattaessa placeholder-kuvaa: {str(e)}")
         raise Http404('Image not found')
 
+
+def get_xray_analysis_image(request, instance_value, image_type):
+    """Palauttaa analyysikuvan PNG:nä tietokannasta."""
+    IMAGE_FIELD_MAP = {
+        'contrast_rois': 'contrast_rois_image',
+        'mtf_lp': 'mtf_lp_image',
+        'mtf_curve': 'mtf_curve_image',
+    }
+    field_name = IMAGE_FIELD_MAP.get(image_type)
+    if not field_name:
+        raise Http404("Unknown image type")
+
+    try:
+        analysis = XrayAnalysis.objects.get(instance=instance_value)
+    except XrayAnalysis.DoesNotExist:
+        raise Http404("Analysis not found")
+
+    data = getattr(analysis, field_name)
+    if not data:
+        raise Http404("No image available")
+
+    return HttpResponse(bytes(data), content_type="image/png")
+
+
 def get_stationname(request, index):
     try:
         station = Ultrasound.objects.all()[index]
@@ -449,10 +502,240 @@ def report_issue(request):
     except Exception as e:
         return JsonResponse({"status": "error", "detail": str(e)}, status=500)
 
-    
-    
- 
-    
+
+
+# =====================================================
+# CT VIEWS — sama rakenne kuin röntgenillä
+# =====================================================
+
+def ct_institutions(request):
+    """CT-instituutiot — taulukkolistaus"""
+    try:
+        institutions_qs = CTAnalysis.objects.values('institution_name').annotate(
+            device_count=Count('station_name', distinct=True),
+            unit_count=Count('institutional_department_name', distinct=True),
+            instance_count=Count('instance', distinct=True),
+        ).order_by('institution_name')
+
+        institutions_list = [
+            {
+                'name': item['institution_name'] or 'Tuntematon instituutio',
+                'device_count': item['device_count'],
+                'unit_count': item['unit_count'],
+                'instance_count': item['instance_count'],
+            }
+            for item in institutions_qs
+        ]
+        return render(request, 'ct_institutions.html', {'institutions': institutions_list})
+    except Exception as e:
+        return render(request, 'ct_institutions.html', {'error': str(e), 'institutions': []})
+
+
+def ct_units_view(request, institution_name):
+    """CT-yksiköt — taulukkolistaus"""
+    try:
+        units_qs = CTAnalysis.objects.filter(
+            institution_name=institution_name
+        ).values('institutional_department_name').annotate(
+            device_count=Count('station_name', distinct=True),
+            instance_count=Count('instance', distinct=True),
+        ).order_by('institutional_department_name')
+
+        units_list = [
+            {
+                'name': item['institutional_department_name'] or 'Tuntematon yksikkö',
+                'device_count': item['device_count'],
+                'instance_count': item['instance_count'],
+            }
+            for item in units_qs
+        ]
+        return render(request, 'ct_units.html', {
+            'institution_name': institution_name,
+            'units': units_list,
+        })
+    except Exception as e:
+        return render(request, 'ct_units.html', {
+            'error': str(e),
+            'institution_name': institution_name,
+            'units': [],
+        })
+
+
+def ct_unit_details_view(request, institution_name, unit_name):
+    """CT-yksikön laitteet"""
+    unit_devices = CTAnalysis.objects.filter(
+        institution_name=institution_name,
+        institutional_department_name=unit_name
+    ).values('station_name').order_by('station_name').distinct()
+
+    return render(request, 'ct_unitDetails.html', {
+        'institution_name': institution_name,
+        'unit_name': unit_name,
+        'unit_devices': unit_devices,
+    })
+
+
+def ct_device_details(request, institution_name, unit_name):
+    """CT-laitteen dashboard — kaikki QA-tulokset"""
+    try:
+        device_data = CTAnalysis.objects.filter(
+            institution_name=institution_name,
+            institutional_department_name=unit_name
+        ).order_by('station_name', '-processed_at')
+
+        devices_data = {}
+        for item in device_data:
+            key = item.station_name or 'Tuntematon laite'
+            if key not in devices_data:
+                devices_data[key] = []
+            devices_data[key].append({
+                'instance': item.instance,
+                'content_date': item.content_date,
+                'processed_at': str(item.processed_at) if item.processed_at else None,
+                'uniformity_index': item.uniformity_index,
+                'mtf_50_percent': item.mtf_50_percent,
+                'noise_hu_std': item.noise_hu_std,
+                'phantom_model': item.phantom_model,
+            })
+
+        context = {
+            'institution_name': institution_name,
+            'unit_name': unit_name,
+            'devices_data': json.dumps(devices_data, default=str),
+        }
+        return render(request, 'ct_deviceDetails.html', context)
+    except Exception as e:
+        logger.error("CT device details error: %s", e)
+        return render(request, 'ct_deviceDetails.html', {
+            'institution_name': institution_name,
+            'unit_name': unit_name,
+            'devices_data': json.dumps({}),
+        })
+
+
+# --- CT API-ENDPOINTIT (6 trendikaaviolle) ---
+
+def get_ct_hu_uniformity(request, stationname):
+    """Kaavio 1: Uniformiteetti-indeksi trendinä"""
+    data = CTAnalysis.objects.filter(station_name=stationname).values(
+        'uniformity_index', 'instance', 'content_date', 'processed_at'
+    ).order_by('content_date')
+    return JsonResponse(list(data), safe=False)
+
+
+def get_ct_hu_linearity(request, stationname):
+    """Kaavio 2: HU-lineaarisuus (kaikki 7 materiaalia) trendinä"""
+    data = CTAnalysis.objects.filter(station_name=stationname).values(
+        'hu_air', 'hu_pmp', 'hu_ldpe', 'hu_poly', 'hu_acrylic', 'hu_delrin', 'hu_teflon',
+        'instance', 'content_date', 'processed_at'
+    ).order_by('content_date')
+    return JsonResponse(list(data), safe=False)
+
+
+def get_ct_mtf(request, stationname):
+    """Kaavio 3: MTF 50% trendinä"""
+    data = CTAnalysis.objects.filter(station_name=stationname).values(
+        'mtf_50_percent', 'instance', 'content_date', 'processed_at'
+    ).order_by('content_date')
+    return JsonResponse(list(data), safe=False)
+
+
+def get_ct_low_contrast(request, stationname):
+    """Kaavio 4: Näkyvien matalan kontrastin kohteiden lukumäärä"""
+    data = CTAnalysis.objects.filter(station_name=stationname).values(
+        'num_low_contrast_rois_seen', 'instance', 'content_date', 'processed_at'
+    ).order_by('content_date')
+    return JsonResponse(list(data), safe=False)
+
+
+def get_ct_noise(request, stationname):
+    """Kaavio 5: Kohinataso (HU keskihajonta)"""
+    data = CTAnalysis.objects.filter(station_name=stationname).values(
+        'noise_hu_std', 'instance', 'content_date', 'processed_at'
+    ).order_by('content_date')
+    return JsonResponse(list(data), safe=False)
+
+
+def get_ct_slice_thickness(request, stationname):
+    """Kaavio 6: Mitattu leikepaksuus"""
+    data = CTAnalysis.objects.filter(station_name=stationname).values(
+        'slice_thickness_mm', 'instance', 'content_date', 'processed_at'
+    ).order_by('content_date')
+    return JsonResponse(list(data), safe=False)
+
+
+def get_ct_instance(request, instance_value):
+    """Yksittäisen CT-instanssin kaikki metatiedot"""
+    try:
+        item = CTAnalysis.objects.get(instance=instance_value)
+        data = {
+            'instance': item.instance,
+            'content_date': item.content_date,
+            'station_name': item.station_name,
+            'manufacturer': item.manufacturer,
+            'manufacturer_model_name': item.manufacturer_model_name,
+            'modality': item.modality,
+            'device_serial_number': item.device_serial_number,
+            'kvp': item.kvp,
+            'tube_current': item.tube_current,
+            'slice_thickness': item.slice_thickness,
+            'reconstruction_kernel': item.reconstruction_kernel,
+            'ctdi_vol': item.ctdi_vol,
+            'phantom_model': item.phantom_model,
+            'uniformity_index': item.uniformity_index,
+            'mtf_50_percent': item.mtf_50_percent,
+            'noise_hu_std': item.noise_hu_std,
+            'overall_pass': item.overall_pass,
+            'hu_air': item.hu_air,
+            'hu_pmp': item.hu_pmp,
+            'hu_ldpe': item.hu_ldpe,
+            'hu_poly': item.hu_poly,
+            'hu_acrylic': item.hu_acrylic,
+            'hu_delrin': item.hu_delrin,
+            'hu_teflon': item.hu_teflon,
+            'slice_thickness_mm': item.slice_thickness_mm,
+            'num_low_contrast_rois_seen': item.num_low_contrast_rois_seen,
+            'median_cnr': item.median_cnr,
+            'patient_id': item.patient_id,
+            'patient_name': item.patient_name,
+            'study_date': item.study_date,
+            'series_id': item.series_id,
+            'instance_number': item.instance_number,
+        }
+        return JsonResponse(data)
+    except CTAnalysis.DoesNotExist:
+        return JsonResponse({'error': 'Instance not found'}, status=404)
+
+
+def get_ct_analysis_image(request, instance_value, image_type):
+    """CT-leikekuva tai analyysikuvaaja."""
+    IMAGE_FIELD_MAP = {
+        # Leikekuvat (oikeat CT-leikkeet ROI-merkinnöillä)
+        'hu_linearity': 'hu_linearity_image',
+        'thickness': 'thickness_image',
+        'uniformity': 'uniformity_image',
+        'mtf': 'mtf_image',
+        'low_contrast': 'low_contrast_image',
+        # Analyysikuvaajat (matplotlib-kaaviot)
+        'hu_linearity_chart': 'hu_linearity_chart_image',
+        'mtf_chart': 'mtf_chart_image',
+        'uniformity_profile': 'uniformity_profile_image',
+        'side_view': 'side_view_image',
+    }
+    field_name = IMAGE_FIELD_MAP.get(image_type)
+    if not field_name:
+        return HttpResponseBadRequest("Tuntematon kuvatyyppi")
+
+    try:
+        item = CTAnalysis.objects.get(instance=instance_value)
+        image_data = getattr(item, field_name)
+        if image_data:
+            return HttpResponse(bytes(image_data), content_type='image/png')
+        else:
+            return HttpResponse(status=204)
+    except CTAnalysis.DoesNotExist:
+        return JsonResponse({'error': 'Instance not found'}, status=404)
+
 
 def device_details_view(request, stationname):
     logger.debug(f"Fetching device details for stationname: {stationname}")  # Debug-tulostus
@@ -584,20 +867,23 @@ def get_orthanc_image(request, instance_value):
 
 
 
-@login_required
 @require_POST
 def ask_ai(request):
     logger.debug("ask_ai called with method %s", request.method)
+    if not request.user.is_authenticated:
+        return JsonResponse({"answer": "Kirjaudu sisään käyttääksesi tekoälytoimintoa. / Please log in to use the AI assistant."}, status=401)
     try:
         data = json.loads(request.body)
         logger.debug("ask_ai payload: %s", data)
         question = data.get("question", "").strip()
+        lang = data.get("lang", "fi")
 
         if not question:
-            return JsonResponse({"answer": "Kysymys puuttuu."}, status=400)
+            msg = "Question is missing." if lang == 'en' else "Kysymys puuttuu."
+            return JsonResponse({"answer": msg}, status=400)
 
         # Kutsutaan GPT-mallia
-        answer = generate_response(question)
+        answer = generate_response(question, lang=lang)
         return JsonResponse({"answer": answer})
 
     except Exception as e:
