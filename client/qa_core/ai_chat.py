@@ -17,16 +17,21 @@ conversation_history = [
     {"role": "system", "content": "You are an expert in ultrasound quality control. You specialize in explaining numerical results from ultrasound images, particularly s_depth, u_cov, u_skew, and u_low. Your task is to provide professional explanations of these values, indicating whether they are good or bad and what they mean for image quality."}
 ]
 
-def generate_response(user_input):
+def generate_response(user_input, lang='fi'):
     """
     Lähettää viestin AI:lle ja palauttaa vastauksen.
+    lang: 'fi' (suomi) tai 'en' (englanti)
     """
     conversation_history.append({"role": "user", "content": user_input})
-    
+
+    # Build system message with language instruction
+    lang_note = "Always respond in the same language as the user's question."
+    sys_content = conversation_history[0]['content'] + " " + lang_note
+    messages = [{"role": "system", "content": sys_content}] + conversation_history[1:]
 
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
-        messages=conversation_history,
+        messages=messages,
         temperature=0.5,
         max_tokens=300,
         top_p=1.0

@@ -22,7 +22,9 @@ urlpatterns = [
     path('api/xray/copper/<str:stationname>/', views.get_xray_copper, name='get_xray_copper'),
     path('api/xray/instance/<str:instance_value>/', views.get_xray_instance, name='get_xray_instance'),
     path('get_xray_image/<str:instance_value>/', views.get_xray_image, name='get_xray_image'),
-    
+    path('api/xray/analysis_image/<str:instance_value>/<str:image_type>/', views.get_xray_analysis_image, name='get_xray_analysis_image'),
+    path('api/xray/metric/<str:field_name>/<str:stationname>/', views.get_xray_metric, name='get_xray_metric'),
+
     path('ultraääni_laadunvalvonta/OYS/uatesti_OYS/get_stationname/<int:index>/', views.get_stationname, name='get_stationname'),
     path('institutions/', views.institutions, name='institutions'),
     path('units/', views.units_view, name='units'),
@@ -34,6 +36,22 @@ urlpatterns = [
     path('xray/unit_details/<str:institution_name>/<str:unit_name>/', views.xray_unit_details_view, name='xray_unit_details'),
     path('xray/device/<str:institution_name>/<str:unit_name>/', views.xray_device_details, name='xray_device_details'),
     
+    # CT REITIT — sama hierarkia kuin röntgenillä
+    path('ct/institutions/', views.ct_institutions, name='ct_institutions'),
+    path('ct/units/<str:institution_name>/', views.ct_units_view, name='ct_units'),
+    path('ct/unit_details/<str:institution_name>/<str:unit_name>/', views.ct_unit_details_view, name='ct_unit_details'),
+    path('ct/device/<str:institution_name>/<str:unit_name>/', views.ct_device_details, name='ct_device_details'),
+
+    # CT API-REITIT trendikaavioille
+    path('api/ct/hu_uniformity/<str:stationname>/', views.get_ct_hu_uniformity, name='get_ct_hu_uniformity'),
+    path('api/ct/hu_linearity/<str:stationname>/', views.get_ct_hu_linearity, name='get_ct_hu_linearity'),
+    path('api/ct/mtf/<str:stationname>/', views.get_ct_mtf, name='get_ct_mtf'),
+    path('api/ct/low_contrast/<str:stationname>/', views.get_ct_low_contrast, name='get_ct_low_contrast'),
+    path('api/ct/noise/<str:stationname>/', views.get_ct_noise, name='get_ct_noise'),
+    path('api/ct/slice_thickness/<str:stationname>/', views.get_ct_slice_thickness, name='get_ct_slice_thickness'),
+    path('api/ct/instance/<str:instance_value>/', views.get_ct_instance, name='get_ct_instance'),
+    path('api/ct/analysis_image/<str:instance_value>/<str:image_type>/', views.get_ct_analysis_image, name='get_ct_analysis_image'),
+
     path('device/<str:stationname>/', views.device_details_view, name='device_details_view'),
     path('device/<int:device_id>/', views.device_details_by_id, name='device_details_by_id'),
     

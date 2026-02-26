@@ -1,0 +1,443 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{{ institution_name }} \ {{ unit_name }} - Röntgen QA{% endblock %}
+
+{% block extra_css %}
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="{% static 'css/stylesXrayPro.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block extra_head %}
+<script src="{% static 'js/scriptsXrayDeviceDetails.js' %}?v=4" defer></script>
+{% endblock %}
+
+{% block nav_active_modalities %}active{% endblock %}
+
+{% block nav_right %}
+<div class="nav-right">
+  <div class="topbar-status">
+    <div class="status-dot"></div>
+    <span>{% trans "Järjestelmä toimii" %}</span>
+    <span class="status-sep">|</span>
+    <span class="sys-date" id="topbar-date">-</span>
+  </div>
+</div>
+{% endblock %}
+
+{% block main_class %}{% endblock %}
+
+{% block content %}
+<div class="layout">
+
+  <!-- LEFT PANEL -->
+  <div class="left">
+    <div class="panel-label">{% trans "Laite" %} <span class="modality-tag">XR</span></div>
+
+    <div class="image-tabs">
+      <button class="image-tab active" data-tab="dicom">{% trans "DICOM-kuva" %}</button>
+      <button class="image-tab" data-tab="contrast_rois">{% trans "ROI-kartta" %}</button>
+      <button class="image-tab" data-tab="mtf_lp">{% trans "Viivapari" %}</button>
+      <button class="image-tab" data-tab="mtf_curve">{% trans "MTF-käyrä" %}</button>
+    </div>
+
+    <div class="xr-image-wrap">
+      <img id="orthanc-image" alt="NORMI-13 Phantom" />
+      <div id="loading-indicator">{% trans "Valitse piste kaaviosta" %}</div>
+    </div>
+
+    <div class="left-scroll">
+      <div class="meta-section-title">{% trans "Laitetiedot" %}</div>
+      <div class="meta-row"><span class="meta-key">{% trans "Modaliteetti" %}</span><span class="meta-val tag" id="modality">-</span></div>
+      <div class="meta-row"><span class="meta-key">{% trans "Päivämäärä" %}</span><span class="meta-val" id="content-date">-</span></div>
+      <div class="meta-row"><span class="meta-key">{% trans "Laite" %}</span><span class="meta-val" id="device-name">{% trans "Valitse piste kaaviosta" %}</span></div>
+      <div class="meta-row"><span class="meta-key">{% trans "Valmistaja" %}</span><span class="meta-val" id="manufacturer">-</span></div>
+      <div class="meta-row"><span class="meta-key">{% trans "Malli" %}</span><span class="meta-val" id="manufacturer-model">-</span></div>
+      <div class="meta-row"><span class="meta-key">{% trans "Sarjanumero" %}</span><span class="meta-val" id="device-serial">-</span></div>
+      <div class="meta-row"><span class="meta-key">kVp</span><span class="meta-val" id="kvp">-</span></div>
+      <div class="meta-row"><span class="meta-key">{% trans "Putkivirta (mA)" %}</span><span class="meta-val" id="tube-current">-</span></div>
+      <div class="meta-row"><span class="meta-key">{% trans "Valotusaika (s)" %}</span><span class="meta-val" id="exposure-time">-</span></div>
+      <div class="meta-row"><span class="meta-key">{% trans "Valotus (mAs)" %}</span><span class="meta-val" id="exposure-mas">-</span></div>
+    </div>
+  </div>
+
+  <!-- CENTER PANEL -->
+  <div class="center">
+    <div class="chips">
+      <div class="chip">
+        <div class="chip-label">Uniformity</div>
+        <div class="chip-val" id="chip-uniformity">– <span style="font-size:11px;font-weight:400">%</span></div>
+        <div class="chip-sub" id="chip-uniformity-sub"></div>
+        <div class="chip-bar"><div class="chip-fill" id="chip-uniformity-fill" style="width:0%;background:var(--ok)"></div></div>
+      </div>
+      <div class="chip">
+        <div class="chip-label">MTF 50%</div>
+        <div class="chip-val" id="chip-mtf">– <span style="font-size:11px;font-weight:400">lp/mm</span></div>
+        <div class="chip-sub" id="chip-mtf-sub"></div>
+        <div class="chip-bar"><div class="chip-fill" id="chip-mtf-fill" style="width:0%;background:var(--ok)"></div></div>
+      </div>
+      <div class="chip">
+        <div class="chip-label">Median Contrast</div>
+        <div class="chip-val" id="chip-contrast">–</div>
+        <div class="chip-sub" id="chip-contrast-sub"></div>
+        <div class="chip-bar"><div class="chip-fill" id="chip-contrast-fill" style="width:0%;background:var(--ok)"></div></div>
+      </div>
+    </div>
+
+    <div class="chips">
+      <div class="chip">
+        <div class="chip-label">Cu 1.0mm (High Contrast)</div>
+        <div class="chip-val" id="chip-copper">–</div>
+        <div class="chip-sub" id="chip-copper-sub"></div>
+        <div class="chip-bar"><div class="chip-fill" id="chip-copper-fill" style="width:0%;background:var(--ok)"></div></div>
+      </div>
+      <div class="chip">
+        <div class="chip-label">Low Contrast 2.0%</div>
+        <div class="chip-val" id="chip-low-contrast">–</div>
+        <div class="chip-sub" id="chip-low-contrast-sub"></div>
+        <div class="chip-bar"><div class="chip-fill" id="chip-low-contrast-fill" style="width:0%;background:var(--ok)"></div></div>
+      </div>
+      <div class="chip">
+        <div class="chip-label">CNR</div>
+        <div class="chip-val" id="chip-cnr">–</div>
+        <div class="chip-sub" id="chip-cnr-sub"></div>
+        <div class="chip-bar"><div class="chip-fill" id="chip-cnr-fill" style="width:0%;background:var(--ok)"></div></div>
+      </div>
+    </div>
+
+    <div class="chart-panel">
+      <div class="chart-panel-header">
+        <span class="chart-panel-title">{% trans "Trendikäyrät" %}</span>
+        <div class="chart-panel-badges" id="chart-badges"></div>
+      </div>
+
+      <div class="charts-grid">
+
+        <!-- 1: Uniformity -->
+        <div class="chart-block" id="block-uniformity">
+          <div class="chart-block-head">
+            <span class="chart-block-title">Uniformity [%]</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-uniformity"></span>
+              <span class="badge" id="badge-uniformity"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-uniformity"></div>
+            <div class="chart-scroll" id="scroll-uniformity"></div>
+          </div>
+        </div>
+
+        <!-- 2: Cu 1.0mm -->
+        <div class="chart-block" id="block-copper">
+          <div class="chart-block-head">
+            <span class="chart-block-title">Cu 1.0mm (High Contrast)</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-copper"></span>
+              <span class="badge" id="badge-copper"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-copper"></div>
+            <div class="chart-scroll" id="scroll-copper"></div>
+          </div>
+        </div>
+
+        <!-- 3: Low Contrast -->
+        <div class="chart-block" id="block-low-contrast">
+          <div class="chart-block-head">
+            <span class="chart-block-title">Low Contrast 2.0%</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-low-contrast"></span>
+              <span class="badge" id="badge-low-contrast"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-low-contrast"></div>
+            <div class="chart-scroll" id="scroll-low-contrast"></div>
+          </div>
+        </div>
+
+        <!-- 4: MTF 50% -->
+        <div class="chart-block" id="block-mtf">
+          <div class="chart-block-head">
+            <span class="chart-block-title">MTF 50% [lp/mm]</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-mtf"></span>
+              <span class="badge" id="badge-mtf"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-mtf"></div>
+            <div class="chart-scroll" id="scroll-mtf"></div>
+          </div>
+        </div>
+
+        <!-- 5: CNR -->
+        <div class="chart-block" id="block-cnr">
+          <div class="chart-block-head">
+            <span class="chart-block-title">CNR</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-cnr"></span>
+              <span class="badge" id="badge-cnr"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-cnr"></div>
+            <div class="chart-scroll" id="scroll-cnr"></div>
+          </div>
+        </div>
+
+        <!-- 6: Median Contrast -->
+        <div class="chart-block" id="block-contrast">
+          <div class="chart-block-head">
+            <span class="chart-block-title">Median Contrast</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-contrast"></span>
+              <span class="badge" id="badge-contrast"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-contrast"></div>
+            <div class="chart-scroll" id="scroll-contrast"></div>
+          </div>
+        </div>
+
+        <!-- 7: Cu 0.0mm -->
+        <div class="chart-block" id="block-cu-000">
+          <div class="chart-block-head">
+            <span class="chart-block-title">Cu 0.0mm</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-cu-000"></span>
+              <span class="badge" id="badge-cu-000"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-cu-000"></div>
+            <div class="chart-scroll" id="scroll-cu-000"></div>
+          </div>
+        </div>
+
+        <!-- 8: Cu 0.3mm -->
+        <div class="chart-block" id="block-cu-030">
+          <div class="chart-block-head">
+            <span class="chart-block-title">Cu 0.3mm</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-cu-030"></span>
+              <span class="badge" id="badge-cu-030"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-cu-030"></div>
+            <div class="chart-scroll" id="scroll-cu-030"></div>
+          </div>
+        </div>
+
+        <!-- 9: Cu 0.65mm -->
+        <div class="chart-block" id="block-cu-065">
+          <div class="chart-block-head">
+            <span class="chart-block-title">Cu 0.65mm</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-cu-065"></span>
+              <span class="badge" id="badge-cu-065"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-cu-065"></div>
+            <div class="chart-scroll" id="scroll-cu-065"></div>
+          </div>
+        </div>
+
+        <!-- 10: Cu 1.4mm -->
+        <div class="chart-block" id="block-cu-140">
+          <div class="chart-block-head">
+            <span class="chart-block-title">Cu 1.4mm</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-cu-140"></span>
+              <span class="badge" id="badge-cu-140"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-cu-140"></div>
+            <div class="chart-scroll" id="scroll-cu-140"></div>
+          </div>
+        </div>
+
+        <!-- 11: Cu 1.85mm -->
+        <div class="chart-block" id="block-cu-185">
+          <div class="chart-block-head">
+            <span class="chart-block-title">Cu 1.85mm</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-cu-185"></span>
+              <span class="badge" id="badge-cu-185"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-cu-185"></div>
+            <div class="chart-scroll" id="scroll-cu-185"></div>
+          </div>
+        </div>
+
+        <!-- 12: Cu 2.3mm -->
+        <div class="chart-block" id="block-cu-230">
+          <div class="chart-block-head">
+            <span class="chart-block-title">Cu 2.3mm</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-cu-230"></span>
+              <span class="badge" id="badge-cu-230"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-cu-230"></div>
+            <div class="chart-scroll" id="scroll-cu-230"></div>
+          </div>
+        </div>
+
+        <!-- 13: LC 0.8% -->
+        <div class="chart-block" id="block-lc-08">
+          <div class="chart-block-head">
+            <span class="chart-block-title">Low Contrast 0.8%</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-lc-08"></span>
+              <span class="badge" id="badge-lc-08"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-lc-08"></div>
+            <div class="chart-scroll" id="scroll-lc-08"></div>
+          </div>
+        </div>
+
+        <!-- 14: LC 1.2% -->
+        <div class="chart-block" id="block-lc-12">
+          <div class="chart-block-head">
+            <span class="chart-block-title">Low Contrast 1.2%</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-lc-12"></span>
+              <span class="badge" id="badge-lc-12"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-lc-12"></div>
+            <div class="chart-scroll" id="scroll-lc-12"></div>
+          </div>
+        </div>
+
+        <!-- 15: LC 2.8% -->
+        <div class="chart-block" id="block-lc-28">
+          <div class="chart-block-head">
+            <span class="chart-block-title">Low Contrast 2.8%</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-lc-28"></span>
+              <span class="badge" id="badge-lc-28"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-lc-28"></div>
+            <div class="chart-scroll" id="scroll-lc-28"></div>
+          </div>
+        </div>
+
+        <!-- 16: LC 4.0% -->
+        <div class="chart-block" id="block-lc-40">
+          <div class="chart-block-head">
+            <span class="chart-block-title">Low Contrast 4.0%</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-lc-40"></span>
+              <span class="badge" id="badge-lc-40"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-lc-40"></div>
+            <div class="chart-scroll" id="scroll-lc-40"></div>
+          </div>
+        </div>
+
+        <!-- 17: LC 5.6% -->
+        <div class="chart-block" id="block-lc-56">
+          <div class="chart-block-head">
+            <span class="chart-block-title">Low Contrast 5.6%</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-lc-56"></span>
+              <span class="badge" id="badge-lc-56"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-lc-56"></div>
+            <div class="chart-scroll" id="scroll-lc-56"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="chart-panel-legend">
+        <div class="legend-item">
+          <div class="legend-dash" style="border-color:#fbbf24"></div>
+          <span>{% trans "Hyväksyntäraja" %}</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dash" style="border-color:#fb7185"></div>
+          <span>{% trans "Virheraja" %}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="report-section">
+      <div class="report-label">{% trans "Raportoi ongelmasta" %}</div>
+      <form id="mini-chat-form">
+        <textarea class="report-textarea" id="mini-chat-input" placeholder="{% trans 'Kuvaile havaittu ongelma…' %}"></textarea>
+        <div class="report-actions">
+          <button type="button" class="report-btn">{% trans "Peruuta" %}</button>
+          <button type="submit" class="report-btn primary" id="mini-chat-send">{% trans "Lähetä raportti" %}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right">
+    <div class="panel-label">{% trans "Kysy tekoälyltä" %}</div>
+    <div class="ai-messages" id="answer-box"></div>
+    <div class="ai-footer">
+      <div class="ai-input-row">
+        <form id="chat-form" style="display:contents">
+          <textarea class="ai-input" id="question" placeholder="{% trans 'Kirjoita kysymys…' %}"></textarea>
+          <button class="ai-send" id="chat-send-button" type="submit">&#8594;</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- DICOM-modaali -->
+<div id="dicom-modal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeDicomModal()">&times;</span>
+    <h2>{% trans "DICOM-metatiedot" %}</h2>
+    <div id="dicom-grid" class="dicom-grid">
+      <div class="dicom-col" id="dicom-col-left"></div>
+      <div class="dicom-col" id="dicom-col-right"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  window.devicesData = {{ devices_data|safe }};
+  window.T = {
+    loading:       '{% trans "Ladataan kuvaa..." %}',
+    noImage:       '{% trans "Analyysikuvaa ei saatavilla" %}',
+    fetching:      '{% trans "Haetaan vastausta..." %}',
+    noAnswer:      '{% trans "Ei saatu vastausta." %}',
+    messageSent:   '{% trans "Viesti lähetetty!" %}',
+    metrics:       '{% trans "Mittaustulokset" %}',
+    aiLabel:       '{% trans "Tekoäly" %}',
+    imageError:    '{% trans "Virhe" %}',
+    selectPoint:   '{% trans "Valitse piste kaaviosta" %}',
+    reportHint:    '{% trans "Kuvaile havaittu ongelma…" %}',
+  };
+  window.LANG = '{{ LANGUAGE_CODE }}';
+</script>
+{% endblock %}

@@ -1,0 +1,375 @@
+# AutoQAD — English translations
+# Finnish (fi) is the default language; msgid = Finnish text
+# msgstr = English translation
+#
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+
+# ---- Navbar / base.html ----
+msgid "LV-automaatti"
+msgstr "AutomatedQA"
+
+msgid "Aloitus"
+msgstr "Home"
+
+msgid "Modaliteetit"
+msgstr "Modalities"
+
+msgid "Tietoa"
+msgstr "About"
+
+msgid "Lääketieteellisen fysiikan asiantuntijapalvelut"
+msgstr "Medical Physics Expert Services"
+
+# ---- aloitus_sivu1.html ----
+msgid "Lääketieteellisten kuvantamislaitteiden laadunvalvonta"
+msgstr "Quality Assurance for Medical Imaging Devices"
+
+msgid "Tervetuloa POHTEEN lääketieteellisten kuvantamislaitteiden laadunvalvontajärjestelmään."
+msgstr "Welcome to the Pohjois-Pohjanmaa Wellbeing Services County medical imaging QA system."
+
+msgid "Siirry modaliteetteihin"
+msgstr "View modalities"
+
+# ---- modaliteetit.html ----
+msgid "Valitse kuvantamismodaliteetti"
+msgstr "Select imaging modality"
+
+msgid "Ultraääni"
+msgstr "Ultrasound"
+
+msgid "Natiiviröntgen"
+msgstr "X-ray"
+
+msgid "Tietokonetomografia"
+msgstr "Computed Tomography"
+
+msgid "Instituutiot"
+msgstr "Institutions"
+
+# ---- institutions.html / xray_institutions.html / ct_institutions.html ----
+msgid "Instituutiot — Ultraääni"
+msgstr "Institutions — Ultrasound"
+
+msgid "Ultraääni — Instituutiot"
+msgstr "Ultrasound — Institutions"
+
+msgid "Tutustu eri instituutioiden ultraäänilaitteiden suorituskykyyn."
+msgstr "Explore the ultrasound device performance across institutions."
+
+msgid "Röntgen QA — Instituutiot"
+msgstr "X-ray QA — Institutions"
+
+msgid "Valitse instituutio nähdäksesi sen röntgenlaitteet."
+msgstr "Select an institution to view its X-ray devices."
+
+msgid "Ei röntgendataa saatavilla."
+msgstr "No X-ray data available."
+
+msgid "CT QA — Instituutiot"
+msgstr "CT QA — Institutions"
+
+msgid "Valitse instituutio nähdäksesi sen CT-laitteet."
+msgstr "Select an institution to view its CT devices."
+
+msgid "Ei CT-dataa saatavilla."
+msgstr "No CT data available."
+
+msgid "Instituutio"
+msgstr "Institution"
+
+msgid "Osastoja"
+msgstr "Departments"
+
+msgid "Laitteita"
+msgstr "Devices"
+
+msgid "Instansseja"
+msgstr "Instances"
+
+msgid "Virhe ladattaessa dataa"
+msgstr "Error loading data"
+
+# ---- units.html / xray_units.html / ct_units.html ----
+msgid "Osastot"
+msgstr "Departments"
+
+msgid "Röntgenlaitteet"
+msgstr "X-ray Devices"
+
+msgid "CT-osastot"
+msgstr "CT Departments"
+
+msgid "Tutustu eri osastojen ultraäänilaitteiden suorituskykyyn."
+msgstr "Explore ultrasound device performance across departments."
+
+msgid "NORMI-13 phantom -mittaukset osastoittain."
+msgstr "NORMI-13 phantom measurements by department."
+
+msgid "CatPhan / Siemens -fantomien CT-mittaukset osastoittain."
+msgstr "CatPhan / Siemens phantom CT measurements by department."
+
+msgid "Osasto"
+msgstr "Department"
+
+msgid "Ei osastoja saatavilla."
+msgstr "No departments available."
+
+msgid "Takaisin instituutioihin"
+msgstr "Back to institutions"
+
+# ---- unitDetails.html / xray_unitDetails.html / ct_unitDetails.html ----
+msgid "Laite"
+msgstr "Device"
+
+msgid "Valmistaja"
+msgstr "Manufacturer"
+
+msgid "Modaliteetti"
+msgstr "Modality"
+
+msgid "Laitteen nimi"
+msgstr "Device name"
+
+msgid "Röntgen — Instituutiot"
+msgstr "X-ray — Institutions"
+
+msgid "CT-laitteet"
+msgstr "CT Devices"
+
+msgid "Ei laitteita löytynyt tälle yksikölle."
+msgstr "No devices found for this unit."
+
+msgid "Ei CT-laitteita löytynyt tälle yksikölle."
+msgstr "No CT devices found for this unit."
+
+# ---- deviceDetails.html (Ultrasound) ----
+msgid "Järjestelmä toimii"
+msgstr "System operational"
+
+msgid "Laitetiedot"
+msgstr "Device information"
+
+msgid "Päivämäärä"
+msgstr "Date"
+
+msgid "Malli"
+msgstr "Model"
+
+msgid "Sarjanumero"
+msgstr "Serial number"
+
+msgid "Anturityyppi"
+msgstr "Transducer type"
+
+msgid "Signaalihäviö"
+msgstr "Signal loss"
+
+msgid "Instance"
+msgstr "Instance"
+
+msgid "Herkkyys (s_depth)"
+msgstr "Sensitivity (s_depth)"
+
+msgid "Tasaisuus (U_cov)"
+msgstr "Uniformity (U_cov)"
+
+msgid "Epäsymmetria (U_skew)"
+msgstr "Asymmetry (U_skew)"
+
+msgid "Trendikäyrät"
+msgstr "Trend charts"
+
+msgid "Hyväksyntäraja (keltainen)"
+msgstr "Acceptance limit (yellow)"
+
+msgid "Yläraja (punainen)"
+msgstr "Error limit (red)"
+
+msgid "Raportoi ongelmasta"
+msgstr "Report an issue"
+
+msgid "Kysy tekoälyltä"
+msgstr "Ask AI"
+
+msgid "Kirjoita kysymys…"
+msgstr "Type your question…"
+
+msgid "DICOM-metatiedot"
+msgstr "DICOM metadata"
+
+msgid "Kuvaile havaittu ongelma…"
+msgstr "Describe the observed issue…"
+
+msgid "Peruuta"
+msgstr "Cancel"
+
+msgid "Lähetä raportti"
+msgstr "Send report"
+
+msgid "Valitse piste kaaviosta"
+msgstr "Select a point on the chart"
+
+msgid "DICOM-kuva"
+msgstr "DICOM image"
+
+# ---- CT device details ----
+msgid "HU-lineaarisuus"
+msgstr "HU linearity"
+
+msgid "Leikepaksuus"
+msgstr "Slice thickness"
+
+msgid "Uniformiteetti"
+msgstr "Uniformity"
+
+msgid "Uniformiteetti-indeksi"
+msgstr "Uniformity index"
+
+msgid "Spatiaalinen resoluutio"
+msgstr "Spatial resolution"
+
+msgid "Matala kontrasti"
+msgstr "Low contrast"
+
+msgid "Kohina (HU SD)"
+msgstr "Noise (HU SD)"
+
+msgid "Fantomi"
+msgstr "Phantom"
+
+msgid "Putkivirta (mA)"
+msgstr "Tube current (mA)"
+
+msgid "Valotusaika (s)"
+msgstr "Exposure time (s)"
+
+msgid "Valotus (mAs)"
+msgstr "Exposure (mAs)"
+
+msgid "ROI-kartta"
+msgstr "ROI map"
+
+msgid "Viivapari"
+msgstr "Line pair"
+
+msgid "MTF-käyrä"
+msgstr "MTF curve"
+
+msgid "Kokonaistulos"
+msgstr "Overall result"
+
+# ---- X-ray device details ----
+msgid "Hyväksyntäraja"
+msgstr "Acceptance limit"
+
+msgid "Virheraja"
+msgstr "Error limit"
+
+# ---- tietoa.html ----
+msgid "Tietoa järjestelmästä"
+msgstr "About the system"
+
+msgid "Tällä sivustolla voit seurata lääketieteellisten kuvantamislaitteiden suorituskykyä reaaliaikaisesti."
+msgstr "This website allows you to monitor the performance of medical imaging devices in real time."
+
+msgid "Järjestelmä kattaa useita kuvantamismodaliteetteja:"
+msgstr "The system covers several imaging modalities:"
+
+msgid "Sivuston tavoitteena on tukea lääketieteellisen fysiikan asiantuntijoita laitteiden laadunvarmistuksessa."
+msgstr "The goal of the system is to support medical physics experts in device quality assurance."
+
+# ---- ultra_taulukko.html ----
+msgid "Ultraäänidata"
+msgstr "Ultrasound data"
+
+msgid "Tallenna kaikki muutokset"
+msgstr "Save all changes"
+
+# ---- JS strings (window.T) ----
+msgid "Ladataan kuvaa..."
+msgstr "Loading image..."
+
+msgid "Ladataan leikekuvaa..."
+msgstr "Loading slice image..."
+
+msgid "Ladataan kuvaajaa..."
+msgstr "Loading chart..."
+
+msgid "Analyysikuvaa ei saatavilla"
+msgstr "Analysis image not available"
+
+msgid "Haetaan vastausta..."
+msgstr "Fetching answer..."
+
+msgid "Ei saatu vastausta."
+msgstr "No response received."
+
+msgid "Viesti lähetetty!"
+msgstr "Message sent!"
+
+msgid "Viesti lähetetty Slackiin!"
+msgstr "Message sent to Slack!"
+
+msgid "Virhe lähetyksessä."
+msgstr "Error sending message."
+
+msgid "Mittaustulokset"
+msgstr "Measurement results"
+
+msgid "Tekoäly"
+msgstr "AI"
+
+msgid "Virhe"
+msgstr "Error"
+
+# ---- CT material names ----
+msgid "Profiilit"
+msgstr "Profiles"
+
+msgid "Sivunäkymä"
+msgstr "Side view"
+
+msgid "Akryyli"
+msgstr "Acrylic"
+
+msgid "Polystyreeni"
+msgstr "Polystyrene"
+
+msgid "HU Ilma (Air)"
+msgstr "HU Air"
+
+# ---- US chip sub-texts / badge texts ----
+msgid "→ Vakaa · raja"
+msgstr "→ Stable · limit"
+
+msgid "↑ Raja"
+msgstr "↑ Limit"
+
+msgid "Raja ylitetty"
+msgstr "Limit exceeded"
+
+msgid "↓ Raja ylitetty · raja"
+msgstr "↓ Limit exceeded · limit"
+
+msgid "Tarkista"
+msgstr "Check"
+
+msgid "viim."
+msgstr "latest"
+
+# ---- US alert text fragments ----
+msgid "ylittää"
+msgstr "exceeds"
+
+msgid "tarkistusrajan"
+msgstr "the check limit"
+
+msgid "hyväksyntärajan"
+msgstr "the acceptance limit"
+
+msgid "Toimenpide suositellaan."
+msgstr "Action recommended."

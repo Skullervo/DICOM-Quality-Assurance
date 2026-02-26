@@ -1,271 +1,276 @@
-<!doctype html>
-<html lang="en">
-<head>
+{% extends "base.html" %}
+{% load static i18n %}
 
-  {% load static %}
-  <!-- Required meta tags -->
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+{% block title %}{{ device.institutionname }} \ {{ device.institutionaldepartmentname }} \ {{ device.stationname }}{% endblock %}
 
-  <!-- Custom CSS -->
-  <link href="{% static 'css/stylesDeviceDetails.css' %}" rel="stylesheet"> <!-- Viittaus ulkoiseen CSS-tiedostoon -->
+{% block extra_css %}
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="{% static 'css/stylesDeviceDetails.css' %}" rel="stylesheet">
+{% endblock %}
 
-  <!-- Chart.js + plugins-->
-  {% comment %} <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> {% endcomment %}
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@1.0.0"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.2.1"></script>
-  {% comment %} <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@1.4.0/dist/chartjs-plugin-annotation.min.js"></script> {% endcomment %}
+{% block extra_head %}
+<script src="{% static 'js/scriptsDeviceDetails2.js' %}" defer></script>
+{% endblock %}
 
+{% block nav_right %}
+<div class="nav-right">
+  <div class="topbar-status">
+    <div class="status-dot"></div>
+    <span>{% trans "Järjestelmä toimii" %}</span>
+    <span class="status-sep">|</span>
+    <span class="sys-date">{{ device.seriesdate }}</span>
+  </div>
+</div>
+{% endblock %}
 
-  <!-- Scripts -->
-  <script src="{% static 'js/scriptsDeviceDetails2.js' %}"></script>
+{% block main_class %}{% endblock %}
 
-  <!-- Title -->
-  <title>{{ device.institutionname }} \ {{ device.institutionaldepartmentname }} \ {{ device.stationname }}</title>
+{% block content %}
+<div class="layout">
 
-</head>
+  <!-- LEFT PANEL -->
+  <div class="left">
+    <div class="panel-label">{% trans "Laite" %} <span class="modality-tag">{{ device.modality }}</span></div>
 
-<body class="bg-dark text-light">
-  
-  <!-- Header -->
-  <!-- <header>
-    <nav class="navbar">
-      <h3 class="navbar-brand" href="#">LV-automaatti</h3>
-      <div class="nav-links">
-        <a class="nav-link" href="#">Aloitus</a>
-        <a class="nav-link" href="#">Tietoa</a>
-        <a class="nav-link" href="#">Yhteystiedot</a>
-        <a class="nav-link" href="/admin/" target="_blank" rel="noopener noreferrer">Tietokanta</a>
-        <a class="nav-link" href="http://localhost:8042/app/explorer.html">Kuvat</a>
-
-        <div class="nav-right">
-          <h3>{{ device.institutionname }} \ {{ device.institutionaldepartmentname }} \ {{ device.stationname }}</h3>
-        </div>
+    <div class="us-image-wrap">
+      <img id="orthanc-image" alt="Ultraäänikuva" />
+      <div class="us-profile" id="profile-svg-container">
+        <svg viewBox="0 0 42 120" preserveAspectRatio="none">
+          <line x1="21" y1="0" x2="21" y2="120" stroke="#1e3048" stroke-width=".5"/>
+          <line x1="0" y1="30" x2="42" y2="30" stroke="#1e3048" stroke-width=".5" stroke-dasharray="2,3"/>
+          <line x1="0" y1="60" x2="42" y2="60" stroke="#1e3048" stroke-width=".5" stroke-dasharray="2,3"/>
+          <line x1="0" y1="90" x2="42" y2="90" stroke="#1e3048" stroke-width=".5" stroke-dasharray="2,3"/>
+          <polyline id="profile-polyline"
+            points="21,2 21,118"
+            fill="none" stroke="#00b4d8" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+        </svg>
       </div>
-    </nav>
-  </header> -->
-
-  <header>
-    <!-- NAVBAR -->
-    <nav class="navbar">
-      <h3 class="navbar-brand">LV-automaatti</h3>
-  
-      <div class="nav-links">
-        <a class="nav-link" href="#">Aloitus</a>
-        <a class="nav-link" href="#">Tietoa</a>
-        <a class="nav-link" href="#">Yhteystiedot</a>
-        <a class="nav-link" href="/admin/" target="_blank" rel="noopener noreferrer">Tietokanta</a>
-        <a class="nav-link" href="http://localhost:8042/app/explorer.html">Kuvat</a>
-      </div>
-  
-      <div class="nav-right">
-        <a class="device-name" href="#">{{ device.institutionname }} \ {{ device.institutionaldepartmentname }} \ {{ device.stationname }}</a>
-        <!-- <a class="device-name" href="#">{{ device.stationname }}</a> -->
-        <!-- <h5 class="device-name">
-          {{ device.institutionname }} \ {{ device.institutionaldepartmentname }} \ {{ device.stationname }}
-        </h5> -->
-      </div>
-    </nav>
-  </header>
-  
-
-  <div class="container">
-    <nav id="sidebarMenu" class="sidebar">
-      <div class="position-sticky">
-        <div class="floating-box" id="mini-chat">
-          <h4>Raportoi ongelmasta</h4>
-          <form id="mini-chat-form">
-            <textarea id="mini-chat-input" placeholder="Kirjoita viesti…" rows="2"></textarea>
-            <button type="submit" id="mini-chat-send">Lähetä</button>
-          </form>
-        </div>
-
-        <div id="ai-chat-box" style="margin-top: 2rem;">
-          <h4>Kysy tekoälyltä</h4>
-          <form id="chat-form">
-            <textarea id="question" rows="3" placeholder="Kirjoita kysymyksesi..." style="width:100%;"></textarea>
-          </form>
-          <div id="answer-box"></div>
-          <button id="chat-send-button" type="submit" form="chat-form">Lähetä</button>
-        </div>
-
-
-      </div>
-    </nav>
-
-    <main class="main-content">
-      <!-- <div class="header">
-        <h3>{{ device.institutionname }} \ {{ device.institutionaldepartmentname }} \ {{ device.stationname }}</h3>
-      </div> -->
-
-
-      <div id="charts-image-wrapper">
-      <div id="image-profile-wrapper">
-        <div id="vertical-profile-container">
-          <canvas id="vertical-profile" width="70" height="640"></canvas>
-        </div>
-        <div id="image-and-horizontal-profile">
-          {% comment %} <img id="orthanc-image" src="data:image/png;base64,{{ image }}" width="640" height="640" alt="Device Image"> {% endcomment %}
-          {% comment %} <img id="orthanc-image" alt="Device Image" /> {% endcomment %}
-          <img id="orthanc-image" width="640" height="640" alt="Device Image" />
-          <canvas id="horizontal-profile" width="640" height="70"></canvas>
-        </div>
-      </div>
-      <div id="charts-container">
-        <div class="chart-wrapper">
-          <canvas id="chart1" width="300" height="70"></canvas>
-        </div>
-        <div class="chart-wrapper">
-          <canvas id="chart2" width="300" height="70"></canvas>
-        </div>
-        <div class="chart-wrapper">
-          <canvas id="chart3" width="300" height="70"></canvas>
-        </div>
-
-        <!-- Skrollauspalkki -->
-        <input type="range" id="scrollbar" min="0" max="0" value="0" step="1">
-      </div>
-      </div>
-
-
-
-      <!-- TABLE: DEVICE BASIC INFO -->
-      <div class="table-wrapper hidden">
-      <div class="basic-section" style="margin-top: 1rem;">
-        <h4 style="margin-bottom: 1rem;">🔧 Laitteen perustiedot</h4>
-        <div class="table-responsive">
-          <table class="table table-striped">
-            <thead>
-              <tr>
-                <th>Parametri</th>
-                <th>Arvo</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td>Sairaala</td><td>{{ device.institutionname }}</td></tr>
-              <tr><td>Osasto</td><td>{{ device.institutionaldepartmentname }}</td></tr>
-              <tr><td>Laite</td><td id="device-name">{{ device.stationname }}</td></tr>
-              <tr><td>Valmistaja</td><td>{{ device.manufacturer }}</td></tr>
-              <tr><td>Anturityyppi</td><td>{{ device.tranducertype }}</td></tr>
-              <tr><td>Modality</td><td>{{ device.modality }}</td></tr>
-              <tr><td>Manufacturer Model</td><td>{{ device.manufacturermodelname }}</td></tr>
-              <tr><td>Device Serial</td><td>{{ device.deviceserialnumber }}</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- TABLE: STUDY INFO -->
-      <div class="device-section hidden" style="margin-top: 1rem;">
-        <h4 style="margin-bottom: 1rem;">🔧 Tutkimuksen tiedot</h4>
-        <div class="table-responsive">
-          <table class="table table-striped">
-            <thead>
-              <tr>
-                <th>Parametri</th>
-                <th>Arvo</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td>Päivämäärä</td><td>{{ device.seriesdate }}</td></tr>
-              <tr><td>Herkkyys (s_depth)</td><td id="s-depth-value">{{ device.s_depth }}</td></tr>
-              <tr><td>Tasaisuus (U_cov)</td><td id="u-cov-value">{{ device.u_cov }}</td></tr>
-              <tr><td>Epäsymmetria (U_skew)</td><td id="u-skew-value">{{ device.u_skew }}</td></tr>
-              <tr><td>Pahin signaalihäviö (U_low)</td><td id="u-low-value">{{ device.u_low }}</td></tr>
-              <tr><td>Instanssi</td><td id="instance-value">{{ device.instance }}</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- TABLE: DICOM INFO -->
-      <div class="dicom-section hidden" style="margin-top: 1rem;">
-        <h4 style="margin-bottom: 1rem;">📄 DICOM-tiedot</h4>
-        <div class="table-responsive">
-          <table class="table table-striped">
-            <thead>
-              <tr>
-                <th>Parametri</th>
-                <th>Arvo</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td>Patient ID</td><td>{{ device.patientid }}</td></tr>
-              <tr><td>Patient Name</td><td>{{ device.patientname }}</td></tr>
-              <tr><td>Study ID</td><td>{{ device.studyid }}</td></tr>
-              <tr><td>Study Date</td><td>{{ device.studydate }}</td></tr>
-              <tr><td>Study Time</td><td>{{ device.studytime }}</td></tr>
-              <tr><td>Instance Number</td><td>{{ device.instancenumber }}</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-
-      <!-- UID-INFO -->
-      <div class="ui-section hidden" style="margin-top: 1rem;">
-        <h4 style="margin-bottom: 1rem;">📄 UID-tiedot</h4>
-        <div class="table-responsive">
-          <table class="table table-striped">
-            <thead>
-              <tr>
-                <th>Parametri</th>
-                <th>Arvo</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td>Study Instance UID</td><td>{{ device.instance }}</td></tr>
-              <tr><td>SOP Class UID</td><td>{{ device.sopclassuid }}</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      </div>
-
-
-      {% comment %} <div id="ai-chat-box" style="margin-top: 2rem;">
-          <h3>Kysy mittaustuloksista tekoälyltä</h3>
-          <form id="chat-form">
-            <textarea id="question" rows="3" placeholder="Kirjoita kysymyksesi..." style="width:100%;"></textarea>
-            <button type="submit" style="margin-top: 0.5rem;">Lähetä</button>
-          </form>
-          <div id="answer-box"></div>
-      </div> {% endcomment %}
-      </main>
-      </div>
-
-    <!-- Modaali -->
-    <div id="dicom-modal" class="modal">
-      <div class="modal-content">
-        <span class="close" onclick="closeDicomModal()">&times;</span>
-        <h2>DICOM-metatiedot</h2>
-        <table id="dicom-table" class="dicom-table">
-          <thead>
-            <tr>
-              <th>Attribuutti</th>
-              <th>Arvo</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+      <div class="us-waveform" id="waveform-container">
+        <svg viewBox="0 0 270 46" preserveAspectRatio="none">
+          <polyline id="waveform-polyline"
+            points="0,23 270,23"
+            fill="none" stroke="#00b4d8" stroke-width="1.5" stroke-linejoin="round"/>
+        </svg>
       </div>
     </div>
 
+    <div class="left-scroll">
+      <div class="meta-section-title">{% trans "Laitetiedot" %}</div>
+      <div class="meta-row"><span class="meta-key">{% trans "Laite" %}</span><span class="meta-val" id="device-name">{{ device.stationname }}</span></div>
+      <div class="meta-row"><span class="meta-key">{% trans "Päivämäärä" %}</span><span class="meta-val">{{ device.seriesdate }}</span></div>
+      <div class="meta-row"><span class="meta-key">{% trans "Modaliteetti" %}</span><span class="meta-val tag">{{ device.modality }}</span></div>
+      <div class="meta-row"><span class="meta-key">{% trans "Valmistaja" %}</span><span class="meta-val">{{ device.manufacturer }}</span></div>
+      <div class="meta-row"><span class="meta-key">{% trans "Malli" %}</span><span class="meta-val">{{ device.manufacturermodelname }}</span></div>
+      <div class="meta-row"><span class="meta-key">{% trans "Sarjanumero" %}</span><span class="meta-val">{{ device.deviceserialnumber }}</span></div>
+      <div class="meta-row"><span class="meta-key">{% trans "Anturityyppi" %}</span><span class="meta-val" style="font-size:10px">{{ device.tranducertype }}</span></div>
+      <div class="meta-row"><span class="meta-key">{% trans "Signaalihäviö" %}</span><span class="meta-val" id="u-low-value">{{ device.u_low|floatformat:2 }}</span></div>
+      <div class="meta-row"><span class="meta-key">{% trans "Instance" %}</span><span class="meta-val na" id="instance-value" style="font-size:10px">{{ device.instance }}</span></div>
 
+    </div>
+  </div>
+
+  <!-- CENTER PANEL -->
+  <div class="center">
+    <div class="chips">
+      <div class="chip">
+        <div class="chip-label">{% trans "Herkkyys (s_depth)" %}</div>
+        <div class="chip-val ok" id="chip-s-depth">{{ device.s_depth|floatformat:2 }} <span style="font-size:11px;font-weight:400">mm</span></div>
+        <div class="chip-sub" id="chip-s-depth-sub"></div>
+        <div class="chip-bar"><div class="chip-fill" id="chip-s-depth-fill" style="width:0%;background:var(--ok)"></div></div>
+      </div>
+      <div class="chip">
+        <div class="chip-label">{% trans "Tasaisuus (U_cov)" %}</div>
+        <div class="chip-val" id="chip-u-cov">{{ device.u_cov|floatformat:2 }} <span style="font-size:11px;font-weight:400">%</span></div>
+        <div class="chip-sub" id="chip-u-cov-sub"></div>
+        <div class="chip-bar"><div class="chip-fill" id="chip-u-cov-fill" style="width:0%;background:var(--warn)"></div></div>
+      </div>
+      <div class="chip">
+        <div class="chip-label">{% trans "Epäsymmetria (U_skew)" %}</div>
+        <div class="chip-val" id="chip-u-skew">{{ device.u_skew|floatformat:2 }}</div>
+        <div class="chip-sub" id="chip-u-skew-sub"></div>
+        <div class="chip-bar"><div class="chip-fill" id="chip-u-skew-fill" style="width:0%;background:var(--bad)"></div></div>
+      </div>
+    </div>
+
+    <div class="chips-ulow">
+      <div class="chip-ulow" id="chip-ulow-0">
+        <div class="chip-ulow-label">U_low · Left 10 %</div>
+        <div class="chip-ulow-val" id="chip-ulow-val-0">–</div>
+      </div>
+      <div class="chip-ulow" id="chip-ulow-1">
+        <div class="chip-ulow-label">U_low · Left 20 %</div>
+        <div class="chip-ulow-val" id="chip-ulow-val-1">–</div>
+      </div>
+      <div class="chip-ulow" id="chip-ulow-2">
+        <div class="chip-ulow-label">U_low · Center 40 %</div>
+        <div class="chip-ulow-val" id="chip-ulow-val-2">–</div>
+      </div>
+      <div class="chip-ulow" id="chip-ulow-3">
+        <div class="chip-ulow-label">U_low · Right 20 %</div>
+        <div class="chip-ulow-val" id="chip-ulow-val-3">–</div>
+      </div>
+      <div class="chip-ulow" id="chip-ulow-4">
+        <div class="chip-ulow-label">U_low · Right 10 %</div>
+        <div class="chip-ulow-val" id="chip-ulow-val-4">–</div>
+      </div>
+    </div>
+
+    <div class="chart-panel">
+      <div class="chart-panel-header">
+        <span class="chart-panel-title">{% trans "Trendikäyrät" %}</span>
+        <div class="chart-panel-badges">
+          <span class="badge ok" id="badge-s-depth">{% trans "Herkkyys (s_depth)" %}</span>
+          <span class="badge" id="badge-u-cov">{% trans "Tasaisuus (U_cov)" %}</span>
+          <span class="badge" id="badge-u-skew">{% trans "Epäsymmetria (U_skew)" %}</span>
+        </div>
+      </div>
+
+      <div class="charts-stack">
+
+        <!-- HERKKYYS -->
+        <div class="chart-block" id="block-herkkyys">
+          <div class="chart-block-head">
+            <span class="chart-block-title">{% trans "Herkkyys (s_depth)" %} [mm]</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-s-depth"></span>
+              <span class="badge" id="badge-chart-s-depth"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-herkkyys">
+              <span class="yax">4.0</span>
+              <span class="yax">3.0</span>
+              <span class="yax">2.0</span>
+              <span class="yax">1.0</span>
+              <span class="yax">0</span>
+            </div>
+            <div class="chart-scroll" id="scroll-herkkyys"></div>
+          </div>
+        </div>
+
+        <!-- TASAISUUS -->
+        <div class="chart-block" id="block-tasaisuus">
+          <div class="chart-block-head">
+            <span class="chart-block-title">{% trans "Tasaisuus (U_cov)" %} [%]</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-u-cov"></span>
+              <span class="badge" id="badge-chart-u-cov"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-tasaisuus">
+              <span class="yax">5.0</span>
+              <span class="yax">4.0</span>
+              <span class="yax">3.0</span>
+              <span class="yax">2.0</span>
+              <span class="yax">1.0</span>
+            </div>
+            <div class="chart-scroll" id="scroll-tasaisuus"></div>
+          </div>
+        </div>
+
+        <!-- EPÄSYMMETRIA -->
+        <div class="chart-block" id="block-epa">
+          <div class="chart-block-head">
+            <span class="chart-block-title">{% trans "Epäsymmetria (U_skew)" %}</span>
+            <div class="chart-block-meta">
+              <span class="chart-val" id="val-u-skew"></span>
+              <span class="badge" id="badge-chart-u-skew"></span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-epa">
+              <span class="yax">+2.0</span>
+              <span class="yax">+1.0</span>
+              <span class="yax">0</span>
+              <span class="yax">−1.0</span>
+              <span class="yax">−2.0</span>
+            </div>
+            <div class="chart-scroll" id="scroll-epa"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="chart-panel-legend">
+        <div class="legend-item">
+          <div class="legend-dash" style="border-color:#fbbf24"></div>
+          <span>{% trans "Hyväksyntäraja (keltainen)" %}</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dash" style="border-color:#fb7185"></div>
+          <span>{% trans "Yläraja (punainen)" %}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="report-section">
+      <div class="report-label">{% trans "Raportoi ongelmasta" %}</div>
+      <form id="mini-chat-form">
+        <textarea class="report-textarea" id="mini-chat-input" placeholder="{% trans 'Kuvaile havaittu ongelma…' %}"></textarea>
+        <div class="report-actions">
+          <button type="button" class="report-btn">{% trans "Peruuta" %}</button>
+          <button type="submit" class="report-btn primary" id="mini-chat-send">{% trans "Lähetä raportti" %}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right">
+    <div class="panel-label">{% trans "Kysy tekoälyltä" %}</div>
+    <div class="ai-messages" id="answer-box"></div>
+    <div class="ai-footer">
+      <div class="ai-input-row">
+        <form id="chat-form" style="display:contents">
+          <textarea class="ai-input" id="question" placeholder="{% trans 'Kirjoita kysymys…' %}"></textarea>
+          <button class="ai-send" id="chat-send-button" type="submit">&#8594;</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- DICOM-modaali -->
+<div id="dicom-modal" class="modal">
+  <div class="modal-content">
     <span class="close" onclick="closeDicomModal()">&times;</span>
+    <h2>{% trans "DICOM-metatiedot" %}</h2>
+    <div id="dicom-grid" class="dicom-grid">
+      <div class="dicom-col" id="dicom-col-left"></div>
+      <div class="dicom-col" id="dicom-col-right"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
 
-
-
-      <div style="height: 5px;"></div>
-
-      <script>
-      // window.horizProfile = {{ horiz_prof|default:"[]"|safe }};
-      // window.vertProfile = {{ vert_prof|default:"[]"|safe }};
-      
-      console.log("Horisontaalinen profiili:", window.horizProfile);
-      console.log("Vertikaalinen profiili:", window.vertProfile);
-      </script>
-      {% comment %} <script src="{% static 'js/scriptsDeviceDetails2.js' %}"></script> {% endcomment %}
-</body>
-</html>
+{% block extra_js %}
+<script>
+window.T = {
+  loading:       '{% trans "Ladataan kuvaa..." %}',
+  noImage:       '{% trans "Analyysikuvaa ei saatavilla" %}',
+  fetching:      '{% trans "Haetaan vastausta..." %}',
+  noAnswer:      '{% trans "Ei saatu vastausta." %}',
+  messageSent:   '{% trans "Viesti lähetetty Slackiin!" %}',
+  sendError:     '{% trans "Virhe lähetyksessä." %}',
+  metrics:       '{% trans "Mittaustulokset" %}',
+  aiLabel:       '{% trans "Tekoäly" %}',
+  imageError:    '{% trans "Virhe" %}',
+  sdepth:            '{% trans "Herkkyys (s_depth)" %}',
+  ucov:              '{% trans "Tasaisuus (U_cov)" %}',
+  uskew:             '{% trans "Epäsymmetria (U_skew)" %}',
+  stable:            '{% trans "→ Vakaa · raja" %}',
+  limitOf:           '{% trans "↑ Raja" %}',
+  limitExceeded:     '{% trans "Raja ylitetty" %}',
+  limitExceededFull: '{% trans "↓ Raja ylitetty · raja" %}',
+  check:             '{% trans "Tarkista" %}',
+  latest:            '{% trans "viim." %}',
+  exceeds:           '{% trans "ylittää" %}',
+  checkLimit:        '{% trans "tarkistusrajan" %}',
+  acceptanceLimit:   '{% trans "hyväksyntärajan" %}',
+  actionRecommended: '{% trans "Toimenpide suositellaan." %}',
+};
+window.LANG = '{{ LANGUAGE_CODE }}';
+</script>
+{% endblock %}
