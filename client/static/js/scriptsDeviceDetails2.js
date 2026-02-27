@@ -347,20 +347,6 @@ document.addEventListener('DOMContentLoaded', function () {
     polyline.setAttribute('stroke-linecap', 'round');
     svg.appendChild(polyline);
 
-    // S Depth dashed line
-    if (sDepthPx != null && !isNaN(sDepthPx) && vertProfile.length > 0) {
-      var sDepthY = (sDepthPx / (vertProfile.length - 1)) * (H - 2 * PAD) + PAD;
-      if (sDepthY >= PAD && sDepthY <= H - PAD) {
-        var sl = document.createElementNS(SVG_NS, 'line');
-        sl.setAttribute('x1', 0); sl.setAttribute('x2', W);
-        sl.setAttribute('y1', sDepthY.toFixed(1)); sl.setAttribute('y2', sDepthY.toFixed(1));
-        sl.setAttribute('stroke', '#fbbf24');
-        sl.setAttribute('stroke-width', '1.5');
-        sl.setAttribute('stroke-dasharray', '4,3');
-        svg.appendChild(sl);
-
-      }
-    }
 
     container.innerHTML = '';
     container.appendChild(svg);
@@ -414,7 +400,7 @@ document.addEventListener('DOMContentLoaded', function () {
       var bx = PAD_H + (segBorders[b] / (N - 1)) * dataW;
       var bl = document.createElementNS(SVG_NS, 'line');
       bl.setAttribute('x1', bx.toFixed(1)); bl.setAttribute('x2', bx.toFixed(1));
-      bl.setAttribute('y1', 4); bl.setAttribute('y2', H - 4);
+      bl.setAttribute('y1', 4); bl.setAttribute('y2', CY + 6);
       bl.setAttribute('stroke', 'rgba(150,150,150,0.5)');
       bl.setAttribute('stroke-width', '1');
       bl.setAttribute('stroke-dasharray', '3,3');
