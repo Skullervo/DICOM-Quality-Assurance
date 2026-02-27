@@ -107,7 +107,7 @@ footer { display: none; }
 .us-image-wrap {
   display: grid;
   grid-template-columns: 1fr 56px;
-  grid-template-rows: 350px 72px;
+  grid-template-rows: 350px 48px;
   gap: 3px;
   background: #000;
   border-bottom: 1px solid var(--border);
