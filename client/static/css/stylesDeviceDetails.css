@@ -305,7 +305,11 @@ footer { display: none; }
   gap: 10px;
   overflow: hidden;
   min-height: 0;
-  background: var(--surface);
+  background: #1e293b;
+}
+
+[data-theme="light"] .center {
+  background: #e8eef8;
 }
 
 /* Chips */
