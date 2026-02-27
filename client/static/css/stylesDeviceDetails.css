@@ -305,6 +305,7 @@ footer { display: none; }
   gap: 10px;
   overflow: hidden;
   min-height: 0;
+  background: var(--surface);
 }
 
 /* Chips */
@@ -316,7 +317,7 @@ footer { display: none; }
 }
 
 .chip {
-  background: var(--surface);
+  background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px 12px;
