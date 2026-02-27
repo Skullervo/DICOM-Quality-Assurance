@@ -347,7 +347,7 @@ footer a:hover {
 /* Navbar always dark — override light-theme text variables inside it */
 [data-theme="light"] .navbar {
   --text-primary:   #e6edf3;
-  --text-secondary: #8b949e;
+  --text-secondary: #c0cce0;
   --border-color:   #2d3348;
 }
 
