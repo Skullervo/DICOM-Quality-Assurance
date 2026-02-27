@@ -366,45 +366,6 @@ footer { display: none; }
   border-radius: 2px;
 }
 
-/* U_low chips (5 segments) */
-.chips-ulow {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.chip-ulow {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 6px 8px;
-  text-align: center;
-  transition: border-color .2s;
-}
-
-.chip-ulow:hover {
-  border-color: var(--accent2);
-}
-
-.chip-ulow-label {
-  font-size: 8px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: .8px;
-  margin-bottom: 2px;
-}
-
-.chip-ulow-val {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--neutral);
-}
-
-.chip-ulow-val.ok   { color: var(--ok); }
-.chip-ulow-val.warn { color: var(--warn); }
-.chip-ulow-val.bad  { color: var(--bad); }
 
 /* Chart panel */
 .chart-panel {
