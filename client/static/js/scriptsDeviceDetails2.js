@@ -362,7 +362,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Measure actual container width; fallback 180
     var W = container.clientWidth || 180;
-    var H = 72;            // extra height for percentage labels
+    var H = 48;            // extra height for percentage labels
     var CY = 26;           // center of waveform area
     var AMP = CY - 4;     // max amplitude = 22
 
