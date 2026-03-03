@@ -789,6 +789,35 @@ def device_details_view(request, stationname):
         logger.debug("Device not found")  # Debug-tulostus
         raise Http404("Device not found")
 
+@login_required
+def device_poster_view(request, stationname):
+    device = Ultrasound.objects.filter(stationname=stationname).first()
+    if not device:
+        raise Http404("Device not found")
+    try:
+        r = requests.get(
+            f'{orthanc_url}/instances/{device.instance}/file',
+            auth=(orthanc_username, orthanc_password)
+        )
+        r.raise_for_status()
+        dicom_data = pydicom.dcmread(BytesIO(r.content))
+        image_array = dicom_data.pixel_array
+        img = Image.fromarray(image_array)
+        buffered = BytesIO()
+        img.save(buffered, format="JPEG")
+        img_str = base64.b64encode(buffered.getvalue()).decode()
+        context = {
+            'device': device,
+            'image': img_str,
+            'horiz_prof': json.dumps(device.horiz_prof if device.horiz_prof else []),
+            'vert_prof': json.dumps(device.vert_prof if device.vert_prof else []),
+            'image_height': image_array.shape[0],
+        }
+        return render(request, 'poster_deviceDetails.html', context)
+    except Exception as e:
+        logger.debug(f"Poster view error: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=500)
+
 def dicom_to_uint8_rgb(arr: np.ndarray) -> np.ndarray:
     """Normalisoi [min,max] -> [0,255] ja pakota 3-kanavaiseksi."""
     arr = arr.astype(np.float32)

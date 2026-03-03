@@ -52,6 +52,7 @@ urlpatterns = [
     path('api/ct/instance/<str:instance_value>/', views.get_ct_instance, name='get_ct_instance'),
     path('api/ct/analysis_image/<str:instance_value>/<str:image_type>/', views.get_ct_analysis_image, name='get_ct_analysis_image'),
 
+    path('device/<str:stationname>/poster/', views.device_poster_view, name='device_poster_view'),
     path('device/<str:stationname>/', views.device_details_view, name='device_details_view'),
     path('device/<int:device_id>/', views.device_details_by_id, name='device_details_by_id'),
     
