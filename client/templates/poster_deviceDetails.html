@@ -1,0 +1,223 @@
+{% load static i18n %}
+<!doctype html>
+<html lang="fi" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1400">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="{% static 'css/stylesPosterDevice.css' %}" rel="stylesheet">
+  <title>{{ device.stationname }} — Posteri</title>
+</head>
+<body>
+
+  <!-- POSTER HEADER -->
+  <div class="poster-header">
+    <div class="poster-title">
+      <span class="poster-institution">{{ device.institutionname }}</span>
+      <span class="poster-sep">/</span>
+      <span class="poster-dept">{{ device.institutionaldepartmentname }}</span>
+      <span class="poster-sep">/</span>
+      <span class="poster-station">{{ device.stationname }}</span>
+    </div>
+    <div class="poster-header-right">
+      <span class="poster-date">{{ device.seriesdate }}</span>
+      <button class="print-btn no-print" onclick="window.print()">Tulosta / Tallenna PDF</button>
+    </div>
+  </div>
+
+  <!-- TWO-COLUMN LAYOUT -->
+  <div class="poster-layout">
+
+    <!-- LEFT: image + profiles + metadata -->
+    <div class="poster-left">
+
+      <div class="us-image-wrap">
+        <img id="orthanc-image"
+             src="data:image/jpeg;base64,{{ image }}"
+             alt="Ultraäänikuva" />
+        <div class="us-profile" id="profile-svg-container"></div>
+        <div class="us-waveform" id="waveform-container"></div>
+      </div>
+
+      <div class="meta-section-title">Laitetiedot</div>
+      <div class="meta-row">
+        <span class="meta-key">Laite</span>
+        <span class="meta-val" id="device-name">{{ device.stationname }}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-key">Päivämäärä</span>
+        <span class="meta-val">{{ device.seriesdate }}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-key">Modaliteetti</span>
+        <span class="meta-val tag">{{ device.modality }}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-key">Valmistaja</span>
+        <span class="meta-val">{{ device.manufacturer }}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-key">Malli</span>
+        <span class="meta-val">{{ device.manufacturermodelname }}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-key">Sarjanumero</span>
+        <span class="meta-val">{{ device.deviceserialnumber }}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-key">Anturityyppi</span>
+        <span class="meta-val">{{ device.tranducertype }}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-key">Signaalihäviö</span>
+        <span class="meta-val" id="u-low-value">{{ device.u_low|floatformat:2 }}</span>
+      </div>
+      <!-- hidden — JS needs instance-value in DOM -->
+      <div style="display:none">
+        <span class="meta-val na" id="instance-value">{{ device.instance }}</span>
+      </div>
+
+    </div>
+
+    <!-- RIGHT: chips + trend charts -->
+    <div class="poster-right">
+
+      <!-- Metric chips -->
+      <div class="chips">
+        <div class="chip">
+          <div class="chip-label">Herkkyys (s_depth)</div>
+          <div class="chip-val ok" id="chip-s-depth">{{ device.s_depth|floatformat:2 }}<span class="chip-unit"> mm</span></div>
+          <div class="chip-sub" id="chip-s-depth-sub"></div>
+          <div class="chip-bar"><div class="chip-fill" id="chip-s-depth-fill" style="width:0%;background:var(--ok)"></div></div>
+        </div>
+        <div class="chip">
+          <div class="chip-label">Tasaisuus (U_cov)</div>
+          <div class="chip-val" id="chip-u-cov">{{ device.u_cov|floatformat:2 }}<span class="chip-unit"> %</span></div>
+          <div class="chip-sub" id="chip-u-cov-sub"></div>
+          <div class="chip-bar"><div class="chip-fill" id="chip-u-cov-fill" style="width:0%;background:var(--warn)"></div></div>
+        </div>
+        <div class="chip">
+          <div class="chip-label">Epäsymmetria (U_skew)</div>
+          <div class="chip-val" id="chip-u-skew">{{ device.u_skew|floatformat:2 }}</div>
+          <div class="chip-sub" id="chip-u-skew-sub"></div>
+          <div class="chip-bar"><div class="chip-fill" id="chip-u-skew-fill" style="width:0%;background:var(--bad)"></div></div>
+        </div>
+      </div>
+
+      <!-- Trend chart panel -->
+      <div class="chart-panel">
+        <div class="chart-panel-header">
+          <span class="chart-panel-title">Trendikäyrät</span>
+          <div class="chart-panel-badges">
+            <span class="badge ok" id="badge-s-depth">Herkkyys (s_depth)</span>
+            <span class="badge" id="badge-u-cov">Tasaisuus (U_cov)</span>
+            <span class="badge" id="badge-u-skew">Epäsymmetria (U_skew)</span>
+          </div>
+        </div>
+
+        <div class="charts-stack">
+
+          <!-- s_depth -->
+          <div class="chart-block" id="block-herkkyys">
+            <div class="chart-block-head">
+              <span class="chart-block-title">Herkkyys (s_depth) [mm]</span>
+              <div class="chart-block-meta">
+                <span class="chart-val" id="val-s-depth"></span>
+                <span class="badge" id="badge-chart-s-depth"></span>
+              </div>
+            </div>
+            <div class="chart-wrap">
+              <div class="chart-yaxis" id="yaxis-herkkyys">
+                <span class="yax">4.0</span>
+                <span class="yax">3.0</span>
+                <span class="yax">2.0</span>
+                <span class="yax">1.0</span>
+                <span class="yax">0</span>
+              </div>
+              <div class="chart-scroll" id="scroll-herkkyys"></div>
+            </div>
+          </div>
+
+          <!-- u_cov -->
+          <div class="chart-block" id="block-tasaisuus">
+            <div class="chart-block-head">
+              <span class="chart-block-title">Tasaisuus (U_cov) [%]</span>
+              <div class="chart-block-meta">
+                <span class="chart-val" id="val-u-cov"></span>
+                <span class="badge" id="badge-chart-u-cov"></span>
+              </div>
+            </div>
+            <div class="chart-wrap">
+              <div class="chart-yaxis" id="yaxis-tasaisuus">
+                <span class="yax">5.0</span>
+                <span class="yax">4.0</span>
+                <span class="yax">3.0</span>
+                <span class="yax">2.0</span>
+                <span class="yax">1.0</span>
+              </div>
+              <div class="chart-scroll" id="scroll-tasaisuus"></div>
+            </div>
+          </div>
+
+          <!-- u_skew -->
+          <div class="chart-block" id="block-epa">
+            <div class="chart-block-head">
+              <span class="chart-block-title">Epäsymmetria (U_skew)</span>
+              <div class="chart-block-meta">
+                <span class="chart-val" id="val-u-skew"></span>
+                <span class="badge" id="badge-chart-u-skew"></span>
+              </div>
+            </div>
+            <div class="chart-wrap">
+              <div class="chart-yaxis" id="yaxis-epa">
+                <span class="yax">+2.0</span>
+                <span class="yax">+1.0</span>
+                <span class="yax">0</span>
+                <span class="yax">−1.0</span>
+                <span class="yax">−2.0</span>
+              </div>
+              <div class="chart-scroll" id="scroll-epa"></div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="chart-panel-legend">
+          <div class="legend-item">
+            <div class="legend-dash" style="border-color:#d29922"></div>
+            <span>Hyväksyntäraja (keltainen)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dash" style="border-color:#c0392b"></div>
+            <span>Yläraja (punainen)</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- window.T — JS-tekstit (scriptsDeviceDetails2.js tarvitsee) -->
+  <script>
+  window.T = {
+    loading: 'Ladataan kuvaa...', noImage: 'Analyysikuvaa ei saatavilla',
+    fetching: 'Haetaan vastausta...', noAnswer: 'Ei saatu vastausta.',
+    metrics: 'Mittaustulokset', aiLabel: 'Tekoäly', imageError: 'Virhe',
+    sdepth: 'Herkkyys (s_depth)', ucov: 'Tasaisuus (U_cov)',
+    uskew: 'Epäsymmetria (U_skew)', stable: '→ Vakaa · raja',
+    limitOf: '↑ Raja', limitExceeded: 'Raja ylitetty',
+    limitExceededFull: '↓ Raja ylitetty · raja', check: 'Tarkista',
+    latest: 'viim.', exceeds: 'ylittää',
+    checkLimit: 'tarkistusrajan', acceptanceLimit: 'hyväksyntärajan',
+    actionRecommended: 'Toimenpide suositellaan.',
+    messageSent: '', sendError: '',
+  };
+  window.LANG = 'fi';
+  window._VERT_PROF  = {{ vert_prof|safe }};
+  window._HORIZ_PROF = {{ horiz_prof|safe }};
+  </script>
+
+  <script src="{% static 'js/scriptsDeviceDetails2.js' %}" defer></script>
+
+</body>
+</html>
