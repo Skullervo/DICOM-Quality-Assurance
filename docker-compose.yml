@@ -31,6 +31,7 @@ services:
       - "18042:8042"   # 8042 varattuna natiivi-Orthancille (REST API)
     volumes:
       - orthanc_data:/var/lib/orthanc/db
+      - ./grpc_microservices/Orthanc/orthanc.json:/etc/orthanc/orthanc.json:ro
     networks:
       - autoqad-net
 
@@ -71,9 +72,12 @@ services:
       ORTHANC_URL: http://orthanc:8042
       ORTHANC_USERNAME: ${ORTHANC_USERNAME:-admin}
       ORTHANC_PASSWORD: ${ORTHANC_PASSWORD}
+      FETCH_SERVICE_HOST: fetch-service:50051
     depends_on:
       postgres:
         condition: service_healthy
+      fetch-service:
+        condition: service_started
     networks:
       - autoqad-net
 

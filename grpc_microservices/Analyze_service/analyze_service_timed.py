@@ -22,10 +22,10 @@ import time
 import logging
 
 # 🔹 Orthanc ja Fetch Service osoitteet
-#ORTHANC_URL = os.getenv("ORTHANC_URL", "http://localhost:8042") #virtuaaliympäristössä
-ORTHANC_URL = os.getenv("ORTHANC_URL", "http://host.docker.internal:8042") #kontissa
-#FETCH_SERVICE_ADDRESS = os.getenv("FETCH_SERVICE_HOST", "fetch-service:50051")
-FETCH_SERVICE_ADDRESS = os.getenv("FETCH_SERVICE_HOST", "host.docker.internal:50051")
+ORTHANC_URL = os.getenv("ORTHANC_URL", "http://orthanc:8042")
+ORTHANC_USER = os.getenv("ORTHANC_USERNAME", "admin")
+ORTHANC_PASS = os.getenv("ORTHANC_PASSWORD", "")
+FETCH_SERVICE_ADDRESS = os.getenv("FETCH_SERVICE_HOST", "fetch-service:50051")
 
 DB_CONFIG = {
     "dbname": os.getenv("DATABASE_NAME", "QA-results"),
@@ -80,8 +80,9 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
     def AnalyzeAllDicomData(self, request, context):
         logger.info("📡 Received request to analyze all series in Orthanc")
 
+        auth = (ORTHANC_USER, ORTHANC_PASS) if ORTHANC_PASS else None
         # 🔍 Haetaan kaikki sarjat Orthancista
-        response = requests.get(f"{ORTHANC_URL}/series")
+        response = requests.get(f"{ORTHANC_URL}/series", auth=auth)
         if response.status_code != 200:
             logger.error("❌ Error: Could not fetch series from Orthanc")
             if context:
@@ -103,7 +104,7 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
             logger.info("📡 Processing series ID: %s", series_id)
 
             # 🔍 Haetaan sarjan instanssit Orthancista
-            instance_response = requests.get(f"{ORTHANC_URL}/series/{series_id}/instances")
+            instance_response = requests.get(f"{ORTHANC_URL}/series/{series_id}/instances", auth=auth)
             if instance_response.status_code != 200:
                 logger.error("❌ Could not fetch instances for series %s", series_id)
                 continue  # Ohitetaan tämä sarja

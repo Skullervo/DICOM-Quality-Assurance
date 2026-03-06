@@ -12,16 +12,16 @@ COPY requirements_service.txt .
 RUN pip install --no-cache-dir -r requirements_service.txt
 
 # Kopioidaan analyysipalvelun koodi ja muut tarvittavat tiedostot
-COPY analyze_service.py analyze_service.proto test_analyze_service.py fetch_service.proto US_IQ_analysis3.py LUT_table_codes.py LUT_taulukko_lisaa.py probe-LUT.xls ./
+COPY analyze_service_timed.py analyze_service_timed.proto fetch_service.proto US_IQ_analysis3.py LUT_table_codes.py LUT_taulukko_lisaa.py probe-LUT.xls ./
 
 # 🔹 Generoidaan gRPC Python -tiedostot
-RUN python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. analyze_service.proto fetch_service.proto
+RUN python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. analyze_service_timed.proto fetch_service.proto
 
 # gRPC-palvelimen portti
 EXPOSE 50052
 
-# Käynnistetään Analyze Service
-CMD ["python", "analyze_service.py"]
+# Käynnistetään Analyze Service (automaattinen pollaus 60s välein)
+CMD ["python", "analyze_service_timed.py"]
 
 
 
