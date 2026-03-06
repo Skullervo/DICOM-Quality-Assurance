@@ -13,4 +13,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('muokkaa/', views.muokkaa_ultraa, name='muokkaa_ultraa'),
     path('i18n/', include('django.conf.urls.i18n')),
+    path('platform/', include('platform_app.urls', namespace='platform')),
 ]

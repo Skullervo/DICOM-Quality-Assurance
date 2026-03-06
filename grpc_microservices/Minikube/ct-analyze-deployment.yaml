@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ct-analyze-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ct-analyze-service
+  template:
+    metadata:
+      labels:
+        app: ct-analyze-service
+    spec:
+      containers:
+      - name: ct-analyze-service
+        image: skullervo/ct-analyze-service:latest
+        ports:
+        - containerPort: 50054
+        env:
+        - name: DATABASE_HOST
+          value: "postgres"
+        - name: DATABASE_PORT
+          value: "5432"
+        - name: DATABASE_NAME
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: POSTGRES_DB
+        - name: DATABASE_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: POSTGRES_USER
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: POSTGRES_PASSWORD
+        - name: ORTHANC_URL
+          value: "http://orthanc:8042"
+        - name: ORTHANC_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: app-credentials
+              key: ORTHANC_USERNAME
+        - name: ORTHANC_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-credentials
+              key: ORTHANC_PASSWORD
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ct-analyze-service
+spec:
+  type: ClusterIP
+  selector:
+    app: ct-analyze-service
+  ports:
+    - port: 50054
+      targetPort: 50054
