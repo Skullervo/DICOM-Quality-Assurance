@@ -10,20 +10,38 @@ from django.contrib.auth.decorators import login_required
 # Rekisteri kaikista AutoQAD-palveluista
 SERVICES = [
     {
-        'name': 'PostgreSQL',
-        'description': 'Tietokanta (QA-results)',
+        'name': 'PostgreSQL (natiivi)',
+        'description': 'Tietokanta (QA-results) — natiivi Windows',
         'host': 'localhost',
         'port': 5432,
         'icon': 'database',
         'category': 'infrastructure',
     },
     {
-        'name': 'Orthanc DICOM',
-        'description': 'DICOM-palvelin (kuvien vastaanotto)',
+        'name': 'PostgreSQL (Docker)',
+        'description': 'Tietokanta — Docker-kontti',
+        'host': 'localhost',
+        'port': 15432,
+        'icon': 'database',
+        'category': 'infrastructure',
+    },
+    {
+        'name': 'Orthanc DICOM (natiivi)',
+        'description': 'DICOM-palvelin — natiivi Windows',
         'host': 'localhost',
         'port': 8042,
         'icon': 'server',
         'category': 'infrastructure',
+        'url': 'http://localhost:8042',
+    },
+    {
+        'name': 'Orthanc DICOM (Docker)',
+        'description': 'DICOM-palvelin — Docker-kontti',
+        'host': 'localhost',
+        'port': 18042,
+        'icon': 'server',
+        'category': 'infrastructure',
+        'url': 'http://localhost:18042',
     },
     {
         'name': 'Fetch Service',

@@ -13,7 +13,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "15432:5432"   # 5432 varattuna natiivi-PostgreSQL:lle
     networks:
       - autoqad-net
     healthcheck:
@@ -27,8 +27,8 @@ services:
     container_name: autoqad-orthanc
     restart: unless-stopped
     ports:
-      - "4242:4242"   # DICOM C-STORE
-      - "8042:8042"   # Orthanc REST API / web UI
+      - "14242:4242"   # 4242 varattuna natiivi-Orthancille (DICOM C-STORE)
+      - "18042:8042"   # 8042 varattuna natiivi-Orthancille (REST API)
     volumes:
       - orthanc_data:/var/lib/orthanc/db
     networks:
@@ -134,7 +134,7 @@ services:
     container_name: autoqad-django
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "8001:8000"   # 8000 varattuna Django dev-serverille
     environment:
       DJANGO_ENV: ${DJANGO_ENV:-prod}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
