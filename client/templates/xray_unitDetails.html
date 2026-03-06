@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{{ institution_name }} - {{ unit_name }} - {% trans "Laitteet" %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/stylesUnitDetails.css' %}">
+{% endblock %}
+
+{% block nav_active_modalities %}active{% endblock %}
+
+{% block breadcrumb %}
+<nav class="breadcrumb">
+  <a href="{% url 'index' %}">{% trans "Aloitus" %}</a>
+  <span class="separator">/</span>
+  <a href="{% url 'modaliteetit' %}">{% trans "Modaliteetit" %}</a>
+  <span class="separator">/</span>
+  <a href="{% url 'xray_institutions' %}">{% trans "Röntgen — Instituutiot" %}</a>
+  <span class="separator">/</span>
+  <a href="{% url 'xray_units' institution_name %}">{{ institution_name }}</a>
+  <span class="separator">/</span>
+  <span class="current">{{ unit_name }}</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ institution_name }} — {{ unit_name }} — {% trans "Laitteet" %}</h1>
+  <p>{% blocktrans with name=unit_name %}Tutustu osaston {{ name }} röntgenlaitteiden laadunvalvontatuloksiin klikkaamalla taulukosta laitteen nimeä.{% endblocktrans %}</p>
+</div>
+
+<div class="table-container">
+  <table class="modern-table">
+    <thead>
+      <tr>
+        <th>{% trans "Laitteen nimi" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for device in unit_devices %}
+      <tr>
+        <td>
+          <a href="{% url 'xray_device_details' institution_name unit_name %}">
+            {{ device.station_name }}
+          </a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td>{% trans "Ei laitteita löytynyt tälle yksikölle." %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

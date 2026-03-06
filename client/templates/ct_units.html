@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "CT-osastot" %} - {{ institution_name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/stylesUnits.css' %}">
+{% endblock %}
+
+{% block nav_active_modalities %}active{% endblock %}
+
+{% block breadcrumb %}
+<nav class="breadcrumb">
+  <a href="{% url 'index' %}">{% trans "Aloitus" %}</a>
+  <span class="separator">/</span>
+  <a href="{% url 'modaliteetit' %}">{% trans "Modaliteetit" %}</a>
+  <span class="separator">/</span>
+  <a href="{% url 'ct_institutions' %}">{% trans "Tietokonetomografia" %} — {% trans "Instituutiot" %}</a>
+  <span class="separator">/</span>
+  <span class="current">{{ institution_name }} — {% trans "Osastot" %}</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ institution_name }} — {% trans "CT-osastot" %}</h1>
+  <p>{% trans "CatPhan / Siemens -fantomien CT-mittaukset osastoittain." %}</p>
+</div>
+
+{% if error %}
+  <div class="status-message status-error">
+    <h4>{% trans "Virhe ladattaessa dataa" %}</h4>
+    <p>{{ error }}</p>
+    <a href="{% url 'ct_institutions' %}" class="btn-outline">{% trans "Takaisin instituutioihin" %}</a>
+  </div>
+{% else %}
+  <div class="table-container">
+    <table class="modern-table">
+      <thead>
+        <tr>
+          <th>{% trans "Osasto" %}</th>
+          <th>{% trans "Laitteita" %}</th>
+          <th class="hide-mobile">{% trans "Instansseja" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for unit in units %}
+        <tr>
+          <td><a href="{% url 'ct_unit_details' institution_name unit.name %}">{{ unit.name }}</a></td>
+          <td>{{ unit.device_count }}</td>
+          <td class="hide-mobile">{{ unit.instance_count }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3">{% trans "Ei osastoja saatavilla." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endif %}
+{% endblock %}

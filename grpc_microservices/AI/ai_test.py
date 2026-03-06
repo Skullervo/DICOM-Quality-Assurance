@@ -1,6 +1,7 @@
 import os
 import openai
 from dotenv import load_dotenv
+import logging
 
 # Lataa API-avain .env-tiedostosta
 load_dotenv()
@@ -16,6 +17,9 @@ client = openai.OpenAI(api_key=openai_api_key)
 conversation_history = [
     {"role": "system", "content": "You are an expert in ultrasound quality control. You specialize in explaining numerical results from ultrasound images, particularly s_depth, u_cov, u_skew, and u_low. Your task is to provide professional explanations of these values, indicating whether they are good or bad and what they mean for image quality."}
 ]
+
+logger = logging.getLogger(__name__)
+
 
 def generate_response(user_input):
     """
@@ -41,14 +45,16 @@ def generate_response(user_input):
 
     return ai_response
 
+
 # Interactive chat loop
 if __name__ == "__main__":
-    print("🔍 Ultrasound Quality Control AI Consultant - Type 'exit' to exit.")
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    logger.info("🔍 Ultrasound Quality Control AI Consultant - Type 'exit' to exit.")
     while True:
         user_query = input("You: ")
         if user_query.lower() in ["exit", "quit", "lopeta"]:
-            print("AI: Thanks for the discussion! 😊")
+            logger.info("AI: Thanks for the discussion! 😊")
             break
 
         ai_response = generate_response(user_query)
-        print(f"AI: {ai_response}\n")
+        logger.info("AI: %s\n", ai_response)

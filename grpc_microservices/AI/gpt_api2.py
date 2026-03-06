@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import threading
+import logging
 
 # Lataa ympäristömuuttujat
 load_dotenv()
@@ -24,6 +25,8 @@ app = FastAPI(title="Ultraäänikuvien Laadunvalvonta Chat", version="1.0")
 conversation_history = [
     {"role": "system", "content": "You are an expert in ultrasound quality control. You specialize in explaining numerical results from ultrasound images, particularly s_depth, u_cov, u_skew, and u_low."}
 ]
+
+logger = logging.getLogger(__name__)
 
 # Määritellään API:lle saapuvan datan malli
 class ChatRequest(BaseModel):
@@ -70,18 +73,19 @@ def interactive_chat():
 
     url = "http://127.0.0.1:8003/chat"
 
-    print("\n💬 Ultrasound Image Quality Control AI Chat\nType 'exit' to exit.\n")
+    logger.info("\n💬 Ultrasound Image Quality Control AI Chat\nType 'exit' to exit.\n")
     
     while True:
         user_message = input("Ask question: ")
         if user_message.lower() in ["exit", "quit", "lopeta"]:
-            print("AI: Thanks for the discussion! 😊")
+            logger.info("AI: Thanks for the discussion! 😊")
             break
 
         response = requests.post(url, json={"message": user_message})
-        print(f"AI: {response.json()['response']}\n")
+        logger.info("AI: %s\n", response.json()['response'])
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     # Käynnistetään API-palvelin taustalle
     server_thread = threading.Thread(target=run_server, daemon=True)
     server_thread.start()

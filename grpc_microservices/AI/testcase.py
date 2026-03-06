@@ -1,5 +1,7 @@
+import os
 from openai import OpenAI
 #import openai
+import logging
 
 # Set your API key
 openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -7,6 +9,9 @@ openai_api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(
     api_key=openai_api_key,  # This is the default and can be omitted
 )
+
+logger = logging.getLogger(__name__)
+
 
 def generate_response(user_input):
     """
@@ -31,11 +36,13 @@ def generate_response(user_input):
     # Correct way to extract content
     return response.choices[0].message.content
 
+
 # Example Usage
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     user_query = "there are changes in files, please inform if they are anamolous and give explaination: "
     ai_response = generate_response(user_query)
-    print(ai_response)
+    logger.info(ai_response)
 
 
 """"

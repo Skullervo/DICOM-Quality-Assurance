@@ -1,103 +1,118 @@
-{% load static i18n %}
+{% load static %}
 <!doctype html>
-<html lang="fi" data-theme="light">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=1400">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link href="{% static 'css/stylesPosterDevice.css' %}" rel="stylesheet">
-  <title>{{ device.stationname }} — Posteri</title>
+  <title>{{ device.stationname }} — Poster</title>
 </head>
 <body>
 
   <!-- POSTER HEADER -->
   <div class="poster-header">
-    <div class="poster-title">
-      <span class="poster-institution">{{ device.institutionname }}</span>
-      <span class="poster-sep">/</span>
-      <span class="poster-dept">{{ device.institutionaldepartmentname }}</span>
-      <span class="poster-sep">/</span>
-      <span class="poster-station">{{ device.stationname }}</span>
+    <div class="poster-left-head">
+      <span class="poster-brand">AutoQA</span>
+      <span class="poster-brand-sep">|</span>
+      <div class="status-dot"></div>
+      <span class="poster-brand-status">System running</span>
     </div>
-    <div class="poster-header-right">
-      <span class="poster-date">{{ device.seriesdate }}</span>
-      <button class="print-btn no-print" onclick="window.print()">Tulosta / Tallenna PDF</button>
-    </div>
+    <span class="poster-modality">Modality: <span class="poster-modality-val">Ultrasound</span></span>
   </div>
 
-  <!-- TWO-COLUMN LAYOUT -->
-  <div class="poster-layout">
+  <!-- 3-COLUMN LAYOUT -->
+  <div class="layout">
 
-    <!-- LEFT: image + profiles + metadata -->
-    <div class="poster-left">
+    <!-- LEFT PANEL -->
+    <div class="left">
+      <div class="panel-label">DEVICE <span class="modality-tag">{{ device.stationname }}</span></div>
 
       <div class="us-image-wrap">
         <img id="orthanc-image"
              src="data:image/jpeg;base64,{{ image }}"
-             alt="Ultraäänikuva" />
-        <div class="us-profile" id="profile-svg-container"></div>
-        <div class="us-waveform" id="waveform-container"></div>
+             alt="Ultrasound image" />
+        <div class="us-profile" id="profile-svg-container">
+          <svg viewBox="0 0 42 120" preserveAspectRatio="none">
+            <line x1="0" y1="30" x2="42" y2="30" stroke="#c5d3e8" stroke-width=".5" stroke-dasharray="2,3"/>
+            <line x1="0" y1="60" x2="42" y2="60" stroke="#c5d3e8" stroke-width=".5" stroke-dasharray="2,3"/>
+            <line x1="0" y1="90" x2="42" y2="90" stroke="#c5d3e8" stroke-width=".5" stroke-dasharray="2,3"/>
+            <polyline id="profile-polyline"
+              points="21,2 21,118"
+              fill="none" stroke="#2d52b0" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="us-waveform" id="waveform-container">
+          <svg viewBox="0 0 270 46" preserveAspectRatio="none">
+            <polyline id="waveform-polyline"
+              points="0,23 270,23"
+              fill="none" stroke="#2d52b0" stroke-width="1.5" stroke-linejoin="round"/>
+          </svg>
+        </div>
       </div>
 
-      <div class="meta-section-title">Laitetiedot</div>
-      <div class="meta-row">
-        <span class="meta-key">Laite</span>
-        <span class="meta-val" id="device-name">{{ device.stationname }}</span>
+      <div class="left-scroll">
+        <div class="meta-section-title">Device Information</div>
+        <div class="meta-row">
+          <span class="meta-key">Modality</span>
+          <span class="meta-val tag">{{ device.modality }}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-key">Manufacturer</span>
+          <span class="meta-val">{{ device.manufacturer }}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-key">Device</span>
+          <span class="meta-val" id="device-name">{{ device.stationname }}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-key">Model</span>
+          <span class="meta-val">{{ device.manufacturermodelname }}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-key">Transducer</span>
+          <span class="meta-val">LINEAR</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-key">Institution</span>
+          <span class="meta-val">{{ device.institutionname }}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-key">Department</span>
+          <span class="meta-val">{{ device.institutionaldepartmentname }}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-key">Date</span>
+          <span class="meta-val">{{ device.seriesdate|slice:"6:8" }}.{{ device.seriesdate|slice:"4:6" }}.{{ device.seriesdate|slice:"0:4" }}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-key">Time</span>
+          <span class="meta-val">{{ device.contenttime|slice:"0:2" }}:{{ device.contenttime|slice:"2:4" }}</span>
+        </div>
+        <!-- hidden — JS needs instance-value to fetch from Orthanc -->
+        <span class="meta-val na" id="instance-value" style="display:none">{{ device.instance }}</span>
       </div>
-      <div class="meta-row">
-        <span class="meta-key">Päivämäärä</span>
-        <span class="meta-val">{{ device.seriesdate }}</span>
-      </div>
-      <div class="meta-row">
-        <span class="meta-key">Modaliteetti</span>
-        <span class="meta-val tag">{{ device.modality }}</span>
-      </div>
-      <div class="meta-row">
-        <span class="meta-key">Valmistaja</span>
-        <span class="meta-val">{{ device.manufacturer }}</span>
-      </div>
-      <div class="meta-row">
-        <span class="meta-key">Malli</span>
-        <span class="meta-val">{{ device.manufacturermodelname }}</span>
-      </div>
-      <div class="meta-row">
-        <span class="meta-key">Sarjanumero</span>
-        <span class="meta-val">{{ device.deviceserialnumber }}</span>
-      </div>
-      <div class="meta-row">
-        <span class="meta-key">Anturityyppi</span>
-        <span class="meta-val">{{ device.tranducertype }}</span>
-      </div>
-      <div class="meta-row">
-        <span class="meta-key">Signaalihäviö</span>
-        <span class="meta-val" id="u-low-value">{{ device.u_low|floatformat:2 }}</span>
-      </div>
-      <!-- hidden — JS needs instance-value in DOM -->
-      <div style="display:none">
-        <span class="meta-val na" id="instance-value">{{ device.instance }}</span>
-      </div>
-
     </div>
 
-    <!-- RIGHT: chips + trend charts -->
-    <div class="poster-right">
+    <!-- CENTER PANEL -->
+    <div class="center">
 
       <!-- Metric chips -->
       <div class="chips">
         <div class="chip">
-          <div class="chip-label">Herkkyys (s_depth)</div>
+          <div class="chip-label">Sensitivity</div>
           <div class="chip-val ok" id="chip-s-depth">{{ device.s_depth|floatformat:2 }}<span class="chip-unit"> mm</span></div>
           <div class="chip-sub" id="chip-s-depth-sub"></div>
           <div class="chip-bar"><div class="chip-fill" id="chip-s-depth-fill" style="width:0%;background:var(--ok)"></div></div>
         </div>
         <div class="chip">
-          <div class="chip-label">Tasaisuus (U_cov)</div>
+          <div class="chip-label">Uniformity</div>
           <div class="chip-val" id="chip-u-cov">{{ device.u_cov|floatformat:2 }}<span class="chip-unit"> %</span></div>
           <div class="chip-sub" id="chip-u-cov-sub"></div>
           <div class="chip-bar"><div class="chip-fill" id="chip-u-cov-fill" style="width:0%;background:var(--warn)"></div></div>
         </div>
         <div class="chip">
-          <div class="chip-label">Epäsymmetria (U_skew)</div>
+          <div class="chip-label">Asymmetry</div>
           <div class="chip-val" id="chip-u-skew">{{ device.u_skew|floatformat:2 }}</div>
           <div class="chip-sub" id="chip-u-skew-sub"></div>
           <div class="chip-bar"><div class="chip-fill" id="chip-u-skew-fill" style="width:0%;background:var(--bad)"></div></div>
@@ -107,11 +122,11 @@
       <!-- Trend chart panel -->
       <div class="chart-panel">
         <div class="chart-panel-header">
-          <span class="chart-panel-title">Trendikäyrät</span>
+          <span class="chart-panel-title">Trend charts</span>
           <div class="chart-panel-badges">
-            <span class="badge ok" id="badge-s-depth">Herkkyys (s_depth)</span>
-            <span class="badge" id="badge-u-cov">Tasaisuus (U_cov)</span>
-            <span class="badge" id="badge-u-skew">Epäsymmetria (U_skew)</span>
+            <span class="badge ok" id="badge-s-depth">Sensitivity</span>
+            <span class="badge" id="badge-u-cov">Uniformity</span>
+            <span class="badge" id="badge-u-skew">Asymmetry</span>
           </div>
         </div>
 
@@ -120,104 +135,164 @@
           <!-- s_depth -->
           <div class="chart-block" id="block-herkkyys">
             <div class="chart-block-head">
-              <span class="chart-block-title">Herkkyys (s_depth) [mm]</span>
+              <span class="chart-block-title">Sensitivity [mm]</span>
               <div class="chart-block-meta">
                 <span class="chart-val" id="val-s-depth"></span>
                 <span class="badge" id="badge-chart-s-depth"></span>
               </div>
             </div>
             <div class="chart-wrap">
-              <div class="chart-yaxis" id="yaxis-herkkyys">
-                <span class="yax">4.0</span>
-                <span class="yax">3.0</span>
-                <span class="yax">2.0</span>
-                <span class="yax">1.0</span>
-                <span class="yax">0</span>
+              <div class="chart-yaxis" id="yaxis-herkkyys"></div>
+              <div class="chart-col">
+                <div class="chart-scroll" id="scroll-herkkyys"></div>
+                <div class="chart-xaxis" id="xaxis-herkkyys"></div>
               </div>
-              <div class="chart-scroll" id="scroll-herkkyys"></div>
             </div>
           </div>
 
           <!-- u_cov -->
           <div class="chart-block" id="block-tasaisuus">
             <div class="chart-block-head">
-              <span class="chart-block-title">Tasaisuus (U_cov) [%]</span>
+              <span class="chart-block-title">Uniformity [%]</span>
               <div class="chart-block-meta">
                 <span class="chart-val" id="val-u-cov"></span>
                 <span class="badge" id="badge-chart-u-cov"></span>
               </div>
             </div>
             <div class="chart-wrap">
-              <div class="chart-yaxis" id="yaxis-tasaisuus">
-                <span class="yax">5.0</span>
-                <span class="yax">4.0</span>
-                <span class="yax">3.0</span>
-                <span class="yax">2.0</span>
-                <span class="yax">1.0</span>
+              <div class="chart-yaxis" id="yaxis-tasaisuus"></div>
+              <div class="chart-col">
+                <div class="chart-scroll" id="scroll-tasaisuus"></div>
+                <div class="chart-xaxis" id="xaxis-tasaisuus"></div>
               </div>
-              <div class="chart-scroll" id="scroll-tasaisuus"></div>
             </div>
           </div>
 
           <!-- u_skew -->
           <div class="chart-block" id="block-epa">
             <div class="chart-block-head">
-              <span class="chart-block-title">Epäsymmetria (U_skew)</span>
+              <span class="chart-block-title">Asymmetry</span>
               <div class="chart-block-meta">
                 <span class="chart-val" id="val-u-skew"></span>
                 <span class="badge" id="badge-chart-u-skew"></span>
               </div>
             </div>
             <div class="chart-wrap">
-              <div class="chart-yaxis" id="yaxis-epa">
-                <span class="yax">+2.0</span>
-                <span class="yax">+1.0</span>
-                <span class="yax">0</span>
-                <span class="yax">−1.0</span>
-                <span class="yax">−2.0</span>
+              <div class="chart-yaxis" id="yaxis-epa"></div>
+              <div class="chart-col">
+                <div class="chart-scroll" id="scroll-epa"></div>
+                <div class="chart-xaxis" id="xaxis-epa"></div>
               </div>
-              <div class="chart-scroll" id="scroll-epa"></div>
             </div>
           </div>
 
         </div>
 
         <div class="chart-panel-legend">
-          <div class="legend-item">
-            <div class="legend-dash" style="border-color:#d29922"></div>
-            <span>Hyväksyntäraja (keltainen)</span>
+          <div class="legend-item" id="legend-yellow" data-active="true">
+            <div class="legend-dash" style="border-color:#fbbf24"></div>
+            <span>Acceptance limit (yellow)</span>
           </div>
-          <div class="legend-item">
-            <div class="legend-dash" style="border-color:#c0392b"></div>
-            <span>Yläraja (punainen)</span>
+          <div class="legend-item" id="legend-red" data-active="true">
+            <div class="legend-dash" style="border-color:#fb7185"></div>
+            <span>Upper limit (red)</span>
           </div>
         </div>
       </div>
 
+      <!-- Report an issue -->
+      <div class="report-section">
+        <div class="report-label">Report an Issue</div>
+        <form id="mini-chat-form">
+          <textarea class="report-textarea" id="mini-chat-input" placeholder="Describe the observed issue..."></textarea>
+          <div class="report-actions">
+            <button type="button" class="report-btn">Cancel</button>
+            <button type="submit" class="report-btn primary" id="mini-chat-send">Send report</button>
+          </div>
+        </form>
+      </div>
+
+    </div>
+
+    <!-- RIGHT PANEL — ASK AI -->
+    <div class="right">
+      <div class="panel-label">Ask AI</div>
+      <div class="ai-messages" id="answer-box"></div>
+      <div class="ai-footer">
+        <div class="ai-input-row">
+          <form id="chat-form" style="display:contents">
+            <textarea class="ai-input" id="question" placeholder="Type your question..."></textarea>
+            <button class="ai-send" id="chat-send-button" type="submit">&#8594;</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- DICOM modal (needed by JS) -->
+  <div id="dicom-modal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="document.getElementById('dicom-modal').classList.remove('open')">&times;</span>
+      <h2>DICOM Metadata</h2>
+      <div id="dicom-grid" class="dicom-grid">
+        <div class="dicom-col" id="dicom-col-left"></div>
+        <div class="dicom-col" id="dicom-col-right"></div>
+      </div>
     </div>
   </div>
 
-  <!-- window.T — JS-tekstit (scriptsDeviceDetails2.js tarvitsee) -->
+  <!-- JS configuration -->
   <script>
   window.T = {
-    loading: 'Ladataan kuvaa...', noImage: 'Analyysikuvaa ei saatavilla',
-    fetching: 'Haetaan vastausta...', noAnswer: 'Ei saatu vastausta.',
-    metrics: 'Mittaustulokset', aiLabel: 'Tekoäly', imageError: 'Virhe',
-    sdepth: 'Herkkyys (s_depth)', ucov: 'Tasaisuus (U_cov)',
-    uskew: 'Epäsymmetria (U_skew)', stable: '→ Vakaa · raja',
-    limitOf: '↑ Raja', limitExceeded: 'Raja ylitetty',
-    limitExceededFull: '↓ Raja ylitetty · raja', check: 'Tarkista',
-    latest: 'viim.', exceeds: 'ylittää',
-    checkLimit: 'tarkistusrajan', acceptanceLimit: 'hyväksyntärajan',
-    actionRecommended: 'Toimenpide suositellaan.',
-    messageSent: '', sendError: '',
+    loading: 'Loading image...', noImage: 'No analysis image available',
+    fetching: 'Fetching response...', noAnswer: 'No response received.',
+    metrics: 'Measurement Results', aiLabel: 'AI', imageError: 'Error',
+    sdepth: 'Sensitivity', ucov: 'Uniformity',
+    uskew: 'Asymmetry', stable: '→ Stable · limit',
+    limitOf: '↑ Limit', limitExceeded: 'Limit exceeded',
+    limitExceededFull: '↓ Limit exceeded · limit', check: 'Check',
+    latest: 'latest', exceeds: 'exceeds',
+    checkLimit: 'the check limit', acceptanceLimit: 'the acceptance limit',
+    actionRecommended: 'Action recommended.',
+    messageSent: 'Report sent.', sendError: 'Failed to send.',
   };
-  window.LANG = 'fi';
+  window.LANG = 'en';
+  window.POSTER_VISIBLE_STUDIES = 20;
   window._VERT_PROF  = {{ vert_prof|safe }};
   window._HORIZ_PROF = {{ horiz_prof|safe }};
   </script>
 
   <script src="{% static 'js/scriptsDeviceDetails2.js' %}" defer></script>
+
+  <script>
+  (function () {
+    var LIMITS = [
+      { id: 'legend-yellow', color: '#fbbf24' },
+      { id: 'legend-red',    color: '#fb7185' },
+    ];
+    function toggleLimit(color, active) {
+      document.querySelectorAll('.chart-scroll line[stroke-dasharray]').forEach(function (line) {
+        if (line.getAttribute('stroke') === color) {
+          line.style.display = active ? '' : 'none';
+        }
+      });
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+      LIMITS.forEach(function (leg) {
+        var el = document.getElementById(leg.id);
+        if (!el) return;
+        el.addEventListener('click', function () {
+          var active = this.dataset.active === 'true';
+          var next = !active;
+          this.dataset.active = next;
+          this.classList.toggle('legend-inactive', !next);
+          toggleLimit(leg.color, next);
+        });
+      });
+    });
+  })();
+  </script>
 
 </body>
 </html>

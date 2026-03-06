@@ -4,7 +4,12 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import matplotlib as mpl
 import os
+import logging
 mpl.rcParams["figure.dpi"] = 150
+
+logger = logging.getLogger(__name__)
+if not logging.getLogger().hasHandlers():
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
 def extract_parameters(data, get_name = False):
@@ -40,12 +45,12 @@ def extract_parameters(data, get_name = False):
     
     if get_name:
         
-        print("Please look at the dicom image and remember the transducer name, close the image and this program will ask for the name to added to probe-LUT")
+        logger.info("Please look at the dicom image and remember the transducer name, close the image and this program will ask for the name to added to probe-LUT")
         plt.imshow(data.pixel_array), plt.show()
         cond = 'N'
         while cond == 'N':
             answer = input('Give the name of the transducer: ')
-            print(answer)
+            logger.info("%s", answer)
             cond = input('Is the name okay [Y/N]?' )
         
             dct_params['Transducer_name'] =  [answer]
@@ -126,9 +131,9 @@ if __name__ == "__main__":
         name_list.append(name)
         
         #%%
-    print(name_list == df['Transducer_name']) 
+    logger.info(name_list == df['Transducer_name']) 
      
-    print(name_list)
-    print(df['Transducer_name'])    
+    logger.info(name_list)
+    logger.info(df['Transducer_name'])    
     
         

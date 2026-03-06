@@ -8,14 +8,63 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // ── SVG Chart engine ──────────────────────────
   const SVG_NS = 'http://www.w3.org/2000/svg';
-  const VISIBLE_STUDIES = 5;
+  const VISIBLE_STUDIES = window.POSTER_VISIBLE_STUDIES || 5;
   const H = 150;
+  const ZOOM = 1;   // SVG-korkeus = viewportin korkeus → kaikki pisteet näkyvät kerralla
+  var _selectedIndex = null;
+  var _allChartCircles = []; // [chartIdx][dataIdx] = circleElement
+
+  function selectDataIndex(idx) {
+    // Clear all highlighted circles
+    _allChartCircles.forEach(function (circles) {
+      circles.forEach(function (c) {
+        if (c) {
+          c.removeAttribute('stroke');
+          c.removeAttribute('stroke-width');
+          c.setAttribute('r', '3.5');
+        }
+      });
+    });
+    // Toggle off if same index clicked again
+    if (_selectedIndex === idx) {
+      _selectedIndex = null;
+      return;
+    }
+    _selectedIndex = idx;
+    // Highlight matching index in every chart
+    _allChartCircles.forEach(function (circles) {
+      var c = circles[idx];
+      if (c) {
+        c.setAttribute('stroke', '#080c10');
+        c.setAttribute('stroke-width', '2');
+        c.setAttribute('r', '5');
+      }
+    });
+  }
   const PAD_TOP = 12;
-  const PAD_BOT = 18;
+  const PAD_BOT = 6;
   const CHART_H = H - PAD_TOP - PAD_BOT;
 
   function norm2y(n) {
-    return PAD_TOP + (1 - n) * CHART_H;
+    return PAD_TOP + (1 - n) * (H * ZOOM - PAD_TOP - PAD_BOT);
+  }
+
+  function updateYaxis(yaxisEl, cfg, scrollTop) {
+    var CH_FULL = H * ZOOM - PAD_TOP - PAD_BOT;
+    yaxisEl.innerHTML = '';
+    cfg.ticks.forEach(function (v) {
+      var n = (v - cfg.yMin) / (cfg.yMax - cfg.yMin);
+      var y_svg = PAD_TOP + (1 - n) * CH_FULL;
+      var y_rel = y_svg - scrollTop;
+      if (y_rel >= -5 && y_rel <= 155) {
+        var span = document.createElement('span');
+        span.className = 'yax';
+        span.style.top = y_rel + 'px';
+        var label = v === 0 ? '0' : (v > 0 ? '+' + v : '' + v);
+        span.textContent = label;
+        yaxisEl.appendChild(span);
+      }
+    });
   }
 
   function buildChart(cfg) {
@@ -26,7 +75,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const n = cfg.data.length;
     if (n === 0) return;
 
-    const PAD_X = 12;  // small padding at edges
+    // Register this chart's circles array
+    var chartIdx = _allChartCircles.length;
+    _allChartCircles.push([]);
+
+    const PAD_X = 0;   // no horizontal padding — first point at left edge
     const visibleW = container.clientWidth || VISIBLE_STUDIES * 90;
     // When n <= VISIBLE_STUDIES: fit all points in container (no scroll)
     // When n > VISIBLE_STUDIES: SVG wider than container (scroll to see more)
@@ -37,8 +90,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const svg = document.createElementNS(SVG_NS, 'svg');
     svg.setAttribute('width', svgW);
-    svg.setAttribute('height', H);
-    svg.setAttribute('viewBox', '0 0 ' + svgW + ' ' + H);
+    svg.setAttribute('height', H * ZOOM);
+    svg.setAttribute('viewBox', '0 0 ' + svgW + ' ' + (H * ZOOM));
     svg.style.minWidth = svgW + 'px';
 
     function x(i) {
@@ -46,41 +99,23 @@ document.addEventListener('DOMContentLoaded', function () {
       return PAD_X + (i / (n - 1)) * (svgW - PAD_X * 2);
     }
 
-    // Defs (gradient)
-    const defs = document.createElementNS(SVG_NS, 'defs');
-    const grad = document.createElementNS(SVG_NS, 'linearGradient');
-    const gid = 'grad_' + cfg.scrollId;
-    grad.setAttribute('id', gid);
-    grad.setAttribute('x1', '0'); grad.setAttribute('y1', '0');
-    grad.setAttribute('x2', '0'); grad.setAttribute('y2', '1');
-    const s1 = document.createElementNS(SVG_NS, 'stop');
-    s1.setAttribute('offset', '0%');
-    s1.setAttribute('stop-color', cfg.gradColor);
-    s1.setAttribute('stop-opacity', '0.18');
-    const s2 = document.createElementNS(SVG_NS, 'stop');
-    s2.setAttribute('offset', '100%');
-    s2.setAttribute('stop-color', cfg.gradColor);
-    s2.setAttribute('stop-opacity', '0');
-    grad.appendChild(s1); grad.appendChild(s2);
-    defs.appendChild(grad);
-    svg.appendChild(defs);
 
     // Horizontal grid lines
-    [0.25, 0.5, 0.75].forEach(function (f) {
+    (cfg.gridLines || [0.25, 0.5, 0.75]).forEach(function (f) {
       const line = document.createElementNS(SVG_NS, 'line');
       const yy = norm2y(f);
       line.setAttribute('x1', 0); line.setAttribute('x2', svgW);
       line.setAttribute('y1', yy); line.setAttribute('y2', yy);
-      line.setAttribute('stroke', '#1e3048'); line.setAttribute('stroke-width', '0.5');
+      line.setAttribute('stroke', 'rgba(100,120,160,0.3)'); line.setAttribute('stroke-width', '0.5');
       svg.appendChild(line);
     });
 
     // Vertical separators (midpoints between data points)
-    for (var i = 1; i < n; i++) {
+    for (var i = 1; i < n - 1; i++) {
       const vl = document.createElementNS(SVG_NS, 'line');
-      const xx = (x(i - 1) + x(i)) / 2;
+      const xx = x(i);
       vl.setAttribute('x1', xx); vl.setAttribute('x2', xx);
-      vl.setAttribute('y1', PAD_TOP); vl.setAttribute('y2', H - PAD_BOT);
+      vl.setAttribute('y1', PAD_TOP); vl.setAttribute('y2', H * ZOOM - PAD_BOT);
       vl.setAttribute('stroke', '#1e3048'); vl.setAttribute('stroke-width', '0.5');
       svg.appendChild(vl);
     }
@@ -107,18 +142,8 @@ document.addEventListener('DOMContentLoaded', function () {
       svg.appendChild(ll);
     });
 
-    // Area fill
-    const pts = cfg.data.map(function (v, i) { return x(i) + ',' + norm2y(v); }).join(' ');
-    const firstX = x(0), lastX = x(n - 1);
-    const botY = H - PAD_BOT;
-    const area = document.createElementNS(SVG_NS, 'polygon');
-    area.setAttribute('points',
-      pts + ' ' + lastX + ',' + botY + ' ' + firstX + ',' + botY
-    );
-    area.setAttribute('fill', 'url(#' + gid + ')');
-    svg.appendChild(area);
-
     // Line
+    const pts = cfg.data.map(function (v, i) { return x(i) + ',' + norm2y(v); }).join(' ');
     const polyline = document.createElementNS(SVG_NS, 'polyline');
     polyline.setAttribute('points', pts);
     polyline.setAttribute('fill', 'none');
@@ -131,43 +156,72 @@ document.addEventListener('DOMContentLoaded', function () {
     // Points
     cfg.data.forEach(function (v, i) {
       const isBad = cfg.badThreshold !== null && v <= cfg.badThreshold;
-      const isLast = i === n - 1;
       const c = document.createElementNS(SVG_NS, 'circle');
       c.setAttribute('cx', x(i));
       c.setAttribute('cy', norm2y(v));
-      c.setAttribute('r', isLast ? '5' : '3.5');
+      c.setAttribute('r', '3.5');
       c.setAttribute('fill', isBad ? '#fb7185' : cfg.lineColor);
-      if (isLast) {
-        c.setAttribute('stroke', '#080c10');
-        c.setAttribute('stroke-width', '2');
-      }
-      // Click handler for point selection
-      if (cfg.instances && cfg.instances[i]) {
-        c.style.cursor = 'pointer';
-        c.addEventListener('click', function () {
+      c.style.cursor = 'pointer';
+      _allChartCircles[chartIdx][i] = c;
+      c.addEventListener('click', function () {
+        selectDataIndex(i);
+        if (cfg.instances && cfg.instances[i]) {
           updateTableByInstance(cfg.instances[i]);
-        });
-      }
+        }
+      });
       svg.appendChild(c);
-    });
-
-    // Date labels
-    cfg.dates.forEach(function (d, i) {
-      const t = document.createElementNS(SVG_NS, 'text');
-      t.setAttribute('x', x(i));
-      t.setAttribute('y', H - 2);
-      t.setAttribute('text-anchor', 'middle');
-      t.setAttribute('fill', '#64748b');
-      t.setAttribute('font-size', '7');
-      t.setAttribute('font-family', 'monospace');
-      t.textContent = d;
-      svg.appendChild(t);
     });
 
     container.appendChild(svg);
 
-    // Scroll to end (latest data)
-    container.scrollLeft = container.scrollWidth;
+    // Horisontaalinen skrollaus vain kun datapisteitä > VISIBLE_STUDIES
+    container.style.overflowX = n > VISIBLE_STUDIES ? 'auto' : 'hidden';
+
+    // Dynamic y-axis labels
+    if (cfg.yaxisId) {
+      var yaxisEl = document.getElementById(cfg.yaxisId);
+      if (yaxisEl) {
+        updateYaxis(yaxisEl, cfg, 0);
+        container.addEventListener('scroll', function () {
+          updateYaxis(yaxisEl, cfg, container.scrollTop);
+        });
+        if (cfg.initialScrollTop) {
+          requestAnimationFrame(function () { container.scrollTop = cfg.initialScrollTop; });
+        }
+      }
+    }
+
+    // Date labels — separate xaxis container below the box
+    if (cfg.xaxisId) {
+      const xc = document.getElementById(cfg.xaxisId);
+      if (xc) {
+        xc.innerHTML = '';
+        const dsvg = document.createElementNS(SVG_NS, 'svg');
+        dsvg.setAttribute('width', svgW);
+        dsvg.setAttribute('height', 16);
+        dsvg.setAttribute('viewBox', '0 0 ' + svgW + ' 16');
+        dsvg.style.minWidth = svgW + 'px';
+        cfg.dates.forEach(function (d, i) {
+          const t = document.createElementNS(SVG_NS, 'text');
+          t.setAttribute('x', x(i));
+          t.setAttribute('y', 12);
+          const anchor = i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle';
+          t.setAttribute('text-anchor', anchor);
+          t.setAttribute('fill', '#64748b');
+          t.setAttribute('font-size', '11');
+          t.setAttribute('font-family', 'monospace');
+          t.textContent = d;
+          dsvg.appendChild(t);
+        });
+        xc.appendChild(dsvg);
+        container.addEventListener('scroll', function () {
+          xc.scrollLeft = container.scrollLeft;
+        });
+      }
+    }
+
+    // Start at left — first (oldest) data point visible
+    container.scrollLeft = 0;
   }
 
 
@@ -175,6 +229,8 @@ document.addEventListener('DOMContentLoaded', function () {
   var CHARTS = [];
 
   function initCharts() {
+    _allChartCircles = [];
+    _selectedIndex = null;
     CHARTS.forEach(buildChart);
   }
 
@@ -500,52 +556,75 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // s_depth chart
     if (data1 && data1.length > 0) {
-      var yMin1 = 0, yMax1 = 4;
+      var yMin1 = 0, yMax1 = 12;
       CHARTS.push({
         scrollId: 'scroll-herkkyys',
+        yaxisId:  'yaxis-herkkyys',
+        xaxisId:  'xaxis-herkkyys',
+        yMin: yMin1, yMax: yMax1,
+        ticks: [0,1,2,3,4,5,6,7,8,9,10,11,12],
+        initialScrollTop: 0,
         data: data1.map(function (d) { return normalise(d.s_depth, yMin1, yMax1); }),
         dates: data1.map(function (d) { return formatDate(d.seriesdate); }),
         instances: data1.map(function (d) { return d.instance; }),
-        lineColor: '#52e3a0',
-        gradColor: '#52e3a0',
-        limits: [{ y: 1.0, color: '#fbbf24' }],
+        lineColor: '#60a5fa',
+        limits: [
+          { y: 4/12,  color: '#fbbf24' },
+          { y: 10/12, color: '#fb7185' },
+        ],
         badThreshold: null,
         zeroLine: false,
+        gridLines: [2/12, 4/12, 6/12, 8/12, 10/12],
       });
     }
 
     // u_cov chart
     if (data2 && data2.length > 0) {
-      var yMin2 = 0, yMax2 = 5;
+      var yMin2 = 0, yMax2 = 12;
       CHARTS.push({
         scrollId: 'scroll-tasaisuus',
+        yaxisId:  'yaxis-tasaisuus',
+        xaxisId:  'xaxis-tasaisuus',
+        yMin: yMin2, yMax: yMax2,
+        ticks: [0,1,2,3,4,5,6,7,8,9,10,11,12],
+        initialScrollTop: 0,
         data: data2.map(function (d) { return normalise(d.u_cov, yMin2, yMax2); }),
         dates: data2.map(function (d) { return formatDate(d.seriesdate); }),
         instances: data2.map(function (d) { return d.instance; }),
-        lineColor: '#fbbf24',
-        gradColor: '#fbbf24',
-        limits: [{ y: 1.0, color: '#fbbf24' }],
+        lineColor: '#38bdf8',
+        limits: [
+          { y: 5/12,  color: '#fbbf24' },
+          { y: 10/12, color: '#fb7185' },
+        ],
         badThreshold: null,
         zeroLine: false,
+        gridLines: [2/12, 4/12, 6/12, 8/12, 10/12],
       });
     }
 
-    // u_skew chart
+    // u_skew chart — skaala ±2
     if (data3 && data3.length > 0) {
       var yMin3 = -2, yMax3 = 2;
       CHARTS.push({
         scrollId: 'scroll-epa',
+        yaxisId:  'yaxis-epa',
+        xaxisId:  'xaxis-epa',
+        yMin: yMin3, yMax: yMax3,
+        ticks: [-2,-1,0,1,2],
+        initialScrollTop: 0,
         data: data3.map(function (d) { return normalise(d.u_skew, yMin3, yMax3); }),
         dates: data3.map(function (d) { return formatDate(d.seriesdate); }),
         instances: data3.map(function (d) { return d.instance; }),
-        lineColor: '#00b4d8',
-        gradColor: '#fb7185',
+        lineColor: '#a78bfa',
         limits: [
-          { y: 0.75, color: '#fb7185' },
-          { y: 0.25, color: '#fb7185' },
+          { y: 1.0,  color: '#fb7185' },
+          { y: 0.75, color: '#fbbf24' },
+          { y: 0.25, color: '#fbbf24' },
+          { y: 0.0,  color: '#fb7185' },
         ],
-        zeroLine: true,
-        badThreshold: 0.25,
+        zeroLine: false,
+        badThreshold: null,
+        gridLines: [0.25, 0.75],
       });
     }
 
@@ -625,14 +704,10 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
 
-  // ── Metrics summary in AI chat ──
+  // ── Alert card in AI chat (red warning when limits exceeded) ──
   function reportMetricsToChat(sDepth, uCov, uSkew) {
     var answerBox = document.getElementById('answer-box');
     if (!answerBox) return;
-
-    // Remove any existing metrics message
-    var existing = answerBox.querySelector('.ai-msg.metrics');
-    if (existing) existing.remove();
 
     // Remove any existing alert message
     var existingAlert = answerBox.querySelector('.ai-msg.alert');
@@ -642,40 +717,26 @@ document.addEventListener('DOMContentLoaded', function () {
     var cClass = classifyUCov(uCov);
     var kClass = classifyUSkew(uSkew);
 
-    // Build metrics card
-    var msg = document.createElement('div');
-    msg.className = 'ai-msg metrics';
-    msg.innerHTML =
-      '<div class="ai-msg-label">' + (window.T&&window.T.metrics||'Mittaustulokset') + '</div>' +
-      '<div class="metric-line"><span class="metric-label">' + (window.T&&window.T.sdepth||'Herkkyys (s_depth)') + '</span><span class="metric-value ' + sClass.cls + '">' + (sDepth != null ? Number(sDepth).toFixed(2) + ' mm' : '–') + '</span></div>' +
-      '<div class="metric-line"><span class="metric-label">' + (window.T&&window.T.ucov||'Tasaisuus (U_cov)') + '</span><span class="metric-value ' + cClass.cls + '">' + (uCov != null ? Number(uCov).toFixed(2) + ' %' : '–') + '</span></div>' +
-      '<div class="metric-line"><span class="metric-label">' + (window.T&&window.T.uskew||'Epäsymmetria (U_skew)') + '</span><span class="metric-value ' + kClass.cls + '">' + (uSkew != null ? Number(uSkew).toFixed(2) : '–') + '</span></div>';
-
-    // Insert at the beginning of the answer box
-    answerBox.insertBefore(msg, answerBox.firstChild);
-
-    // Add alert if any metric exceeds limits
     var exceedsW  = window.T&&window.T.exceeds          || 'ylittää';
     var checkLimW = window.T&&window.T.checkLimit       || 'tarkistusrajan';
     var accLimW   = window.T&&window.T.acceptanceLimit  || 'hyväksyntärajan';
     var actionW   = window.T&&window.T.actionRecommended|| 'Toimenpide suositellaan.';
     var alerts = [];
     if (sClass.cls === 'warn' || sClass.cls === 'bad') {
-      alerts.push('⚠ ' + (window.T&&window.T.sdepth||'Herkkyys (s_depth)') + ' (= ' + Number(sDepth).toFixed(2) + ' mm) ' + exceedsW + ' ' + (sClass.cls === 'warn' ? checkLimW : accLimW) + ' 4.0 mm.');
+      alerts.push('⚠ ' + (window.T&&window.T.sdepth||'Herkkyys') + ' (= ' + Number(sDepth).toFixed(2) + ' mm) ' + exceedsW + ' ' + (sClass.cls === 'warn' ? checkLimW : accLimW) + ' 4.0 mm.');
     }
     if (cClass.cls === 'warn' || cClass.cls === 'bad') {
-      alerts.push('⚠ ' + (window.T&&window.T.ucov||'Tasaisuus (U_cov)') + ' (= ' + Number(uCov).toFixed(2) + ' %) ' + exceedsW + ' ' + (cClass.cls === 'warn' ? checkLimW : accLimW) + ' 5.0 %.');
+      alerts.push('⚠ ' + (window.T&&window.T.ucov||'Tasaisuus') + ' (= ' + Number(uCov).toFixed(2) + ' %) ' + exceedsW + ' ' + (cClass.cls === 'warn' ? checkLimW : accLimW) + ' 5.0 %.');
     }
     if (kClass.cls === 'bad') {
-      alerts.push('⚠ ' + (window.T&&window.T.uskew||'Epäsymmetria (U_skew)') + ' (= ' + Number(uSkew).toFixed(2) + ') ' + exceedsW + ' ' + accLimW + ' ±1.0. ' + actionW);
+      alerts.push('⚠ ' + (window.T&&window.T.uskew||'Epäsymmetria') + ' (= ' + Number(uSkew).toFixed(2) + ') ' + exceedsW + ' ' + accLimW + ' ±1.0. ' + actionW);
     }
 
     if (alerts.length > 0) {
       var alertMsg = document.createElement('div');
       alertMsg.className = 'ai-msg alert';
       alertMsg.innerHTML = alerts.join('<br>');
-      // Insert after metrics card
-      msg.insertAdjacentElement('afterend', alertMsg);
+      answerBox.insertBefore(alertMsg, answerBox.firstChild);
     }
   }
 

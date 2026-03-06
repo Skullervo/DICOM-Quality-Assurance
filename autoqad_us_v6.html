@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LV-automaatti – Ultraääni v6</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg:      #080c10; --surface: #0f1520; --surface2: #162030;
+    --border:  #1e3048; --accent:  #00b4d8; --accent2:  #0077b6;
+    --ok:      #52e3a0; --warn:    #fbbf24; --bad:      #fb7185;
+    --neutral: #e2e8f0; --muted:   #64748b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--neutral); font-family: 'DM Sans', sans-serif; font-size: 13px; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+  /* TOPBAR */
+  .topbar { height: 46px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .brand { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600; }
+  .brand span { color: var(--accent); }
+  .topbar-nav { display: flex; gap: 2px; }
+  .nav-btn { padding: 5px 16px; border-radius: 6px; border: none; background: transparent; color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 13px; cursor: pointer; transition: all .15s; }
+  .nav-btn.active { background: var(--accent); color: #fff; font-weight: 500; }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .sys-status { display: flex; align-items: center; gap: 6px; color: var(--ok); font-size: 11px; }
+  .sys-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+  .sys-date { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); }
+
+  /* MAIN */
+  .main { display: grid; grid-template-columns: 270px 1fr 300px; flex: 1; min-height: 0; overflow: hidden; }
+
+  /* LEFT */
+  .left { background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+  .panel-label { padding: 10px 14px; font-size: 9px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .modality-tag { background: rgba(0,180,216,.15); color: var(--accent); border: 1px solid rgba(0,180,216,.3); font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 2px 8px; border-radius: 4px; }
+  .us-image-wrap { background: #000; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .us-image-row { display: flex; overflow: hidden; }
+  .us-main { flex: 1; aspect-ratio: 4/3; display: flex; overflow: hidden; min-width: 0; }
+  .us-scan { flex: 1; position: relative; overflow: hidden; background: repeating-linear-gradient(180deg, rgba(0,100,150,.03) 0px, rgba(0,100,150,.03) 2px, transparent 2px, transparent 6px); }
+  .us-scan::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 80% 40% at 50% 30%, rgba(0,180,216,.08), transparent), radial-gradient(ellipse 60% 60% at 30% 60%, rgba(0,150,200,.05), transparent); }
+  .us-scan-line { position: absolute; left: 0; right: 0; height: 1px; background: rgba(0,180,216,.6); top: 65%; box-shadow: 0 0 4px rgba(0,180,216,.8); }
+  .us-depth-bar { width: 30px; background: #050a0f; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 8px 4px; border-left: 1px solid #111; }
+  .depth-tick { font-family: 'JetBrains Mono', monospace; font-size: 8px; color: #2a5070; }
+  .us-profile { width: 42px; background: #020608; border-left: 1px solid #111; flex-shrink: 0; }
+  .us-profile svg { width: 100%; height: 100%; display: block; }
+  .us-waveform { height: 46px; background: #020608; border-top: 1px solid #111; overflow: hidden; }
+  .us-waveform svg { width: 100%; height: 100%; }
+  .left-scroll { overflow-y: auto; flex: 1; min-height: 0; }
+  .meta-section-title { padding: 8px 14px 4px; font-size: 9px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); }
+  .meta-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 14px; border-bottom: 1px solid rgba(30,48,72,.5); transition: background .1s; }
+  .meta-row:hover { background: var(--surface2); }
+  .meta-key { color: var(--muted); font-size: 11px; }
+  .meta-val { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--neutral); text-align: right; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .meta-val.tag { background: rgba(0,180,216,.12); color: var(--accent); padding: 1px 7px; border-radius: 4px; }
+  .meta-val.na { color: var(--border); }
+  .meta-val.warn { color: var(--warn); }
+  .report-section { border-top: 1px solid var(--border); padding: 10px 12px 12px; }
+  .report-label { font-size: 9px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .report-textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; color: var(--neutral); font-family: 'DM Sans', sans-serif; font-size: 12px; outline: none; resize: none; height: 62px; transition: border-color .15s; }
+  .report-textarea:focus { border-color: var(--warn); }
+  .report-actions { display: flex; gap: 8px; margin-top: 8px; }
+  .btn { flex: 1; padding: 7px; border-radius: 6px; font-size: 12px; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--muted); transition: all .15s; font-family: 'DM Sans', sans-serif; }
+  .btn:hover { background: var(--surface2); color: var(--neutral); }
+  .btn.primary { background: var(--warn); color: #080c10; border-color: var(--warn); font-weight: 600; }
+
+  /* CENTER */
+  .center { display: flex; flex-direction: column; padding: 12px; gap: 10px; overflow: hidden; min-height: 0; }
+  .chips { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; flex-shrink: 0; }
+  .chip { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; transition: border-color .2s; }
+  .chip:hover { border-color: var(--accent2); }
+  .chip-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .9px; }
+  .chip-val { font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 600; line-height: 1.1; }
+  .chip-val.ok { color: var(--ok); } .chip-val.warn { color: var(--warn); } .chip-val.bad { color: var(--bad); }
+  .chip-sub { font-size: 10px; color: var(--muted); }
+  .chip-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 4px; overflow: hidden; }
+  .chip-fill { height: 100%; border-radius: 2px; }
+
+  /* CHART PANEL */
+  .chart-panel { flex: 1; min-height: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
+  .chart-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 9px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .chart-panel-title { font-size: 11px; font-weight: 600; color: var(--neutral); }
+  .chart-panel-badges { display: flex; gap: 6px; }
+  .charts-stack { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+
+  /* Each chart block */
+  .chart-block { flex-shrink: 0; border-bottom: 1px solid var(--border); }
+  .chart-block:last-child { border-bottom: none; }
+  .chart-block-head { display: flex; align-items: center; justify-content: space-between; padding: 7px 14px 0; }
+  .chart-block-title { font-size: 10px; font-weight: 600; color: var(--neutral); }
+  .chart-block-meta { display: flex; align-items: center; gap: 8px; }
+  .chart-val { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); }
+
+  /* Chart wrapper: y-axis sticky + scrollable SVG area */
+  .chart-wrap {
+    display: flex;
+    height: 100px;   /* fixed viewport height */
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Sticky y-axis — does NOT scroll */
+  .chart-yaxis {
+    width: 38px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 6px 5px 4px;
+    z-index: 3;
+  }
+  .yax { font-family: 'JetBrains Mono', monospace; font-size: 8px; color: var(--muted); text-align: right; line-height: 1; }
+
+  /* Scrollable SVG area */
+  .chart-scroll {
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    min-width: 0;
+  }
+  /* SVG fills full width naturally, extends when more data */
+  .chart-scroll svg { display: block; height: 100%; }
+
+  /* Legend */
+  .chart-panel-legend { display: flex; gap: 16px; padding: 7px 14px; border-top: 1px solid var(--border); flex-shrink: 0; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 9px; color: var(--muted); }
+  .legend-dash { width: 18px; height: 0; border-top-width: 2px; border-top-style: dashed; }
+
+  /* Badge */
+  .badge { font-size: 9px; font-family: 'JetBrains Mono', monospace; padding: 2px 7px; border-radius: 4px; font-weight: 600; white-space: nowrap; }
+  .badge.ok   { background: rgba(82,227,160,.1);  color: var(--ok); }
+  .badge.warn { background: rgba(251,191,36,.1);  color: var(--warn); }
+  .badge.bad  { background: rgba(251,113,133,.1); color: var(--bad); }
+
+  /* RIGHT */
+  .right { background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+  .ai-messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+  .ai-msg { padding: 9px 12px; border-radius: 8px; font-size: 12px; line-height: 1.6; }
+  .ai-msg.assistant { background: var(--surface2); border: 1px solid var(--border); border-left: 2px solid var(--accent); align-self: flex-start; max-width: 96%; }
+  .ai-msg.user { background: rgba(0,180,216,.08); border: 1px solid rgba(0,180,216,.2); align-self: flex-end; max-width: 96%; }
+  .ai-msg.alert { background: rgba(251,113,133,.06); border: 1px solid rgba(251,113,133,.2); border-left: 2px solid var(--bad); align-self: stretch; font-size: 11px; color: var(--bad); }
+  .ai-msg-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+  .ai-footer { border-top: 1px solid var(--border); background: var(--bg); flex-shrink: 0; }
+  .ai-input-row { display: flex; gap: 8px; padding: 10px 12px; }
+  .ai-input { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; color: var(--neutral); font-family: 'DM Sans', sans-serif; font-size: 12px; outline: none; resize: none; height: 36px; transition: border-color .15s; }
+  .ai-input:focus { border-color: var(--accent); }
+  .ai-send { width: 36px; height: 36px; background: var(--accent); border: none; border-radius: 6px; color: #fff; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background .15s; }
+  .ai-send:hover { background: var(--accent2); }
+
+  ::-webkit-scrollbar { width: 3px; height: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span>LV</span>-automaatti</div>
+  <div class="topbar-nav">
+    <button class="nav-btn">Aloitus</button>
+    <button class="nav-btn active">Modaliteetit</button>
+    <button class="nav-btn">Tietoa</button>
+  </div>
+  <div class="topbar-right">
+    <div class="sys-status"><div class="sys-dot"></div><span>Järjestelmä toimii</span></div>
+    <div class="sys-date">20210211</div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- LEFT -->
+  <div class="left">
+    <div class="panel-label">Laite <span class="modality-tag">US</span></div>
+    <div class="us-image-wrap">
+      <div class="us-image-row">
+        <div class="us-main">
+          <div class="us-scan"><div class="us-scan-line"></div></div>
+          <div class="us-depth-bar">
+            <span class="depth-tick">0</span><span class="depth-tick">2</span>
+            <span class="depth-tick">4</span><span class="depth-tick">6</span>
+            <span class="depth-tick">8</span><span class="depth-tick">10</span>
+          </div>
+        </div>
+        <div class="us-profile">
+          <svg viewBox="0 0 42 120" preserveAspectRatio="none">
+            <line x1="21" y1="0" x2="21" y2="120" stroke="#1e3048" stroke-width=".5"/>
+            <line x1="0" y1="30" x2="42" y2="30" stroke="#1e3048" stroke-width=".5" stroke-dasharray="2,3"/>
+            <line x1="0" y1="60" x2="42" y2="60" stroke="#1e3048" stroke-width=".5" stroke-dasharray="2,3"/>
+            <line x1="0" y1="90" x2="42" y2="90" stroke="#1e3048" stroke-width=".5" stroke-dasharray="2,3"/>
+            <polyline points="21,2 29,6 25,10 33,15 19,20 31,25 17,30 34,35 15,40 35,45 14,50 27,55 18,60 29,65 20,70 24,75 21,80 23,85 21,90 22,95 21,100 22,105 21,110 21,118"
+              fill="none" stroke="#00b4d8" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+            <circle cx="14" cy="50" r="2.5" fill="none" stroke="#fb7185" stroke-width="1.2"/>
+            <circle cx="35" cy="45" r="2.5" fill="none" stroke="#fb7185" stroke-width="1.2"/>
+            <text x="2" y="31" fill="#2a5070" font-size="7" font-family="monospace">3</text>
+            <text x="2" y="61" fill="#2a5070" font-size="7" font-family="monospace">6</text>
+            <text x="2" y="91" fill="#2a5070" font-size="7" font-family="monospace">9</text>
+          </svg>
+        </div>
+      </div>
+      <div class="us-waveform">
+        <svg viewBox="0 0 270 46" preserveAspectRatio="none">
+          <polyline points="0,23 6,21 12,25 18,13 24,31 30,23 36,19 42,27 48,11 54,33 60,23 66,20 72,26 78,14 84,31 90,23 96,18 102,28 108,11 114,34 120,23 126,21 132,25 138,12 144,31 150,23 156,19 162,28 168,11 174,34 180,23 186,20 192,26 198,14 204,30 210,23 216,18 222,29 228,11 234,34 240,23 246,20 252,26 258,14 264,30 270,23" fill="none" stroke="#00b4d8" stroke-width="1.5" stroke-linejoin="round"/>
+          <line x1="82"  y1="4" x2="82"  y2="42" stroke="#fb7185" stroke-width="1" stroke-dasharray="2,2" opacity=".6"/>
+          <line x1="178" y1="4" x2="178" y2="42" stroke="#fb7185" stroke-width="1" stroke-dasharray="2,2" opacity=".6"/>
+        </svg>
+      </div>
+    </div>
+    <div class="left-scroll">
+      <div class="meta-section-title">Laitetiedot</div>
+      <div class="meta-row"><span class="meta-key">Laite</span><span class="meta-val">LOGIQE9US2</span></div>
+      <div class="meta-row"><span class="meta-key">Päivämäärä</span><span class="meta-val">20210211</span></div>
+      <div class="meta-row"><span class="meta-key">Modaliteetti</span><span class="meta-val tag">US</span></div>
+      <div class="meta-row"><span class="meta-key">Valmistaja</span><span class="meta-val">GE Healthcare</span></div>
+      <div class="meta-row"><span class="meta-key">Malli</span><span class="meta-val">LOGIQE9</span></div>
+      <div class="meta-row"><span class="meta-key">Sarjanumero</span><span class="meta-val na">—</span></div>
+      <div class="meta-row"><span class="meta-key">Anturityyppi</span><span class="meta-val" style="font-size:10px">Transducer (0018,6031)</span></div>
+      <div class="meta-row"><span class="meta-key">Signaalihäviö</span><span class="meta-val warn">17.17</span></div>
+      <div class="meta-row"><span class="meta-key">Instance</span><span class="meta-val na" style="font-size:10px">dd8f…0b</span></div>
+      <div class="report-section">
+        <div class="report-label">Raportoi ongelmasta</div>
+        <textarea class="report-textarea" placeholder="Kuvaile havaittu ongelma…"></textarea>
+        <div class="report-actions">
+          <button class="btn">Peruuta</button>
+          <button class="btn primary">Lähetä raportti</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div class="center">
+    <div class="chips">
+      <div class="chip">
+        <div class="chip-label">Herkkyys (s_depth)</div>
+        <div class="chip-val ok">1.34 <span style="font-size:11px;font-weight:400">mm</span></div>
+        <div class="chip-sub">→ Vakaa · raja 4.0 mm</div>
+        <div class="chip-bar"><div class="chip-fill" style="width:33%;background:var(--ok)"></div></div>
+      </div>
+      <div class="chip">
+        <div class="chip-label">Tasaisuus (U_cov)</div>
+        <div class="chip-val warn">4.17 <span style="font-size:11px;font-weight:400">%</span></div>
+        <div class="chip-sub">↑ Lähellä ylärajaa · raja 5.0</div>
+        <div class="chip-bar"><div class="chip-fill" style="width:83%;background:var(--warn)"></div></div>
+      </div>
+      <div class="chip">
+        <div class="chip-label">Epäsymmetria (U_skew)</div>
+        <div class="chip-val bad">−1.21</div>
+        <div class="chip-sub">↓ Raja ylitetty · raja ±1.0</div>
+        <div class="chip-bar"><div class="chip-fill" style="width:100%;background:var(--bad)"></div></div>
+      </div>
+    </div>
+
+    <div class="chart-panel">
+      <div class="chart-panel-header">
+        <span class="chart-panel-title">Trendikäyrät</span>
+        <div class="chart-panel-badges">
+          <span class="badge ok">Herkkyys OK</span>
+          <span class="badge warn">Tasaisuus</span>
+          <span class="badge bad">Epäsymmetria</span>
+        </div>
+      </div>
+
+      <div class="charts-stack">
+
+        <!-- HERKKYYS -->
+        <div class="chart-block" id="block-herkkyys">
+          <div class="chart-block-head">
+            <span class="chart-block-title">Herkkyys (s_depth) [mm]</span>
+            <div class="chart-block-meta">
+              <span class="chart-val">viim. 1.34 mm</span>
+              <span class="badge ok">OK</span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-herkkyys">
+              <span class="yax">4.0</span>
+              <span class="yax">3.0</span>
+              <span class="yax">2.0</span>
+              <span class="yax">1.0</span>
+              <span class="yax">0</span>
+            </div>
+            <div class="chart-scroll" id="scroll-herkkyys">
+              <!-- SVG injected by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- TASAISUUS -->
+        <div class="chart-block" id="block-tasaisuus">
+          <div class="chart-block-head">
+            <span class="chart-block-title">Tasaisuus (U_cov) [%]</span>
+            <div class="chart-block-meta">
+              <span class="chart-val">viim. 4.17 %</span>
+              <span class="badge warn">Tarkista</span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-tasaisuus">
+              <span class="yax">5.0</span>
+              <span class="yax">4.0</span>
+              <span class="yax">3.0</span>
+              <span class="yax">2.0</span>
+              <span class="yax">1.0</span>
+            </div>
+            <div class="chart-scroll" id="scroll-tasaisuus">
+            </div>
+          </div>
+        </div>
+
+        <!-- EPÄSYMMETRIA -->
+        <div class="chart-block" id="block-epa">
+          <div class="chart-block-head">
+            <span class="chart-block-title">Epäsymmetria (U_skew)</span>
+            <div class="chart-block-meta">
+              <span class="chart-val">viim. −1.21</span>
+              <span class="badge bad">Raja ylitetty</span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-yaxis" id="yaxis-epa">
+              <span class="yax">+2.0</span>
+              <span class="yax">+1.0</span>
+              <span class="yax">0</span>
+              <span class="yax">−1.0</span>
+              <span class="yax">−2.0</span>
+            </div>
+            <div class="chart-scroll" id="scroll-epa">
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="chart-panel-legend">
+        <div class="legend-item">
+          <div class="legend-dash" style="border-color:#fbbf24"></div>
+          <span>Hyväksyntäraja (keltainen)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dash" style="border-color:#fb7185"></div>
+          <span>Yläraja (punainen)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right">
+    <div class="panel-label">Kysy tekoälyltä</div>
+    <div class="ai-messages">
+      <div class="ai-msg alert">⚠ Epäsymmetria (U_skew = −1.21) ylittää hyväksyntärajan ±1.0. Toimenpide suositellaan.</div>
+      <div class="ai-msg assistant">
+        <div class="ai-msg-label">Tekoäly</div>
+        Analysoin LOGIQE9-anturin mittaukset. Epäsymmetria-arvo on laskenut rajan alle ja trendi on ollut laskeva seitsemän viikon ajan. Tämä viittaa anturin elementin asteittaiseen heikkenemiseen. Suosittelen fyysistä tarkastusta ennen seuraavaa kliinistä käyttöä.
+      </div>
+      <div class="ai-msg user">Voiko kyseessä olla geeli-ongelma?</div>
+      <div class="ai-msg assistant">
+        <div class="ai-msg-label">Tekoäly</div>
+        Epätodennäköistä. Geeliongelma aiheuttaisi tasaisemman degradaation kaikissa metriikoissa. Vain epäsymmetria on kriittinen, mikä viittaa yksittäiseen elementtivikaan anturin reunassa.
+      </div>
+      <div class="ai-msg user">Milloin edellinen huolto on tehty?</div>
+      <div class="ai-msg assistant">
+        <div class="ai-msg-label">Tekoäly</div>
+        Huoltohistoriaa ei löydy tietokannasta tälle sarjanumerolle. Suosittelen tarkistamaan huoltopäiväkirjan manuaalisesti.
+      </div>
+    </div>
+    <div class="ai-footer">
+      <div class="ai-input-row">
+        <textarea class="ai-input" placeholder="Kirjoita kysymys…"></textarea>
+        <button class="ai-send">→</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// Chart data
+// ─────────────────────────────────────────────
+const CHARTS = [
+  {
+    scrollId: 'scroll-herkkyys',
+    // normalised y values 0..1 (0=bottom, 1=top of range)
+    data: [0.34, 0.27, 0.42, 0.58, 0.52, 0.40, 0.46, 0.54, 0.48, 0.40],
+    dates: ['11.02','18.02','25.02','04.03','11.03','18.03','25.03','01.04','08.04','15.04'],
+    lineColor: '#52e3a0',
+    gradColor: '#52e3a0',
+    // limit lines: [{y_norm, color}]  y_norm: position in 0..1 scale
+    limits: [{ y: 1.0, color: '#fbbf24', label: '4.0' }],
+    badThreshold: null,   // no points turn red
+    zeroLine: false,
+    yRange: [0, 4],
+  },
+  {
+    scrollId: 'scroll-tasaisuus',
+    data: [0.68, 0.24, 0.46, 0.18, 0.52, 0.74, 0.66, 0.44, 0.62, 0.78],
+    dates: ['11.02','18.02','25.02','04.03','11.03','18.03','25.03','01.04','08.04','15.04'],
+    lineColor: '#fbbf24',
+    gradColor: '#fbbf24',
+    limits: [{ y: 1.0, color: '#fbbf24', label: '5.0' }],
+    badThreshold: null,
+    zeroLine: false,
+    yRange: [0, 5],
+  },
+  {
+    scrollId: 'scroll-epa',
+    // y_norm: 0=bottom(−2), 0.5=zero, 1=top(+2)
+    data: [0.68, 0.35, 0.45, 0.47, 0.35, 0.20, 0.28, 0.20, 0.16, 0.12],
+    dates: ['11.02','18.02','25.02','04.03','11.03','18.03','25.03','01.04','08.04','15.04'],
+    lineColor: '#00b4d8',
+    gradColor: '#fb7185',
+    limits: [
+      { y: 0.75, color: '#fb7185', label: '+1.0' },  // +1.0 = 75% up from bottom
+      { y: 0.25, color: '#fb7185', label: '−1.0' },  // −1.0 = 25%
+    ],
+    zeroLine: true,   // y=0.5
+    badThreshold: 0.25,   // points below this are red
+    yRange: [-2, 2],
+  },
+];
+
+const VISIBLE_STUDIES = 5;  // initial visible count
+const POINT_SPACING = 90;   // px per study
+const H = 90;               // SVG height
+const PAD_TOP = 10;
+const PAD_BOT = 16;         // room for date labels
+const CHART_H = H - PAD_TOP - PAD_BOT;
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function norm2y(n) {
+  // n: 0..1 → y pixel (0=top, 1=bottom of chart area)
+  return PAD_TOP + (1 - n) * CHART_H;
+}
+
+function buildChart(cfg) {
+  const container = document.getElementById(cfg.scrollId);
+  if (!container) return;
+
+  const n = cfg.data.length;
+  // Width: at least VISIBLE_STUDIES columns wide, extends for more data
+  const totalW = Math.max(n, VISIBLE_STUDIES) * POINT_SPACING;
+
+  // Measure actual scroll area width to set initial visible width
+  const visibleW = container.clientWidth || VISIBLE_STUDIES * POINT_SPACING;
+  const colW = visibleW / VISIBLE_STUDIES;  // width per column fitting 5 in view
+  const svgW = Math.max(n * colW, visibleW);
+
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('width', svgW);
+  svg.setAttribute('height', H);
+  svg.setAttribute('viewBox', `0 0 ${svgW} ${H}`);
+  svg.style.minWidth = svgW + 'px';
+
+  function x(i) { return colW * i + colW / 2; }
+
+  // ── Defs (gradient) ──
+  const defs = document.createElementNS(SVG_NS, 'defs');
+  const grad = document.createElementNS(SVG_NS, 'linearGradient');
+  const gid = 'grad_' + cfg.scrollId;
+  grad.setAttribute('id', gid);
+  grad.setAttribute('x1', '0'); grad.setAttribute('y1', '0');
+  grad.setAttribute('x2', '0'); grad.setAttribute('y2', '1');
+  const s1 = document.createElementNS(SVG_NS, 'stop');
+  s1.setAttribute('offset', '0%');
+  s1.setAttribute('stop-color', cfg.gradColor);
+  s1.setAttribute('stop-opacity', '0.18');
+  const s2 = document.createElementNS(SVG_NS, 'stop');
+  s2.setAttribute('offset', '100%');
+  s2.setAttribute('stop-color', cfg.gradColor);
+  s2.setAttribute('stop-opacity', '0');
+  grad.appendChild(s1); grad.appendChild(s2);
+  defs.appendChild(grad);
+  svg.appendChild(defs);
+
+  // ── Grid: horizontal lines ──
+  [0.25, 0.5, 0.75].forEach(f => {
+    const line = document.createElementNS(SVG_NS, 'line');
+    const yy = norm2y(f);
+    line.setAttribute('x1', 0); line.setAttribute('x2', svgW);
+    line.setAttribute('y1', yy); line.setAttribute('y2', yy);
+    line.setAttribute('stroke', '#1e3048'); line.setAttribute('stroke-width', '0.5');
+    svg.appendChild(line);
+  });
+
+  // ── Grid: vertical separators ──
+  for (let i = 1; i < n; i++) {
+    const vl = document.createElementNS(SVG_NS, 'line');
+    const xx = colW * i;
+    vl.setAttribute('x1', xx); vl.setAttribute('x2', xx);
+    vl.setAttribute('y1', PAD_TOP); vl.setAttribute('y2', H - PAD_BOT);
+    vl.setAttribute('stroke', '#1e3048'); vl.setAttribute('stroke-width', '0.5');
+    svg.appendChild(vl);
+  }
+
+  // ── Zero line ──
+  if (cfg.zeroLine) {
+    const zl = document.createElementNS(SVG_NS, 'line');
+    const yy = norm2y(0.5);
+    zl.setAttribute('x1', 0); zl.setAttribute('x2', svgW);
+    zl.setAttribute('y1', yy); zl.setAttribute('y2', yy);
+    zl.setAttribute('stroke', '#2a3a50'); zl.setAttribute('stroke-width', '1.5');
+    svg.appendChild(zl);
+  }
+
+  // ── Limit lines ──
+  cfg.limits.forEach(lim => {
+    const ll = document.createElementNS(SVG_NS, 'line');
+    const yy = norm2y(lim.y);
+    ll.setAttribute('x1', 0); ll.setAttribute('x2', svgW);
+    ll.setAttribute('y1', yy); ll.setAttribute('y2', yy);
+    ll.setAttribute('stroke', lim.color);
+    ll.setAttribute('stroke-width', '1.2');
+    ll.setAttribute('stroke-dasharray', '6,4');
+    svg.appendChild(ll);
+  });
+
+  // ── Area fill ──
+  const pts = cfg.data.map((v, i) => `${x(i)},${norm2y(v)}`).join(' ');
+  const firstX = x(0), lastX = x(n - 1);
+  const botY = H - PAD_BOT;
+  const area = document.createElementNS(SVG_NS, 'polygon');
+  area.setAttribute('points', `${firstX},${norm2y(cfg.data[0])} ${pts.split(' ').slice(1).join(' ')} ${lastX},${botY} ${firstX},${botY}`);
+  area.setAttribute('fill', `url(#${gid})`);
+  svg.appendChild(area);
+
+  // ── Line ──
+  const polyline = document.createElementNS(SVG_NS, 'polyline');
+  polyline.setAttribute('points', pts);
+  polyline.setAttribute('fill', 'none');
+  polyline.setAttribute('stroke', cfg.lineColor);
+  polyline.setAttribute('stroke-width', '2.5');
+  polyline.setAttribute('stroke-linejoin', 'round');
+  polyline.setAttribute('stroke-linecap', 'round');
+  svg.appendChild(polyline);
+
+  // ── Points ──
+  cfg.data.forEach((v, i) => {
+    const isBad = cfg.badThreshold !== null && v <= cfg.badThreshold;
+    const isLast = i === n - 1;
+    const c = document.createElementNS(SVG_NS, 'circle');
+    c.setAttribute('cx', x(i));
+    c.setAttribute('cy', norm2y(v));
+    c.setAttribute('r', isLast ? '5' : '3.5');
+    c.setAttribute('fill', isBad ? '#fb7185' : cfg.lineColor);
+    if (isLast) {
+      c.setAttribute('stroke', '#080c10');
+      c.setAttribute('stroke-width', '2');
+    }
+    svg.appendChild(c);
+  });
+
+  // ── Date labels ──
+  cfg.dates.forEach((d, i) => {
+    const t = document.createElementNS(SVG_NS, 'text');
+    t.setAttribute('x', x(i));
+    t.setAttribute('y', H - 2);
+    t.setAttribute('text-anchor', 'middle');
+    t.setAttribute('fill', '#64748b');
+    t.setAttribute('font-size', '7');
+    t.setAttribute('font-family', 'monospace');
+    t.textContent = d;
+    svg.appendChild(t);
+  });
+
+  container.appendChild(svg);
+}
+
+// Build all charts after layout is ready
+function initCharts() {
+  CHARTS.forEach(buildChart);
+}
+
+// Wait for fonts + layout
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initCharts);
+} else {
+  requestAnimationFrame(initCharts);
+}
+
+// Rebuild on resize so charts always fit
+window.addEventListener('resize', () => {
+  CHARTS.forEach(cfg => {
+    const c = document.getElementById(cfg.scrollId);
+    if (c) c.innerHTML = '';
+  });
+  initCharts();
+});
+</script>
+
+</body>
+</html>

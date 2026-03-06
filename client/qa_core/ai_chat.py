@@ -14,7 +14,7 @@ client = openai.OpenAI(api_key=openai_api_key)
 
 # AI:n muisti - keskusteluhistoriaa varten
 conversation_history = [
-    {"role": "system", "content": "You are an expert in ultrasound quality control. You specialize in explaining numerical results from ultrasound images, particularly s_depth, u_cov, u_skew, and u_low. Your task is to provide professional explanations of these values, indicating whether they are good or bad and what they mean for image quality."}
+    {"role": "system", "content": "You are an expert in ultrasound quality control. You specialize in explaining numerical results from ultrasound images, particularly s_depth, u_cov, u_skew, and u_low. Your task is to provide professional explanations of these values, indicating whether they are good or bad and what they mean for image quality. Keep your answers concise — aim for 4 to 6 sentences."}
 ]
 
 def generate_response(user_input, lang='fi'):
@@ -30,7 +30,7 @@ def generate_response(user_input, lang='fi'):
     messages = [{"role": "system", "content": sys_content}] + conversation_history[1:]
 
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o",
         messages=messages,
         temperature=0.5,
         max_tokens=300,

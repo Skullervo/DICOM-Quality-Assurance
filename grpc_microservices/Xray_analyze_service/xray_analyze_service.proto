@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package xray_analyze_service;
+
+// Yksittäisen sarjan analyysi
+message AnalyzeRequest {
+  string series_id = 1;
+}
+
+// Kaikkien sarjojen analyysi
+message AnalyzeAllRequest {}
+
+// Vastaus analyysille
+message AnalyzeResponse {
+  string message = 1;
+  string series_id = 2;
+}
+
+// gRPC-palvelun määrittely
+service XrayAnalyzeService {
+  rpc AnalyzeDicomData (AnalyzeRequest) returns (AnalyzeResponse);
+  rpc AnalyzeAllDicomData (AnalyzeAllRequest) returns (AnalyzeResponse);
+}

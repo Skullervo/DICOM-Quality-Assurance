@@ -4,23 +4,26 @@ import fetch_service_pb2
 import fetch_service_pb2_grpc
 import requests
 import os
+import logging
 
-#ORTHANC_URL = os.getenv("ORTHANC_URL", "http://localhost:8042") # virtuaaliympäristössä
-ORTHANC_URL = os.getenv("ORTHANC_URL", "http://host.docker.internal:8042") # kontissa
+ORTHANC_URL = os.getenv("ORTHANC_URL", "http://localhost:8042") # virtuaaliympäristössä
+#ORTHANC_URL = os.getenv("ORTHANC_URL", "http://host.docker.internal:8042") # kontissa
+
+logger = logging.getLogger(__name__)
 
 
 class FetchService(fetch_service_pb2_grpc.FetchServiceServicer):
     def FetchDicomData(self, request, context):
-        print(f"🔍 Fetching DICOM file for instance ID: {request.instance_id}")
+        logger.info("🔍 Fetching DICOM file for instance ID: %s", request.instance_id)
 
         response = requests.get(f"{ORTHANC_URL}/instances/{request.instance_id}/file")
         if response.status_code != 200:
-            print(f"❌ Error: Instance {request.instance_id} not found in Orthanc!")
+            logger.error("❌ Error: Instance %s not found in Orthanc!", request.instance_id)
             context.set_code(grpc.StatusCode.NOT_FOUND)
             context.set_details(f"Failed to fetch DICOM file for instance {request.instance_id}")
             return fetch_service_pb2.FetchResponse()
 
-        print(f"✅ Successfully fetched DICOM file for {request.instance_id}")
+        logger.info("✅ Successfully fetched DICOM file for %s", request.instance_id)
         return fetch_service_pb2.FetchResponse(dicom_data=response.content)
 
 def serve():
@@ -34,10 +37,11 @@ def serve():
     fetch_service_pb2_grpc.add_FetchServiceServicer_to_server(FetchService(), server)
     server.add_insecure_port("[::]:50051")
     server.start()
-    print("🚀 Fetch Service running on port 50051")
+    logger.info("🚀 Fetch Service running on port 50051")
     server.wait_for_termination()
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
     serve()
 
