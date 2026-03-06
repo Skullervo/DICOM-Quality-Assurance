@@ -411,7 +411,7 @@ footer { display: none; }
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 10px;
+  padding: 10px 14px 10px 10px;
 }
 
 /* Each chart block */
@@ -460,34 +460,57 @@ footer { display: none; }
   border-radius: 0 0 6px 6px;
 }
 
+.chart-col {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.chart-xaxis {
+  overflow: hidden;
+  height: 18px;
+  flex-shrink: 0;
+}
+
 .chart-yaxis {
   width: 38px;
   flex-shrink: 0;
-  min-height: 150px;  /* matches SVG H=150 */
+  height: 150px;   /* korkeus vastaa chart-scroll-viewporttia */
   background: var(--surface);
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 12px 5px 18px;  /* matches PAD_TOP / PAD_BOT */
   z-index: 3;
+  position: relative;
+  overflow: hidden;
 }
 
 .yax {
   font-family: 'JetBrains Mono', monospace;
   font-size: 8px;
   color: var(--muted);
-  text-align: right;
   line-height: 1;
+  position: absolute;
+  right: 4px;
+  transform: translateY(-50%);
+  white-space: nowrap;
 }
 
 .chart-scroll {
   flex: 1;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: auto;   /* pystyscrollbar SVG:n zoom-korkudelle */
   min-width: 0;
-  min-height: 150px;  /* matches SVG H=150 */
+  height: 150px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface2);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
+
+/* Pystyskrollbar 4px; vaakaskrollbar 4px (näkyy vain kun JS asettaa overflow-x:auto) */
+.chart-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
+.chart-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.chart-scroll::-webkit-scrollbar-track { background: transparent; }
 
 .chart-scroll svg {
   display: block;
@@ -712,7 +735,6 @@ footer { display: none; }
 .left-scroll,
 .charts-stack,
 .ai-messages,
-.chart-scroll,
 .chart-wrap {
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;

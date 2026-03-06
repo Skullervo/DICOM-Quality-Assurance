@@ -1,60 +1,56 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <!-- Required meta tags -->
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+{% extends "base.html" %}
+{% load static i18n %}
 
-    <!-- Custom CSS -->
-    {% load static %}
-    <link rel="stylesheet" href="{% static 'css/stylesUnitDetails.css' %}">
+{% block title %}{{ unit_name }} - {% trans "Laitteet" %}{% endblock %}
 
-    <title>LV-automaatti</title>
-  </head>
-  <body>
-    <header>
-      <!-- Fixed navbar -->
-      <nav class="navbar">
-        <h3 class="navbar-brand">LV-automaatti</h3>
-        <div class="nav-links">
-          <a class="nav-link" href="#">Aloitus</a>
-          <a class="nav-link" href="#">Tiedoa</a>
-          <a class="nav-link" href="#">Yhteystiedot</a>
-        </div>
-      </nav>
-    </header>
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/stylesUnitDetails.css' %}">
+{% endblock %}
 
-    <main>
-      <section class="text-center container">
-        <div>
-          <h1>{{ unit_name }} - Laitteet</h1>
-          <p class="lead text-muted">Tutustu osaston {{ unit_name }} ultraäänilaitteen laadunvalvontatuloksiin klikkaamalla taulukosta laitteen nimeä.</p>
-        </div>
-      </section>
+{% block nav_active_modalities %}active{% endblock %}
 
-      <div class="album">
-        <div class="container">
-          <table>
-            <thead>
-              <tr>
-                <th>Station Name</th>
-                <th>Manufacturer</th>
-                <th>Modality</th>
-              </tr>
-            </thead>
-            <tbody>
-              <!-- Loop through unit details and create a row for each one -->
-              {% for detail in unit_details %}
-              <tr>
-                <td><a href="{% url 'device_details_view' detail.stationname %}">{{ detail.stationname }}</a></td>
-                <td>{{ detail.manufacturer }}</td>
-                <td>{{ detail.modality }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </main>
-  </body>
-</html>
+{% block breadcrumb %}
+<nav class="breadcrumb">
+  <a href="{% url 'index' %}">{% trans "Aloitus" %}</a>
+  <span class="separator">/</span>
+  <a href="{% url 'modaliteetit' %}">{% trans "Modaliteetit" %}</a>
+  <span class="separator">/</span>
+  <a href="{% url 'institutions' %}">{% trans "Instituutiot" %}</a>
+  <span class="separator">/</span>
+  <a href="{% url 'units' %}">{% trans "Osastot" %}</a>
+  <span class="separator">/</span>
+  <span class="current">{{ unit_name }}</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{% blocktrans with name=unit_name %}{{ name }} — Laitteet{% endblocktrans %}</h1>
+  <p>{% blocktrans with name=unit_name %}Tutustu osaston {{ name }} ultraäänilaitteen laadunvalvontatuloksiin klikkaamalla taulukosta laitteen nimeä.{% endblocktrans %}</p>
+</div>
+
+<div class="table-container">
+  <table class="modern-table">
+    <thead>
+      <tr>
+        <th>{% trans "Laite" %}</th>
+        <th>{% trans "Valmistaja" %}</th>
+        <th class="hide-mobile">{% trans "Modaliteetti" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for detail in unit_details %}
+      <tr>
+        <td>
+          <a href="{% url 'device_details_view' detail.stationname %}">
+            {{ detail.stationname }}
+          </a>
+        </td>
+        <td>{{ detail.manufacturer }}</td>
+        <td class="hide-mobile">{{ detail.modality }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

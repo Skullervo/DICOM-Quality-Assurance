@@ -8,6 +8,11 @@ import pydicom
 from LUT_table_codes import extract_parameters
 import pandas as pd
 import xlrd
+import logging
+logger = logging.getLogger(__name__)
+if not logging.getLogger().hasHandlers():
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+
 
 
 def dir_path(string):
@@ -34,7 +39,7 @@ def checkIfInLut(excel_file, dict_to_read):
             
             #print("Cell cordinate is Y= " + str(y) + ", X= " + str(x) + " and cell value is = " + str(sheet.cell_value(y, x)))
             if str(sheet.cell_value(y, x)) == str(dict_to_read["Phys_delta_X"])[1:-1] or str(sheet.cell_value(y, x)) == str(dict_to_read["Phys_delta_Y"])[1:-1]:
-                print("Transducer delta value " + str(dict_to_read["Phys_delta_X"])[1:-1] + " is already in probe-LUT")
+                logger.info("Transducer delta value %s is already in probe-LUT", str(dict_to_read["Phys_delta_X"])[1:-1])
                 isInLut = True
                 break
             
@@ -44,7 +49,7 @@ def checkIfInLut(excel_file, dict_to_read):
     return isInLut
 
 def AddToLUT(dicomPath):
-    print("AddToLUT entered")
+    logger.info("AddToLUT entered")
     #Parser:    
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      description='Lisataan probe-LUT - taulukkoon antureita')
@@ -86,4 +91,4 @@ def AddToLUT(dicomPath):
         df_total = pd.concat(frames)        
         df_total.to_excel(excel_writer)
         
-    print("Reached end of AddToLUT")
+    logger.info("Reached end of AddToLUT")
