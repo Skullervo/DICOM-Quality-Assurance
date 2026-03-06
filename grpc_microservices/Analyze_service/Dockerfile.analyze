@@ -8,8 +8,8 @@ RUN apt-get update && apt-get install -y \
     protobuf-compiler
 
 # Kopioidaan requirements.txt ja asennetaan riippuvuudet
-COPY ../requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements_service.txt .
+RUN pip install --no-cache-dir -r requirements_service.txt
 
 # Kopioidaan analyysipalvelun koodi ja muut tarvittavat tiedostot
 COPY analyze_service.py analyze_service.proto test_analyze_service.py fetch_service.proto US_IQ_analysis3.py LUT_table_codes.py LUT_taulukko_lisaa.py probe-LUT.xls .

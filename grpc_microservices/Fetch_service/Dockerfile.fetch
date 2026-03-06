@@ -5,8 +5,8 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y protobuf-compiler
 
 # Kopioidaan requirements.txt ja asennetaan riippuvuudet
-COPY ../requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements_service.txt .
+RUN pip install --no-cache-dir -r requirements_service.txt
 
 # Kopioidaan Fetch Service -koodi ja .proto-tiedosto
 COPY fetch_service.py fetch_service.proto .

@@ -1,0 +1,164 @@
+services:
+
+  # ─── Infrastruktuuri ────────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:16
+    container_name: autoqad-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DATABASE_USER:-postgres}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME:-QA-results}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - autoqad-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  orthanc:
+    image: jodogne/orthanc-python
+    container_name: autoqad-orthanc
+    restart: unless-stopped
+    ports:
+      - "4242:4242"   # DICOM C-STORE
+      - "8042:8042"   # Orthanc REST API / web UI
+    volumes:
+      - orthanc_data:/var/lib/orthanc/db
+    networks:
+      - autoqad-net
+
+  # ─── Mikropalvelut (gRPC) ───────────────────────────────────────────────────
+
+  fetch-service:
+    build:
+      context: ./grpc_microservices/Fetch_service
+      dockerfile: Dockerfile.fetch
+    container_name: autoqad-fetch
+    restart: unless-stopped
+    ports:
+      - "50051:50051"
+    environment:
+      ORTHANC_URL: http://orthanc:8042
+      ORTHANC_USERNAME: ${ORTHANC_USERNAME:-admin}
+      ORTHANC_PASSWORD: ${ORTHANC_PASSWORD}
+    depends_on:
+      - orthanc
+      - postgres
+    networks:
+      - autoqad-net
+
+  us-analyze-service:
+    build:
+      context: ./grpc_microservices/Analyze_service
+      dockerfile: Dockerfile.analyze
+    container_name: autoqad-us-analyze
+    restart: unless-stopped
+    ports:
+      - "50052:50052"
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: "5432"
+      DATABASE_NAME: ${DATABASE_NAME:-QA-results}
+      DATABASE_USER: ${DATABASE_USER:-postgres}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      ORTHANC_URL: http://orthanc:8042
+      ORTHANC_USERNAME: ${ORTHANC_USERNAME:-admin}
+      ORTHANC_PASSWORD: ${ORTHANC_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - autoqad-net
+
+  xr-analyze-service:
+    build:
+      context: ./grpc_microservices/Xray_analyze_service
+      dockerfile: Dockerfile
+    container_name: autoqad-xr-analyze
+    restart: unless-stopped
+    ports:
+      - "50053:50053"
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: "5432"
+      DATABASE_NAME: ${DATABASE_NAME:-QA-results}
+      DATABASE_USER: ${DATABASE_USER:-postgres}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      ORTHANC_URL: http://orthanc:8042
+      ORTHANC_USERNAME: ${ORTHANC_USERNAME:-admin}
+      ORTHANC_PASSWORD: ${ORTHANC_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - autoqad-net
+
+  ct-analyze-service:
+    build:
+      context: ./grpc_microservices/CT_analyze_service
+      dockerfile: Dockerfile
+    container_name: autoqad-ct-analyze
+    restart: unless-stopped
+    ports:
+      - "50054:50054"
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: "5432"
+      DATABASE_NAME: ${DATABASE_NAME:-QA-results}
+      DATABASE_USER: ${DATABASE_USER:-postgres}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      ORTHANC_URL: http://orthanc:8042
+      ORTHANC_USERNAME: ${ORTHANC_USERNAME:-admin}
+      ORTHANC_PASSWORD: ${ORTHANC_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - autoqad-net
+
+  # ─── Django-verkkosovellus ──────────────────────────────────────────────────
+  # GPT-4o (OpenAI) ja Slack toimivat env-muuttujina tässä palvelussa
+  # erillistä konttia ei tarvita
+
+  django-web:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: autoqad-django
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DJANGO_ENV: ${DJANGO_ENV:-prod}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      DATABASE_HOST: postgres
+      DATABASE_PORT: "5432"
+      DATABASE_NAME: ${DATABASE_NAME:-QA-results}
+      DATABASE_USER: ${DATABASE_USER:-postgres}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      ORTHANC_URL: http://orthanc:8042
+      ORTHANC_USERNAME: ${ORTHANC_USERNAME:-admin}
+      ORTHANC_PASSWORD: ${ORTHANC_PASSWORD}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}       # GPT-4o
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL} # Slack-ilmoitukset
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - autoqad-net
+
+networks:
+  autoqad-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  orthanc_data:
