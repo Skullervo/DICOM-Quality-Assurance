@@ -1,0 +1,6 @@
+grpcio==1.70.0
+grpcio-tools==1.70.0
+protobuf==5.29.3
+pydicom>=2.4.4
+requests==2.32.3
+python-dotenv==1.2.1
