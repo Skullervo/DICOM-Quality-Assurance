@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}Platform — AutoQAD{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/stylesPlatform.css' %}">
+{% endblock %}
+
+{% block breadcrumb %}
+<nav class="breadcrumb">
+  <a href="{% url 'index' %}">Aloitus</a>
+  <span class="separator">/</span>
+  <span class="current">Platform</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Platform — Palveluhallinta</h1>
+  <p>AutoQAD-mikropalveluiden tila ja hallinta</p>
+</div>
+
+<!-- Yhteenveto -->
+<div class="platform-summary">
+  <div class="summary-card">
+    <span class="summary-number">{{ running_count }}</span>
+    <span class="summary-label">Käynnissä</span>
+  </div>
+  <div class="summary-card">
+    <span class="summary-number">{{ total_count|add:"-"|add:running_count|stringformat:"d" }}</span>
+    <span class="summary-label">Pysäytetty</span>
+  </div>
+  <div class="summary-card">
+    <span class="summary-number">{{ total_count }}</span>
+    <span class="summary-label">Palvelua yhteensä</span>
+  </div>
+  <button class="refresh-btn" onclick="refreshStatus()">&#8635; Päivitä</button>
+</div>
+
+<!-- Infrastruktuuri -->
+<section class="service-section">
+  <h2>Infrastruktuuri</h2>
+  <div class="service-grid" id="grid-infrastructure">
+    {% for svc in services %}{% if svc.category == 'infrastructure' %}
+    <div class="service-card {% if svc.running %}running{% else %}stopped{% endif %}" data-service="{{ svc.name }}">
+      <div class="service-status-dot"></div>
+      <div class="service-info">
+        <h3>{{ svc.name }}</h3>
+        <p>{{ svc.description }}</p>
+        <span class="service-port">:{{ svc.port }}</span>
+      </div>
+      <div class="service-badge">{{ svc.status_label }}</div>
+    </div>
+    {% endif %}{% endfor %}
+  </div>
+</section>
+
+<!-- Mikropalvelut -->
+<section class="service-section">
+  <h2>Analyysipalvelut (gRPC)</h2>
+  <div class="service-grid" id="grid-microservice">
+    {% for svc in services %}{% if svc.category == 'microservice' %}
+    <div class="service-card {% if svc.running %}running{% else %}stopped{% endif %}" data-service="{{ svc.name }}">
+      <div class="service-status-dot"></div>
+      <div class="service-info">
+        <h3>{{ svc.name }}</h3>
+        <p>{{ svc.description }}</p>
+        <span class="service-port">:{{ svc.port }}</span>
+      </div>
+      <div class="service-badge">{{ svc.status_label }}</div>
+    </div>
+    {% endif %}{% endfor %}
+  </div>
+</section>
+
+<!-- Platform-työkalut -->
+<section class="service-section">
+  <h2>Platform-työkalut</h2>
+  <div class="service-grid">
+    {% for svc in services %}{% if svc.category == 'platform' or svc.category == 'monitoring' %}
+    <div class="service-card {% if svc.running %}running{% else %}stopped{% endif %}" data-service="{{ svc.name }}">
+      <div class="service-status-dot"></div>
+      <div class="service-info">
+        <h3>{{ svc.name }}</h3>
+        <p>{{ svc.description }}</p>
+        <span class="service-port">:{{ svc.port }}</span>
+      </div>
+      <div class="service-actions">
+        {% if svc.url and svc.running %}
+        <a href="{{ svc.url }}" target="_blank" class="open-btn">Avaa &#8599;</a>
+        {% endif %}
+        <div class="service-badge">{{ svc.status_label }}</div>
+      </div>
+    </div>
+    {% endif %}{% endfor %}
+  </div>
+</section>
+
+<!-- Docker-kontit -->
+{% if containers %}
+<section class="service-section">
+  <h2>Docker-kontit (WSL)</h2>
+  <div class="table-container">
+    <table class="modern-table">
+      <thead>
+        <tr>
+          <th>Nimi</th>
+          <th>Image</th>
+          <th>Tila</th>
+          <th>Portit</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in containers %}
+        <tr>
+          <td>{{ c.Names }}</td>
+          <td><code>{{ c.Image }}</code></td>
+          <td><span class="status-running">&#9679; {{ c.Status }}</span></td>
+          <td><code>{{ c.Ports }}</code></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function refreshStatus() {
+  fetch("{% url 'platform:api_status' %}")
+    .then(r => r.json())
+    .then(data => {
+      Object.entries(data.services).forEach(([name, info]) => {
+        var card = document.querySelector('[data-service="' + name + '"]');
+        if (!card) return;
+        card.classList.toggle('running', info.running);
+        card.classList.toggle('stopped', !info.running);
+        var badge = card.querySelector('.service-badge');
+        if (badge) badge.textContent = info.running ? 'Käynnissä' : 'Pysäytetty';
+      });
+    });
+}
+
+// Automaattinen päivitys 30 sekunnin välein
+setInterval(refreshStatus, 30000);
+</script>
+{% endblock %}

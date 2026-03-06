@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: django-web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: django-web
+  template:
+    metadata:
+      labels:
+        app: django-web
+    spec:
+      containers:
+      - name: django-web
+        image: skullervo/django-web:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DJANGO_ENV
+          value: "prod"
+        - name: DJANGO_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-credentials
+              key: DJANGO_SECRET_KEY
+        - name: DJANGO_ALLOWED_HOSTS
+          valueFrom:
+            secretKeyRef:
+              name: app-credentials
+              key: DJANGO_ALLOWED_HOSTS
+        - name: DATABASE_HOST
+          value: "postgres"
+        - name: DATABASE_PORT
+          value: "5432"
+        - name: DATABASE_NAME
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: POSTGRES_DB
+        - name: DATABASE_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: POSTGRES_USER
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: POSTGRES_PASSWORD
+        - name: ORTHANC_URL
+          value: "http://orthanc:8042"
+        - name: ORTHANC_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: app-credentials
+              key: ORTHANC_USERNAME
+        - name: ORTHANC_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-credentials
+              key: ORTHANC_PASSWORD
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-credentials
+              key: OPENAI_API_KEY
+        - name: SLACK_WEBHOOK_URL
+          valueFrom:
+            secretKeyRef:
+              name: app-credentials
+              key: SLACK_WEBHOOK_URL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: django-web
+spec:
+  type: ClusterIP
+  selector:
+    app: django-web
+  ports:
+    - port: 8000
+      targetPort: 8000

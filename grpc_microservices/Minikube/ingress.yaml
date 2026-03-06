@@ -1,0 +1,41 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: autoqad-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+spec:
+  ingressClassName: nginx
+  # TLS-sertifikaatti (Let's Encrypt cert-manager tai manuaalinen)
+  # Poista kommentit kun TLS-sertifikaatti on käytössä:
+  # tls:
+  # - hosts:
+  #   - autoqad.example.fi
+  #   secretName: autoqad-tls
+  rules:
+  - host: autoqad.example.fi  # Vaihda oikeaan cPouta-domainiin
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: django-web
+            port:
+              number: 8000
+---
+# app-credentials Secret — täytä arvot ennen käyttöä
+# Luo: kubectl apply -f app-secret.yaml (älä versionhallintaan salasanoja!)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-credentials
+type: Opaque
+stringData:
+  DJANGO_SECRET_KEY: "CHANGE_ME_generate_with_python_secrets"
+  DJANGO_ALLOWED_HOSTS: "autoqad.example.fi,localhost"
+  ORTHANC_USERNAME: "admin"
+  ORTHANC_PASSWORD: "CHANGE_ME"
+  OPENAI_API_KEY: "CHANGE_ME"
+  SLACK_WEBHOOK_URL: "CHANGE_ME"
