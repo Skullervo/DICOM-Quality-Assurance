@@ -9,7 +9,7 @@ COPY requirements_service.txt .
 RUN pip install --no-cache-dir -r requirements_service.txt
 
 # Kopioidaan Fetch Service -koodi ja .proto-tiedosto
-COPY fetch_service.py fetch_service.proto .
+COPY fetch_service.py fetch_service.proto ./
 
 # 🔹 Generoidaan gRPC Python -tiedostot
 RUN python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. fetch_service.proto
