@@ -240,15 +240,15 @@ def s_depth_api(request, instance):
 
 
 def get_s_depth(request, stationname):
-    data = list(Ultrasound.objects.filter(stationname=stationname).values('s_depth', 'instance', 'seriesdate'))
+    data = list(Ultrasound.objects.filter(stationname=stationname).order_by('-id').values('s_depth', 'instance', 'seriesdate'))
     return JsonResponse(data, safe=False)
 
 def get_u_cov(request, stationname):
-    data = list(Ultrasound.objects.filter(stationname=stationname).values('u_cov', 'instance', 'seriesdate'))
+    data = list(Ultrasound.objects.filter(stationname=stationname).order_by('-id').values('u_cov', 'instance', 'seriesdate'))
     return JsonResponse(data, safe=False)
 
 def get_u_skew(request, stationname):
-    data = list(Ultrasound.objects.filter(stationname=stationname).values('u_skew', 'instance', 'seriesdate'))
+    data = list(Ultrasound.objects.filter(stationname=stationname).order_by('-id').values('u_skew', 'instance', 'seriesdate'))
     return JsonResponse(data, safe=False)
 
 # RÖNTGEN API-ENDPOINTIT
@@ -738,56 +738,19 @@ def get_ct_analysis_image(request, instance_value, image_type):
 
 
 def device_details_view(request, stationname):
-    logger.debug(f"Fetching device details for stationname: {stationname}")  # Debug-tulostus
-    device = Ultrasound.objects.filter(stationname=stationname).first() #Hakee Ultrasound-olion tietokannasta
-    
-    if device:
-        try:
-            logger.debug(f"Device found: {device}")  # Debug-tulostus
-            logger.debug(f"Instance ID: {device.instance}")  # Debug-tulostus
-
-            # Lataa kuva paikalliselta Orthanc-palvelimelta
-            r = requests.get(
-                f'{orthanc_url}/instances/{device.instance}/file',
-                auth=(orthanc_username, orthanc_password)
-            )
-            r.raise_for_status()
-            dicom_file = BytesIO(r.content)
-
-            # Lue DICOM-tiedosto
-            dicom_data = pydicom.dcmread(dicom_file)
-
-            # Muunna DICOM-kuva numpy-taulukoksi
-            image_array = dicom_data.pixel_array
-
-            # Muunna numpy-taulukko PIL-kuvaksi
-            img = Image.fromarray(image_array)
-
-            # Muunna kuva base64-muotoon
-            buffered = BytesIO()
-            img.save(buffered, format="JPEG")
-            img_str = base64.b64encode(buffered.getvalue()).decode()
-            
-            image_height = image_array.shape[0]  # esim. 256 tai 512
-
-            #Luodaan context-sanakirja:
-            context = {
-                'device': device,
-                's_depth': device.s_depth,
-                'u_cov': device.u_cov,
-                'u_skew': device.u_skew,
-                'image': img_str,
-                'horiz_prof': json.dumps(device.horiz_prof if device.horiz_prof else []),
-                'vert_prof': json.dumps(device.vert_prof if device.vert_prof else []),
-                'image_height': image_height,
-            }
-            return render(request, 'deviceDetails.html', context) #Renderöi templateen
-        except Exception as e:
-            logger.debug(f"Error: {str(e)}")  # Debug-tulostus
-            return JsonResponse({'error': str(e)}, status=500)
-    else:
-        logger.debug("Device not found")  # Debug-tulostus
+    logger.debug(f"Fetching device details for stationname: {stationname}")
+    device = Ultrasound.objects.filter(stationname=stationname).first()
+    if not device:
         raise Http404("Device not found")
+    context = {
+        'device': device,
+        's_depth': device.s_depth,
+        'u_cov': device.u_cov,
+        'u_skew': device.u_skew,
+        'horiz_prof': json.dumps(device.horiz_prof if device.horiz_prof else []),
+        'vert_prof': json.dumps(device.vert_prof if device.vert_prof else []),
+    }
+    return render(request, 'deviceDetails.html', context)
 
 @login_required
 def device_poster_view(request, stationname):

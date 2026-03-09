@@ -22,5 +22,5 @@ RUN DJANGO_ENV=prod DJANGO_SECRET_KEY=build-time-placeholder \
 
 EXPOSE 8000
 
-# Gunicorn tuotantopalvelimena (4 workeria)
-CMD ["gunicorn", "autoqad.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "4"]
+# Gunicorn tuotantopalvelimena
+CMD ["gunicorn", "autoqad.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "120"]

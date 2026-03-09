@@ -1,0 +1,605 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{{ project.name }} — Builder{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/stylesPlatform.css' %}">
+<link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/editor/editor.main.css">{% endblock %}
+{% block nav_active_platform %}active{% endblock %}
+
+{% block breadcrumb %}
+<nav class="breadcrumb"><a href="{% url 'index' %}">Aloitus</a><span class="separator">/</span><a href="{% url 'platform:dashboard' %}">Platform</a><span class="separator">/</span><a href="{% url 'platform:project_list' %}">Projektit</a><span class="separator">/</span><span class="current">{{ project.name }}</span></nav>
+{% endblock %}
+
+{% block content %}
+<div class="platform-container">
+
+<div class="page-header" style="padding-top:0.5rem;margin-bottom:0.75rem;display:flex;align-items:center;gap:1rem">
+  <h1>{{ project.name }}</h1>
+  {% if project.description %}<span style="color:var(--text-secondary);font-size:0.85rem">{{ project.description }}</span>{% endif %}
+</div>
+
+<!-- Edit toolbar — always visible in builder -->
+<div class="edit-toolbar">
+  <button class="ctrl-btn" onclick="addLayer()">+ Layer</button>
+  <button class="ctrl-btn" onclick="openAddServiceModal()">+ Palvelu</button>
+  <button class="ctrl-btn" onclick="openAddConnModal()">+ Yhteys</button>
+  <span class="edit-hint">Raahaa palveluita ja layereita | Tallentuu automaattisesti</span>
+  <button class="ctrl-btn stop" onclick="deleteProject()" style="margin-left:auto">Poista projekti</button>
+</div>
+
+<div class="arch-layout">
+  <!-- SVG Canvas -->
+  <div class="arch-container" id="arch-container">
+    <svg id="arch-svg" class="arch-svg" viewBox="0 0 {{ project.svg_width }} {{ project.svg_height }}" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="var(--text-secondary)" opacity="0.5"/></marker>
+        <marker id="arr-a" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="var(--accent-blue)" opacity="0.7"/></marker>
+        <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <g id="layers-group"></g>
+      <g id="connections-group"></g>
+      <g id="nodes-group"></g>
+    </svg>
+    <div class="arch-legend">
+      <div class="legend-item"><div class="legend-dot running"></div> Kaynnissa</div>
+      <div class="legend-item"><div class="legend-dot stopped"></div> Pysaytetty / Ei konttia</div>
+      <div class="legend-item"><svg width="30" height="10"><line x1="0" y1="5" x2="30" y2="5" stroke="var(--accent-blue)" stroke-width="1.5" stroke-dasharray="4,3"/></svg> gRPC</div>
+      <div class="legend-item"><svg width="30" height="10"><line x1="0" y1="5" x2="30" y2="5" stroke="var(--status-warn)" stroke-width="1.5"/></svg> REST/SQL</div>
+    </div>
+  </div>
+
+  <!-- Detail panel -->
+  <div class="detail-panel" id="detail-panel">
+    <div class="detail-empty" id="detail-empty">
+      <div class="detail-empty-icon">&#9776;</div>
+      <p>Klikkaa palvelua kaaviossa</p>
+    </div>
+    <div class="detail-content" id="detail-content" style="display:none">
+      <div class="detail-header">
+        <div class="detail-status-dot" id="dp-dot"></div>
+        <div class="detail-title-wrap"><h2 id="dp-name"></h2><span class="detail-id" id="dp-id"></span></div>
+        <button class="detail-close" onclick="closeDetail()">&times;</button>
+      </div>
+      <div class="detail-controls" id="dp-controls">
+        <button class="ctrl-btn" onclick="dpAction('restart')">&#8635; Restart</button>
+        <button class="ctrl-btn stop" id="dp-stop-btn" onclick="dpAction('stop')">&#9632; Stop</button>
+        <button class="ctrl-btn start" id="dp-start-btn" onclick="dpAction('start')">&#9654; Start</button>
+        <button class="ctrl-btn" onclick="dpDelete()" style="margin-left:auto;color:var(--status-fail)">&#128465; Poista</button>
+      </div>
+      <div class="detail-tabs">
+        <button class="dtab active" data-dtab="overview">Yleis</button>
+        <button class="dtab" data-dtab="network">Verkko</button>
+        <button class="dtab" data-dtab="env">Env</button>
+        <button class="dtab" data-dtab="dlogs">Logit</button>
+        <button class="dtab" data-dtab="files">Tiedostot</button>
+      </div>
+      <div class="dtab-content active" id="dtab-overview">
+        <div class="stats-bar" id="dp-stats" style="display:none">
+          <div class="stat-item"><span class="stat-label">CPU</span><div class="stat-bar"><div class="stat-fill" id="dp-cpu-fill"></div></div><span class="stat-val" id="dp-cpu-val">0%</span></div>
+          <div class="stat-item"><span class="stat-label">RAM</span><div class="stat-bar"><div class="stat-fill" id="dp-mem-fill"></div></div><span class="stat-val" id="dp-mem-val">0 MB</span></div>
+        </div>
+        <div class="detail-table" id="dp-overview-table"></div>
+      </div>
+      <div class="dtab-content" id="dtab-network"><div class="detail-table" id="dp-network-table"></div></div>
+      <div class="dtab-content" id="dtab-env"><div class="detail-table" id="dp-env-table"></div></div>
+      <div class="dtab-content" id="dtab-dlogs">
+        <div class="detail-log-controls"><select id="dp-log-tail" class="log-select-sm"><option value="50">50</option><option value="100" selected>100</option><option value="200">200</option></select><button class="ctrl-btn" onclick="dpLoadLogs()">&#8635;</button></div>
+        <pre class="detail-log-output" id="dp-log-output">Klikkaa paivita...</pre>
+      </div>
+      <div class="dtab-content" id="dtab-files">
+        <div class="file-browser">
+          <div class="file-tree-panel">
+            <div class="file-tree-header">
+              <span class="file-tree-path" id="ft-path">/app</span>
+              <button class="ctrl-btn" onclick="ftNavigate('/app')" title="Juureen">&#8962;</button>
+              <button class="ctrl-btn" onclick="ftUp()" title="Ylos">&#8593;</button>
+            </div>
+            <div class="file-tree" id="ft-tree"><div class="empty-msg">Ladataan...</div></div>
+          </div>
+          <div class="file-editor-panel">
+            <div class="file-editor-header" id="fe-header" style="display:none">
+              <span class="fe-filename" id="fe-filename"></span>
+              <span class="fe-size" id="fe-size"></span>
+              <span class="fe-modified" id="fe-modified" style="display:none">Muokattu</span>
+              <div class="fe-actions">
+                <button class="ctrl-btn start" id="fe-save-btn" onclick="feSave()" style="display:none">&#128190; Tallenna</button>
+                <button class="ctrl-btn" id="fe-discard-btn" onclick="feDiscard()" style="display:none">&#8635; Hylkaa</button>
+              </div>
+            </div>
+            <div class="file-editor-empty" id="fe-empty">
+              <div class="detail-empty-icon">&#128196;</div>
+              <p>Valitse tiedosto puusta</p>
+            </div>
+            <div id="monaco-editor" style="display:none;width:100%;height:100%;min-height:350px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<!-- Modaalit -->
+<div id="add-svc-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div class="modal-header"><h3>Lisaa palvelu</h3><button class="detail-close" onclick="closeModal('add-svc-modal')">&times;</button></div>
+    <div class="modal-body">
+      <label>Nimi *<input id="as-name" class="modal-input" placeholder="My Service"></label>
+      <label>Kuvaus<input id="as-desc" class="modal-input" placeholder="Lyhyt kuvaus"></label>
+      <label>Docker-kontti<input id="as-container" class="modal-input" placeholder="autoqad-myservice"></label>
+      <label>Docker host<input id="as-host" class="modal-input" placeholder="my-service"></label>
+      <div class="modal-row">
+        <label>Portti<input id="as-port" class="modal-input" type="number" value="0"></label>
+        <label>Host-portti<input id="as-hport" class="modal-input" type="number" value="0"></label>
+      </div>
+      <div class="modal-row">
+        <label>Kategoria<select id="as-cat" class="modal-input">{% for val, txt in category_choices %}<option value="{{ val }}">{{ txt }}</option>{% endfor %}</select></label>
+        <label>Layer<select id="as-layer" class="modal-input">{% for l in project.layers.all %}<option value="{{ l.id }}">{{ l.label }}</option>{% endfor %}<option value="">Ei layeria</option></select></label>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="submitAddService()">Lisaa</button></div>
+  </div>
+</div>
+
+<div id="add-conn-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div class="modal-header"><h3>Lisaa yhteys</h3><button class="detail-close" onclick="closeModal('add-conn-modal')">&times;</button></div>
+    <div class="modal-body">
+      <label>Lahde<select id="ac-from" class="modal-input"></select></label>
+      <label>Kohde<select id="ac-to" class="modal-input"></select></label>
+      <label>Protokolla<select id="ac-proto" class="modal-input">{% for val, txt in protocol_choices %}<option value="{{ val }}">{{ txt }}</option>{% endfor %}</select></label>
+      <label>Label<input id="ac-label" class="modal-input" placeholder="Kuvaus"></label>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="submitAddConnection()">Lisaa</button></div>
+  </div>
+</div>
+
+<div id="add-layer-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div class="modal-header"><h3>Lisaa layer</h3><button class="detail-close" onclick="closeModal('add-layer-modal')">&times;</button></div>
+    <div class="modal-body">
+      <label>Otsikko *<input id="al-label" class="modal-input" placeholder="Esim. Data Processing"></label>
+      <label>Tekninen nimi<input id="al-name" class="modal-input" placeholder="processing"></label>
+      <label>Korkeus (px)<input id="al-height" class="modal-input" type="number" value="100"></label>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="submitAddLayer()">Lisaa</button></div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var PROJECT = {{ project_json|safe }};
+var LAYERS = {{ layers_json|safe }};
+var SERVICES = {{ services_json|safe }};
+var CONNECTIONS = {{ connections_json|safe }};
+var CSRF = '{{ csrf_token }}';
+var currentContainer = null;
+var currentServiceId = null;
+var dragTarget = null;
+var dragOffset = {x:0, y:0};
+var NW = 145, NH = 48;
+var positionsDirty = false;
+
+// ══ SVG HELPERS ═══════════════════════════════════════════════════════════════
+
+function mkSVG(tag, a) {
+  var el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (var k in a) el.setAttribute(k, a[k]);
+  return el;
+}
+
+// ══ DRAW ══════════════════════════════════════════════════════════════════════
+
+function drawArch() {
+  var lg = document.getElementById('layers-group');
+  var ng = document.getElementById('nodes-group');
+  var cg = document.getElementById('connections-group');
+  lg.innerHTML = ''; ng.innerHTML = ''; cg.innerHTML = '';
+
+  // Draw layers
+  LAYERS.forEach(function(l) {
+    lg.appendChild(mkSVG('rect', {
+      x: 20, y: l.y, width: PROJECT.svg_width - 40, height: l.h,
+      rx: 10, fill: l.color || 'var(--bg-card)', stroke: 'var(--border-color)', 'stroke-width': 1, opacity: 0.35,
+    }));
+    var txt = mkSVG('text', {
+      x: 36, y: l.y + 18, fill: 'var(--text-secondary)', 'font-size': 9, 'font-weight': 600, 'letter-spacing': '1',
+    });
+    txt.textContent = l.label.toUpperCase();
+    lg.appendChild(txt);
+
+    // Layer delete button
+    var del = mkSVG('text', {
+      x: PROJECT.svg_width - 35, y: l.y + 18, fill: 'var(--status-fail)',
+      'font-size': 11, cursor: 'pointer', opacity: 0.5, 'text-anchor': 'end',
+    });
+    del.textContent = '\u00D7';
+    del.addEventListener('click', function(e) { e.stopPropagation(); deleteLayer(l.id); });
+    lg.appendChild(del);
+  });
+
+  // No layers? Show hint
+  if (!LAYERS.length && !SERVICES.length) {
+    var hint = mkSVG('text', {
+      x: PROJECT.svg_width / 2, y: PROJECT.svg_height / 2,
+      'text-anchor': 'middle', fill: 'var(--text-secondary)', 'font-size': 14, opacity: 0.5,
+    });
+    hint.textContent = 'Lisaa layereita ja palveluita aloittaaksesi';
+    lg.appendChild(hint);
+  }
+
+  var sMap = {}; SERVICES.forEach(function(s) { sMap[s.name] = s; });
+
+  // Connections
+  CONNECTIONS.forEach(function(cn) {
+    var fs = sMap[cn.from], ts = sMap[cn.to];
+    if (!fs || !ts) return;
+    var active = fs.running && ts.running;
+    var x1 = fs.pos_x+NW/2, y1 = fs.pos_y+NH/2, x2 = ts.pos_x+NW/2, y2 = ts.pos_y+NH/2;
+    var dx = x2-x1, dy = y2-y1, d = Math.sqrt(dx*dx+dy*dy);
+    if (!d) return;
+    x1 += dx/d*NW/2; y1 += dy/d*NH/2; x2 -= dx/d*NW/2; y2 -= dy/d*NH/2;
+    var grpc = cn.protocol === 'gRPC';
+    var col = active ? (grpc ? 'var(--accent-blue)' : 'var(--status-warn)') : 'var(--border-color)';
+    var ln = mkSVG('line', {x1:x1,y1:y1,x2:x2,y2:y2,stroke:col,'stroke-width':active?1.5:1,opacity:active?.6:.25,'marker-end':active?'url(#arr-a)':'url(#arr)'});
+    if (grpc) ln.setAttribute('stroke-dasharray','5,4');
+    cg.appendChild(ln);
+
+    // Delete btn
+    var mx = (x1+x2)/2, my = (y1+y2)/2;
+    var cdel = mkSVG('text', {x:mx, y:my-6, 'text-anchor':'middle', fill:'var(--status-fail)', 'font-size':11, cursor:'pointer', opacity:0.5});
+    cdel.textContent = '\u00D7';
+    cdel.addEventListener('click', function(e) { e.stopPropagation(); deleteConnection(cn.id); });
+    cg.appendChild(cdel);
+
+    var lbl = mkSVG('text', {x:(x1+x2)/2, y:(y1+y2)/2+6, 'text-anchor':'middle', fill:col, 'font-size':8, opacity:active?.6:.3});
+    lbl.textContent = cn.protocol;
+    cg.appendChild(lbl);
+  });
+
+  // Nodes
+  SERVICES.forEach(function(s) {
+    var g = mkSVG('g', {'class':'arch-node','data-service':s.name,'data-container':s.container||''});
+    g.style.cursor = 'grab';
+    var sel = currentContainer && currentContainer === s.container;
+
+    g.appendChild(mkSVG('rect', {x:s.pos_x, y:s.pos_y, width:NW, height:NH, rx:8,
+      fill: sel ? 'var(--bg-card-hover)' : 'var(--bg-card)',
+      stroke: sel ? 'var(--accent-blue)' : (s.running ? 'var(--status-ok)' : 'var(--status-fail)'),
+      'stroke-width': sel ? 2.5 : 1.5}));
+
+    var dot = mkSVG('circle', {cx:s.pos_x+12, cy:s.pos_y+15, r:3.5, fill:s.running?'var(--status-ok)':'var(--status-fail)'});
+    if (s.running) dot.setAttribute('filter','url(#glow)');
+    g.appendChild(dot);
+
+    var txt = mkSVG('text', {x:s.pos_x+22, y:s.pos_y+18, fill:'var(--text-primary)', 'font-size':11, 'font-weight':600});
+    txt.textContent = s.name.length > 16 ? s.name.substring(0,14) + '..' : s.name;
+    g.appendChild(txt);
+
+    var port = mkSVG('text', {x:s.pos_x+12, y:s.pos_y+36, fill:'var(--accent-blue)', 'font-size':9, 'font-family':'monospace'});
+    port.textContent = s.host_port ? ':' + s.host_port : '';
+    g.appendChild(port);
+
+    g.appendChild(mkSVG('text', {x:s.pos_x+NW-8, y:s.pos_y+36, 'text-anchor':'end', fill:'var(--text-secondary)', 'font-size':7}));
+    g.lastChild.textContent = s.container ? 'docker' : '';
+
+    // Drag
+    g.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      dragTarget = s;
+      var svg = document.getElementById('arch-svg');
+      var pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+      var svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+      dragOffset.x = svgP.x - s.pos_x;
+      dragOffset.y = svgP.y - s.pos_y;
+      g.style.cursor = 'grabbing';
+    });
+
+    g.addEventListener('click', function(e) {
+      if (s.container) openDetail(s.container, s.name, s.id);
+    });
+
+    ng.appendChild(g);
+  });
+}
+
+// ══ DRAG ══════════════════════════════════════════════════════════════════════
+
+document.getElementById('arch-svg').addEventListener('mousemove', function(e) {
+  if (!dragTarget) return;
+  var svg = this, pt = svg.createSVGPoint();
+  pt.x = e.clientX; pt.y = e.clientY;
+  var p = pt.matrixTransform(svg.getScreenCTM().inverse());
+  dragTarget.pos_x = Math.max(20, Math.min(PROJECT.svg_width-NW, p.x - dragOffset.x));
+  dragTarget.pos_y = Math.max(8, Math.min(PROJECT.svg_height-NH, p.y - dragOffset.y));
+  positionsDirty = true;
+  drawArch();
+});
+
+document.addEventListener('mouseup', function() {
+  if (dragTarget) { dragTarget = null; if (positionsDirty) savePositions(); }
+});
+
+function savePositions() {
+  var pos = {};
+  SERVICES.forEach(function(s) { pos[s.name] = {x: Math.round(s.pos_x), y: Math.round(s.pos_y)}; });
+  fetch('/platform/api/project/'+PROJECT.id+'/positions/', {
+    method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+    body: JSON.stringify({positions: pos}),
+  }).then(function() { positionsDirty = false; });
+}
+
+// ══ DETAIL PANEL ══════════════════════════════════════════════════════════════
+
+function openDetail(container, name, svcId) {
+  currentContainer = container;
+  currentServiceId = svcId;
+  document.getElementById('detail-empty').style.display = 'none';
+  document.getElementById('detail-content').style.display = 'flex';
+  document.getElementById('dp-name').textContent = name;
+  document.getElementById('dp-id').textContent = container;
+  document.getElementById('dp-overview-table').innerHTML = '<div class="loading">Ladataan...</div>';
+  document.getElementById('dp-stats').style.display = 'none';
+  drawArch();
+
+  fetch('/platform/api/inspect/' + container + '/')
+    .then(function(r) { return r.json(); })
+    .then(function(d) { if (d.error) { document.getElementById('dp-overview-table').innerHTML = '<div class="err">'+d.error+'</div>'; return; } renderDetail(d); })
+    .catch(function(e) { document.getElementById('dp-overview-table').innerHTML = '<div class="err">'+e+'</div>'; });
+}
+
+function closeDetail() { currentContainer = null; currentServiceId = null; document.getElementById('detail-empty').style.display = 'flex'; document.getElementById('detail-content').style.display = 'none'; document.getElementById('detail-panel').classList.remove('files-active'); drawArch(); }
+
+function renderDetail(d) {
+  document.getElementById('dp-dot').className = 'detail-status-dot ' + (d.state.running ? 'running' : 'stopped');
+  document.getElementById('dp-id').textContent = d.id + ' | ' + (d.image.tags[0] || d.image.id);
+  document.getElementById('dp-stop-btn').style.display = d.state.running ? '' : 'none';
+  document.getElementById('dp-start-btn').style.display = d.state.running ? 'none' : '';
+
+  if (d.stats && d.stats.cpu_percent !== undefined) {
+    document.getElementById('dp-stats').style.display = 'flex';
+    document.getElementById('dp-cpu-val').textContent = d.stats.cpu_percent + '%';
+    document.getElementById('dp-cpu-fill').style.width = Math.min(d.stats.cpu_percent, 100) + '%';
+    document.getElementById('dp-mem-val').textContent = d.stats.memory_usage + ' / ' + d.stats.memory_limit;
+    document.getElementById('dp-mem-fill').style.width = Math.min(d.stats.memory_percent, 100) + '%';
+  }
+
+  var rows = [
+    ['Tila', '<span class="badge-'+(d.state.running?'ok':'fail')+'">'+d.state.status+'</span>'],
+    ['ID', '<code>'+d.id+'</code>'], ['Image', '<code>'+(d.image.tags[0]||d.image.id)+'</code>'],
+    ['Koko', d.image.size], ['PID', d.state.pid||'-'],
+    ['WorkDir', '<code>'+(d.config.working_dir||'/')+'</code>'],
+    ['Cmd', '<code>'+(d.config.cmd?d.config.cmd.join(' '):'-')+'</code>'],
+  ];
+  document.getElementById('dp-overview-table').innerHTML = mkTbl(rows);
+
+  var nr = [];
+  Object.keys(d.networks).forEach(function(n) { var i=d.networks[n]; nr.push(['<strong>'+n+'</strong>','']); nr.push(['IP','<code>'+i.ip+'</code>']); nr.push(['Gateway','<code>'+i.gateway+'</code>']); });
+  Object.keys(d.ports).forEach(function(p) { var b=d.ports[p]; nr.push([p, b.length ? b.map(function(x){return x.host_ip+':'+x.host_port}).join(', ') : '-']); });
+  document.getElementById('dp-network-table').innerHTML = mkTbl(nr);
+
+  var er = []; Object.keys(d.env).sort().forEach(function(k) { er.push(['<code>'+k+'</code>','<code>'+d.env[k]+'</code>']); });
+  document.getElementById('dp-env-table').innerHTML = mkTbl(er);
+}
+
+function mkTbl(rows) { var h='<table class="kv-table">'; rows.forEach(function(r){h+='<tr><td class="kv-key">'+r[0]+'</td><td class="kv-val">'+r[1]+'</td></tr>'}); return h+'</table>'; }
+
+// ══ ACTIONS ═══════════════════════════════════════════════════════════════════
+
+function dpAction(a) {
+  if (!currentContainer) return;
+  if (a==='stop' && !confirm('Pysaytetaanko '+currentContainer+'?')) return;
+  fetch('/platform/api/container/'+currentContainer+'/'+a+'/', {method:'POST',headers:{'X-CSRFToken':CSRF}})
+    .then(function(r){return r.json()}).then(function(d) { if(d.error){alert(d.error);return;} setTimeout(function(){openDetail(currentContainer,document.getElementById('dp-name').textContent,currentServiceId);},2000); });
+}
+
+function dpDelete() {
+  if (!currentServiceId) return;
+  if (!confirm('Poistetaanko palvelu projektista?')) return;
+  fetch('/platform/api/service/'+currentServiceId+'/delete/', {method:'POST',headers:{'X-CSRFToken':CSRF}})
+    .then(function(r){return r.json()}).then(function() { location.reload(); });
+}
+
+function dpLoadLogs() {
+  if (!currentContainer) return;
+  var out = document.getElementById('dp-log-output'); out.textContent = 'Ladataan...';
+  fetch('/platform/api/logs/'+currentContainer+'/?tail='+document.getElementById('dp-log-tail').value)
+    .then(function(r){return r.json()}).then(function(d){out.textContent=d.logs||d.error||'Ei logeja';out.scrollTop=out.scrollHeight;});
+}
+
+function deleteProject() {
+  if (!confirm('Poistetaanko projekti "'+PROJECT.name+'" ja kaikki sen palvelut?')) return;
+  fetch('/platform/api/project/'+PROJECT.id+'/delete/', {method:'POST',headers:{'X-CSRFToken':CSRF}})
+    .then(function(r){return r.json()}).then(function(d) { if(d.error){alert(d.error);return;} window.location.href='/platform/projects/'; });
+}
+
+// ══ LAYERS ════════════════════════════════════════════════════════════════════
+
+function addLayer() { document.getElementById('add-layer-modal').style.display = 'flex'; }
+
+function submitAddLayer() {
+  var label = document.getElementById('al-label').value.trim();
+  if (!label) { alert('Otsikko vaaditaan'); return; }
+  var name = document.getElementById('al-name').value.trim() || label.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+  fetch('/platform/api/project/'+PROJECT.id+'/layer/add/', {
+    method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+    body: JSON.stringify({label: label, name: name, height: document.getElementById('al-height').value}),
+  })
+  .then(function(r){return r.json()}).then(function(d) {
+    if(d.error){alert(d.error);return;}
+    LAYERS.push(d.layer);
+    closeModal('add-layer-modal');
+    drawArch();
+  });
+}
+
+function deleteLayer(id) {
+  if (!confirm('Poistetaanko layer?')) return;
+  fetch('/platform/api/layer/'+id+'/delete/', {method:'POST',headers:{'X-CSRFToken':CSRF}})
+    .then(function(r){return r.json()}).then(function(d) {
+      if(d.error){alert(d.error);return;}
+      LAYERS = LAYERS.filter(function(l){return l.id!==id});
+      drawArch();
+    });
+}
+
+// ══ ADD SERVICE / CONNECTION ══════════════════════════════════════════════════
+
+function openAddServiceModal() { document.getElementById('add-svc-modal').style.display = 'flex'; }
+function openAddConnModal() {
+  var sel1 = document.getElementById('ac-from'), sel2 = document.getElementById('ac-to');
+  sel1.innerHTML = ''; sel2.innerHTML = '';
+  SERVICES.forEach(function(s) { sel1.innerHTML += '<option value="'+s.id+'">'+s.name+'</option>'; sel2.innerHTML += '<option value="'+s.id+'">'+s.name+'</option>'; });
+  document.getElementById('add-conn-modal').style.display = 'flex';
+}
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+function submitAddService() {
+  var data = {
+    name: document.getElementById('as-name').value,
+    description: document.getElementById('as-desc').value,
+    container: document.getElementById('as-container').value,
+    host: document.getElementById('as-host').value,
+    port: document.getElementById('as-port').value,
+    host_port: document.getElementById('as-hport').value,
+    category: document.getElementById('as-cat').value,
+    layer_ref_id: document.getElementById('as-layer').value || null,
+  };
+  if (!data.name) { alert('Nimi vaaditaan'); return; }
+  fetch('/platform/api/project/'+PROJECT.id+'/service/add/', {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify(data)})
+    .then(function(r){return r.json()}).then(function(d) { if(d.error){alert(d.error);return;} location.reload(); });
+}
+
+function submitAddConnection() {
+  var data = {
+    from_id: document.getElementById('ac-from').value,
+    to_id: document.getElementById('ac-to').value,
+    protocol: document.getElementById('ac-proto').value,
+    label: document.getElementById('ac-label').value,
+  };
+  fetch('/platform/api/project/'+PROJECT.id+'/connection/add/', {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify(data)})
+    .then(function(r){return r.json()}).then(function(d) { if(d.error){alert(d.error);return;} location.reload(); });
+}
+
+function deleteConnection(connId) {
+  if (!confirm('Poistetaanko yhteys?')) return;
+  fetch('/platform/api/connection/'+connId+'/delete/', {method:'POST',headers:{'X-CSRFToken':CSRF}})
+    .then(function(r){return r.json()}).then(function() { location.reload(); });
+}
+
+// ══ TABS ══════════════════════════════════════════════════════════════════════
+
+document.querySelectorAll('.dtab').forEach(function(b) { b.addEventListener('click', function() {
+  document.querySelectorAll('.dtab').forEach(function(t){t.classList.remove('active')});
+  document.querySelectorAll('.dtab-content').forEach(function(t){t.classList.remove('active')});
+  b.classList.add('active'); document.getElementById('dtab-'+b.dataset.dtab).classList.add('active');
+  if (b.dataset.dtab === 'dlogs') dpLoadLogs();
+  var panel = document.getElementById('detail-panel');
+  if (b.dataset.dtab === 'files') { panel.classList.add('files-active'); if (currentContainer) ftNavigate(ftCurrentPath); }
+  else panel.classList.remove('files-active');
+}); });
+
+document.querySelectorAll('.modal-overlay').forEach(function(m) { m.addEventListener('click', function(e) { if(e.target===m) m.style.display='none'; }); });
+document.addEventListener('keydown', function(e) { if(e.key==='Escape'){closeDetail();document.querySelectorAll('.modal-overlay').forEach(function(m){m.style.display='none'});} });
+
+// ══ FILE BROWSER (reused from dashboard) ═════════════════════════════════════
+
+var ftCurrentPath = '/app';
+var monacoEditor = null, monacoReady = false, feCurrentFile = null, feOrigContent = '', feEditable = false;
+
+function loadMonaco(cb) {
+  if (monacoReady) { cb(); return; }
+  var s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js';
+  s.onload = function() {
+    require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' }});
+    require(['vs/editor/editor.main'], function() { monacoReady = true; cb(); });
+  };
+  document.head.appendChild(s);
+}
+
+function initMonaco() {
+  if (monacoEditor) return;
+  monacoEditor = monaco.editor.create(document.getElementById('monaco-editor'), {
+    value: '', language: 'plaintext', theme: 'vs-dark', readOnly: true,
+    minimap: {enabled:false}, fontSize: 12, scrollBeyondLastLine: false, wordWrap: 'on', automaticLayout: true,
+  });
+  monacoEditor.onDidChangeModelContent(function() {
+    if (!feCurrentFile) return;
+    var changed = monacoEditor.getValue() !== feOrigContent;
+    document.getElementById('fe-modified').style.display = changed ? '' : 'none';
+    document.getElementById('fe-save-btn').style.display = (changed && feEditable) ? '' : 'none';
+    document.getElementById('fe-discard-btn').style.display = changed ? '' : 'none';
+  });
+}
+
+function ftNavigate(path) {
+  if (!currentContainer) return;
+  ftCurrentPath = path;
+  document.getElementById('ft-path').textContent = path;
+  document.getElementById('ft-tree').innerHTML = '<div class="loading">Ladataan...</div>';
+  fetch('/platform/api/files/'+currentContainer+'/tree/?path='+encodeURIComponent(path))
+    .then(function(r){return r.json()}).then(function(d) {
+      if (d.error) { document.getElementById('ft-tree').innerHTML='<div class="err">'+d.error+'</div>'; return; }
+      feEditable = d.editable; renderTree(d.items);
+    }).catch(function(e) { document.getElementById('ft-tree').innerHTML='<div class="err">'+e+'</div>'; });
+}
+function ftUp() { var p=ftCurrentPath.split('/').filter(Boolean); if(p.length<=1){ftNavigate('/');return;} p.pop(); ftNavigate('/'+p.join('/')); }
+
+function renderTree(items) {
+  var tree = document.getElementById('ft-tree');
+  if (!items.length) { tree.innerHTML = '<div class="empty-msg">Tyhja</div>'; return; }
+  var h = '';
+  items.forEach(function(i) {
+    h += '<div class="ft-item ft-'+i.type+'" data-path="'+escHtml(i.path)+'" data-type="'+i.type+'">';
+    h += '<span class="ft-icon">'+(i.type==='dir'?'&#128193;':'&#128196;')+'</span>';
+    h += '<span class="ft-name">'+escHtml(i.name)+'</span>';
+    if (i.type==='file') h += '<span class="ft-size">'+fmtSize(i.size)+'</span>';
+    h += '</div>';
+  });
+  tree.innerHTML = h;
+  tree.querySelectorAll('.ft-item').forEach(function(el) {
+    el.addEventListener('click', function() { if(el.dataset.type==='dir') ftNavigate(el.dataset.path); else feOpen(el.dataset.path); });
+  });
+}
+
+function feOpen(path) {
+  if (!currentContainer) return;
+  document.getElementById('fe-empty').style.display='none';
+  document.getElementById('monaco-editor').style.display='block';
+  document.getElementById('fe-header').style.display='flex';
+  document.getElementById('fe-filename').textContent=path.split('/').pop();
+  document.getElementById('fe-size').textContent='...';
+  document.getElementById('fe-modified').style.display='none';
+  document.getElementById('fe-save-btn').style.display='none';
+  document.getElementById('fe-discard-btn').style.display='none';
+  loadMonaco(function() {
+    initMonaco();
+    fetch('/platform/api/files/'+currentContainer+'/read/?path='+encodeURIComponent(path))
+      .then(function(r){return r.json()}).then(function(d) {
+        if(d.error){alert(d.error);return;}
+        feCurrentFile=path; feOrigContent=d.content; feEditable=d.editable;
+        document.getElementById('fe-size').textContent=fmtSize(d.size);
+        monaco.editor.setModelLanguage(monacoEditor.getModel(),d.language||'plaintext');
+        monacoEditor.setValue(d.content); monacoEditor.updateOptions({readOnly:!d.editable}); monacoEditor.revealLine(1);
+      });
+  });
+}
+function feSave() {
+  if(!currentContainer||!feCurrentFile||!feEditable)return;
+  var c=monacoEditor.getValue();
+  fetch('/platform/api/files/'+currentContainer+'/write/',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify({path:feCurrentFile,content:c})})
+    .then(function(r){return r.json()}).then(function(d){if(d.error){alert(d.error);return;} feOrigContent=c;document.getElementById('fe-modified').style.display='none';document.getElementById('fe-save-btn').style.display='none';document.getElementById('fe-discard-btn').style.display='none';document.getElementById('fe-size').textContent=fmtSize(d.size);});
+}
+function feDiscard() { if(!monacoEditor)return; monacoEditor.setValue(feOrigContent);document.getElementById('fe-modified').style.display='none';document.getElementById('fe-save-btn').style.display='none';document.getElementById('fe-discard-btn').style.display='none'; }
+function fmtSize(b) { if(b<1024)return b+' B'; if(b<1048576)return(b/1024).toFixed(1)+' KB'; return(b/1048576).toFixed(1)+' MB'; }
+function escHtml(s) { var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+// ══ INIT ══════════════════════════════════════════════════════════════════════
+
+drawArch();
+</script>
+{% endblock %}

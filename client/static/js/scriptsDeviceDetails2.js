@@ -638,7 +638,43 @@ document.addEventListener('DOMContentLoaded', function () {
       updateChips(latest.s_depth, latestUCov, latestUSkew);
       updateHeaderBadges(latest.s_depth, latestUCov, latestUSkew);
       updateTableByInstance(latest.instance);
+      showMetricsSummaryCard(latest.s_depth, latestUCov, latestUSkew, data1.length);
     }
+  }
+
+  // ── Metrics summary card (always shown in AI panel on load) ──
+  function showMetricsSummaryCard(sDepth, uCov, uSkew, n) {
+    var answerBox = document.getElementById('answer-box');
+    if (!answerBox) return;
+    var existing = answerBox.querySelector('.ai-msg.summary');
+    if (existing) existing.remove();
+
+    var sClass = classifySDeph(sDepth);
+    var cClass = classifyUCov(uCov);
+    var kClass = classifyUSkew(uSkew);
+
+    function dot(cls) {
+      var color = cls === 'ok' ? '#3fb950' : cls === 'warn' ? '#fbbf24' : '#fb7185';
+      return '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + color + ';margin-right:5px;"></span>';
+    }
+
+    var html = '<div style="font-size:0.72rem;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">'
+      + (n) + ' mittausta'
+      + '</div>'
+      + '<table style="width:100%;border-collapse:collapse;font-size:0.8rem">'
+      + '<tr><td style="padding:3px 0;color:var(--text-secondary)">Herkkyys (s_depth)</td>'
+      + '<td style="text-align:right">' + dot(sClass.cls) + (sDepth != null ? Number(sDepth).toFixed(2) + ' mm' : '—') + '</td></tr>'
+      + '<tr><td style="padding:3px 0;color:var(--text-secondary)">Tasaisuus (U_cov)</td>'
+      + '<td style="text-align:right">' + dot(cClass.cls) + (uCov != null ? Number(uCov).toFixed(2) + ' %' : '—') + '</td></tr>'
+      + '<tr><td style="padding:3px 0;color:var(--text-secondary)">Epäsymmetria (U_skew)</td>'
+      + '<td style="text-align:right">' + dot(kClass.cls) + (uSkew != null ? Number(uSkew).toFixed(2) : '—') + '</td></tr>'
+      + '</table>';
+
+    var card = document.createElement('div');
+    card.className = 'ai-msg summary';
+    card.style.cssText = 'background:var(--bg-card);border:1px solid var(--border-color);border-radius:8px;padding:10px 12px;font-size:0.82rem;';
+    card.innerHTML = html;
+    answerBox.insertBefore(card, answerBox.firstChild);
   }
 
 
