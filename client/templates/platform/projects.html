@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}Projektit — AutoQAD{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/stylesPlatform.css' %}">{% endblock %}
+{% block nav_active_platform %}active{% endblock %}
+
+{% block breadcrumb %}
+<nav class="breadcrumb"><a href="{% url 'index' %}">Aloitus</a><span class="separator">/</span><a href="{% url 'platform:dashboard' %}">Platform</a><span class="separator">/</span><span class="current">Projektit</span></nav>
+{% endblock %}
+
+{% block content %}
+<div class="platform-container">
+
+<div class="page-header" style="padding-top:0.5rem;margin-bottom:1.25rem;display:flex;align-items:center;justify-content:space-between">
+  <h1>Arkkitehtuuriprojektit</h1>
+  <button class="btn" onclick="openCreateModal()">+ Uusi projekti</button>
+</div>
+
+<div class="projects-grid">
+  {% for proj in projects %}
+  <a href="{% url 'platform:project_builder' proj.id %}" class="project-card">
+    <div class="project-card-header">
+      <h2>{{ proj.name }}</h2>
+      {% if proj.is_default %}<span class="project-badge">Oletus</span>{% endif %}
+    </div>
+    <p class="project-desc">{{ proj.description|default:"Ei kuvausta" }}</p>
+    <div class="project-meta">
+      <span>{{ proj.services.count }} palvelua</span>
+      <span>{{ proj.layers.count }} layeria</span>
+      <span>{{ proj.connections.count }} yhteytta</span>
+    </div>
+    <div class="project-date">Luotu {{ proj.created_at|date:"d.m.Y" }}</div>
+  </a>
+  {% empty %}
+  <div class="empty-msg" style="grid-column:1/-1;padding:3rem 0">
+    <p>Ei projekteja viela. Luo ensimmainen!</p>
+  </div>
+  {% endfor %}
+</div>
+
+</div>
+
+<!-- Luo projekti -modal -->
+<div id="create-project-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div class="modal-header"><h3>Uusi arkkitehtuuriprojekti</h3><button class="detail-close" onclick="closeModal('create-project-modal')">&times;</button></div>
+    <div class="modal-body">
+      <label>Projektin nimi *<input id="cp-name" class="modal-input" placeholder="Esim. AutoQAD v2"></label>
+      <label>Kuvaus<input id="cp-desc" class="modal-input" placeholder="Lyhyt kuvaus arkkitehtuurista"></label>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="createProject()">Luo projekti</button></div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var CSRF = '{{ csrf_token }}';
+
+function openCreateModal() { document.getElementById('create-project-modal').style.display = 'flex'; }
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+function createProject() {
+  var name = document.getElementById('cp-name').value.trim();
+  if (!name) { alert('Nimi vaaditaan'); return; }
+  fetch('/platform/api/project/create/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+    body: JSON.stringify({name: name, description: document.getElementById('cp-desc').value}),
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.error) { alert(d.error); return; }
+    window.location.href = '/platform/projects/' + d.id + '/';
+  });
+}
+
+document.querySelectorAll('.modal-overlay').forEach(function(m) { m.addEventListener('click', function(e) { if(e.target===m) m.style.display='none'; }); });
+</script>
+{% endblock %}

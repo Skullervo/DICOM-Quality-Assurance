@@ -2,6 +2,7 @@ Django==5.2.8
 psycopg2-binary==2.9.10
 python-dotenv==1.2.1
 gunicorn==23.0.0
+whitenoise==6.8.2
 openai==2.8.1
 requests==2.32.3
 grpcio==1.70.0
@@ -15,3 +16,4 @@ opencv-python>=4.10.0
 Pillow>=11.0.0
 pytz==2025.1
 tzdata==2025.1
+docker>=7.0.0

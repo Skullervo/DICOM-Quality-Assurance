@@ -127,6 +127,22 @@ services:
     networks:
       - autoqad-net
 
+  # ─── Portainer CE — Docker-hallintaportaali ────────────────────────────────
+
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: autoqad-portainer
+    restart: unless-stopped
+    command: --admin-password '$$2y$$05$$t.skMfFcMuGBn8T6YYYJzeOjKs3K/THLLtxjZD.FeDAdHe5R/2LoO'
+    ports:
+      - "9000:9000"
+      - "9443:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    networks:
+      - autoqad-net
+
   # ─── Django-verkkosovellus ──────────────────────────────────────────────────
   # GPT-4o (OpenAI) ja Slack toimivat env-muuttujina tässä palvelussa
   # erillistä konttia ei tarvita
@@ -153,6 +169,8 @@ services:
       ORTHANC_PASSWORD: ${ORTHANC_PASSWORD}
       OPENAI_API_KEY: ${OPENAI_API_KEY}       # GPT-4o
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL} # Slack-ilmoitukset
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -166,3 +184,4 @@ networks:
 volumes:
   postgres_data:
   orthanc_data:
+  portainer_data:

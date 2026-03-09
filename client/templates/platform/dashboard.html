@@ -2,150 +2,779 @@
 {% load static i18n %}
 
 {% block title %}Platform — AutoQAD{% endblock %}
-
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/stylesPlatform.css' %}">
-{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/stylesPlatform.css' %}">
+<link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/editor/editor.main.css">{% endblock %}
+{% block nav_active_platform %}active{% endblock %}
 
 {% block breadcrumb %}
-<nav class="breadcrumb">
-  <a href="{% url 'index' %}">Aloitus</a>
-  <span class="separator">/</span>
-  <span class="current">Platform</span>
-</nav>
+<nav class="breadcrumb"><a href="{% url 'index' %}">Aloitus</a><span class="separator">/</span><span class="current">Platform</span></nav>
 {% endblock %}
 
 {% block content %}
-<div class="page-header">
+<div class="platform-container">
+
+<div class="page-header" style="padding-top:0.5rem;margin-bottom:0.75rem">
   <h1>Platform — Palveluhallinta</h1>
-  <p>AutoQAD-mikropalveluiden tila ja hallinta</p>
 </div>
 
 <!-- Yhteenveto -->
 <div class="platform-summary">
-  <div class="summary-card">
-    <span class="summary-number">{{ running_count }}</span>
-    <span class="summary-label">Käynnissä</span>
+  <div class="summary-card qa-stat"><span class="summary-number" id="stat-us">{{ qa_stats.us }}</span><span class="summary-label">US</span></div>
+  <div class="summary-card qa-stat"><span class="summary-number" id="stat-xr">{{ qa_stats.xr }}</span><span class="summary-label">XR</span></div>
+  <div class="summary-card qa-stat"><span class="summary-number" id="stat-ct">{{ qa_stats.ct }}</span><span class="summary-label">CT</span></div>
+  <div class="summary-card"><span class="summary-number" id="stat-running">{{ running_count }}/{{ total_count }}</span><span class="summary-label">Palvelua</span></div>
+
+  <!-- Bulk actions -->
+  <div class="bulk-actions">
+    <button class="ctrl-btn start" onclick="bulkAction('start')">&#9654; Start All</button>
+    <button class="ctrl-btn stop" onclick="bulkAction('stop')">&#9632; Stop All</button>
+    <button class="ctrl-btn" onclick="bulkAction('restart')">&#8635; Restart All</button>
   </div>
-  <div class="summary-card">
-    <span class="summary-number">{{ total_count|add:"-"|add:running_count|stringformat:"d" }}</span>
-    <span class="summary-label">Pysäytetty</span>
-  </div>
-  <div class="summary-card">
-    <span class="summary-number">{{ total_count }}</span>
-    <span class="summary-label">Palvelua yhteensä</span>
-  </div>
-  <button class="refresh-btn" onclick="refreshStatus()">&#8635; Päivitä</button>
+  <button class="refresh-btn" onclick="refreshAll()">&#8635; Paivita</button>
 </div>
 
-<!-- Infrastruktuuri -->
-<section class="service-section">
-  <h2>Infrastruktuuri</h2>
-  <div class="service-grid" id="grid-infrastructure">
-    {% for svc in services %}{% if svc.category == 'infrastructure' %}
-    <div class="service-card {% if svc.running %}running{% else %}stopped{% endif %}" data-service="{{ svc.name }}">
-      <div class="service-status-dot"></div>
-      <div class="service-info">
-        <h3>{{ svc.name }}</h3>
-        <p>{{ svc.description }}</p>
-        <span class="service-port">:{{ svc.port }}</span>
-      </div>
-      <div class="service-badge">{{ svc.status_label }}</div>
-    </div>
-    {% endif %}{% endfor %}
-  </div>
-</section>
+<!-- Tabs -->
+<div class="tab-bar">
+  <button class="tab active" data-tab="architecture">Arkkitehtuuri</button>
+  <button class="tab" data-tab="logs">Logit</button>
+  <button class="tab" data-tab="tools">Tyokalut</button>
+</div>
 
-<!-- Mikropalvelut -->
-<section class="service-section">
-  <h2>Analyysipalvelut (gRPC)</h2>
-  <div class="service-grid" id="grid-microservice">
-    {% for svc in services %}{% if svc.category == 'microservice' %}
-    <div class="service-card {% if svc.running %}running{% else %}stopped{% endif %}" data-service="{{ svc.name }}">
-      <div class="service-status-dot"></div>
-      <div class="service-info">
-        <h3>{{ svc.name }}</h3>
-        <p>{{ svc.description }}</p>
-        <span class="service-port">:{{ svc.port }}</span>
-      </div>
-      <div class="service-badge">{{ svc.status_label }}</div>
-    </div>
-    {% endif %}{% endfor %}
-  </div>
-</section>
+<!-- ═══ ARKKITEHTUURI ═══ -->
+<div class="tab-content active" id="tab-architecture">
 
-<!-- Platform-työkalut -->
-<section class="service-section">
-  <h2>Platform-työkalut</h2>
-  <div class="service-grid">
-    {% for svc in services %}{% if svc.category == 'platform' or svc.category == 'monitoring' %}
-    <div class="service-card {% if svc.running %}running{% else %}stopped{% endif %}" data-service="{{ svc.name }}">
-      <div class="service-status-dot"></div>
-      <div class="service-info">
-        <h3>{{ svc.name }}</h3>
-        <p>{{ svc.description }}</p>
-        <span class="service-port">:{{ svc.port }}</span>
-      </div>
-      <div class="service-actions">
-        {% if svc.url and svc.running %}
-        <a href="{{ svc.url }}" target="_blank" class="open-btn">Avaa &#8599;</a>
-        {% endif %}
-        <div class="service-badge">{{ svc.status_label }}</div>
+  <!-- Edit mode toggle -->
+  <div class="edit-toolbar">
+    <label class="edit-toggle"><input type="checkbox" id="edit-mode"> Muokkaustila</label>
+    <span class="edit-hint" id="edit-hint" style="display:none">Raahaa palveluita | Sijainnit tallentuvat automaattisesti</span>
+    <button class="ctrl-btn" id="btn-add-service" style="display:none" onclick="openAddServiceModal()">+ Palvelu</button>
+    <button class="ctrl-btn" id="btn-add-conn" style="display:none" onclick="openAddConnModal()">+ Yhteys</button>
+  </div>
+
+  <div class="arch-layout">
+    <!-- SVG -->
+    <div class="arch-container" id="arch-container">
+      <svg id="arch-svg" class="arch-svg" viewBox="0 0 1100 560" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <marker id="arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="var(--text-secondary)" opacity="0.5"/></marker>
+          <marker id="arr-a" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="var(--accent-blue)" opacity="0.7"/></marker>
+          <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <!-- Layer bgs -->
+        <rect x="20" y="8" width="1060" height="80" rx="10" fill="var(--bg-card)" stroke="var(--border-color)" stroke-width="1" opacity="0.35"/>
+        <text x="36" y="26" fill="var(--text-secondary)" font-size="9" font-weight="600" letter-spacing="1">ORCHESTRATION &amp; MONITORING</text>
+        <rect x="20" y="98" width="1060" height="95" rx="10" fill="var(--bg-card)" stroke="var(--border-color)" stroke-width="1" opacity="0.35"/>
+        <text x="36" y="116" fill="var(--text-secondary)" font-size="9" font-weight="600" letter-spacing="1">DATA RECEPTION &amp; PERSISTENCE</text>
+        <rect x="20" y="203" width="1060" height="105" rx="10" fill="var(--bg-card)" stroke="var(--border-color)" stroke-width="1" opacity="0.35"/>
+        <text x="36" y="221" fill="var(--text-secondary)" font-size="9" font-weight="600" letter-spacing="1">DATA PROCESSING (gRPC)</text>
+        <rect x="20" y="318" width="1060" height="100" rx="10" fill="var(--bg-card)" stroke="var(--border-color)" stroke-width="1" opacity="0.35"/>
+        <text x="36" y="336" fill="var(--text-secondary)" font-size="9" font-weight="600" letter-spacing="1">PRESENTATION &amp; SERVICES</text>
+        <rect x="20" y="428" width="1060" height="65" rx="10" fill="var(--bg-card)" stroke="var(--border-color)" stroke-width="1" opacity="0.2"/>
+        <text x="36" y="446" fill="var(--text-secondary)" font-size="9" font-weight="600" letter-spacing="1">EXTERNAL</text>
+        <g id="connections-group"></g>
+        <g id="nodes-group"></g>
+      </svg>
+      <div class="arch-legend">
+        <div class="legend-item"><div class="legend-dot running"></div> Kaynnissa</div>
+        <div class="legend-item"><div class="legend-dot stopped"></div> Pysaytetty</div>
+        <div class="legend-item"><svg width="30" height="10"><line x1="0" y1="5" x2="30" y2="5" stroke="var(--accent-blue)" stroke-width="1.5" stroke-dasharray="4,3"/></svg> gRPC</div>
+        <div class="legend-item"><svg width="30" height="10"><line x1="0" y1="5" x2="30" y2="5" stroke="var(--status-warn)" stroke-width="1.5"/></svg> REST/SQL</div>
       </div>
     </div>
-    {% endif %}{% endfor %}
-  </div>
-</section>
 
-<!-- Docker-kontit -->
-{% if containers %}
-<section class="service-section">
-  <h2>Docker-kontit (WSL)</h2>
-  <div class="table-container">
-    <table class="modern-table">
-      <thead>
-        <tr>
-          <th>Nimi</th>
-          <th>Image</th>
-          <th>Tila</th>
-          <th>Portit</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for c in containers %}
-        <tr>
-          <td>{{ c.Names }}</td>
-          <td><code>{{ c.Image }}</code></td>
-          <td><span class="status-running">&#9679; {{ c.Status }}</span></td>
-          <td><code>{{ c.Ports }}</code></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <!-- DETAIL PANEL -->
+    <div class="detail-panel" id="detail-panel">
+      <div class="detail-empty" id="detail-empty">
+        <div class="detail-empty-icon">&#9776;</div>
+        <p>Klikkaa palvelua kaaviossa</p>
+      </div>
+      <div class="detail-content" id="detail-content" style="display:none">
+        <div class="detail-header">
+          <div class="detail-status-dot" id="dp-dot"></div>
+          <div class="detail-title-wrap"><h2 id="dp-name"></h2><span class="detail-id" id="dp-id"></span></div>
+          <button class="detail-close" onclick="closeDetail()">&times;</button>
+        </div>
+        <div class="detail-controls" id="dp-controls">
+          <button class="ctrl-btn" onclick="dpAction('restart')">&#8635; Restart</button>
+          <button class="ctrl-btn stop" id="dp-stop-btn" onclick="dpAction('stop')">&#9632; Stop</button>
+          <button class="ctrl-btn start" id="dp-start-btn" onclick="dpAction('start')">&#9654; Start</button>
+          <button class="ctrl-btn" id="dp-delete-btn" onclick="dpDelete()" style="display:none;margin-left:auto;color:var(--status-fail)">&#128465; Poista</button>
+        </div>
+        <div class="detail-tabs">
+          <button class="dtab active" data-dtab="overview">Yleis</button>
+          <button class="dtab" data-dtab="network">Verkko</button>
+          <button class="dtab" data-dtab="env">Env</button>
+          <button class="dtab" data-dtab="volumes">Vol</button>
+          <button class="dtab" data-dtab="processes">Proc</button>
+          <button class="dtab" data-dtab="dlogs">Logit</button>
+          <button class="dtab" data-dtab="files">Tiedostot</button>
+        </div>
+        <div class="dtab-content active" id="dtab-overview">
+          <div class="stats-bar" id="dp-stats" style="display:none">
+            <div class="stat-item"><span class="stat-label">CPU</span><div class="stat-bar"><div class="stat-fill" id="dp-cpu-fill"></div></div><span class="stat-val" id="dp-cpu-val">0%</span></div>
+            <div class="stat-item"><span class="stat-label">RAM</span><div class="stat-bar"><div class="stat-fill" id="dp-mem-fill"></div></div><span class="stat-val" id="dp-mem-val">0 MB</span></div>
+          </div>
+          <div class="detail-table" id="dp-overview-table"></div>
+        </div>
+        <div class="dtab-content" id="dtab-network"><div class="detail-table" id="dp-network-table"></div></div>
+        <div class="dtab-content" id="dtab-env"><div class="detail-table" id="dp-env-table"></div></div>
+        <div class="dtab-content" id="dtab-volumes"><div class="detail-table" id="dp-volumes-table"></div></div>
+        <div class="dtab-content" id="dtab-processes"><div class="detail-table" id="dp-processes-table"></div></div>
+        <div class="dtab-content" id="dtab-dlogs">
+          <div class="detail-log-controls"><select id="dp-log-tail" class="log-select-sm"><option value="50">50</option><option value="100" selected>100</option><option value="200">200</option><option value="500">500</option></select><button class="ctrl-btn" onclick="dpLoadLogs()">&#8635;</button></div>
+          <pre class="detail-log-output" id="dp-log-output">Klikkaa paivita...</pre>
+        </div>
+        <div class="dtab-content" id="dtab-files">
+          <div class="file-browser">
+            <div class="file-tree-panel">
+              <div class="file-tree-header">
+                <span class="file-tree-path" id="ft-path">/app</span>
+                <button class="ctrl-btn" onclick="ftNavigate('/app')" title="Juureen">&#8962;</button>
+                <button class="ctrl-btn" onclick="ftUp()" title="Ylos">&#8593;</button>
+              </div>
+              <div class="file-tree" id="ft-tree"><div class="empty-msg">Ladataan...</div></div>
+            </div>
+            <div class="file-editor-panel">
+              <div class="file-editor-header" id="fe-header" style="display:none">
+                <span class="fe-filename" id="fe-filename"></span>
+                <span class="fe-size" id="fe-size"></span>
+                <span class="fe-modified" id="fe-modified" style="display:none">Muokattu</span>
+                <div class="fe-actions">
+                  <button class="ctrl-btn start" id="fe-save-btn" onclick="feSave()" style="display:none">&#128190; Tallenna</button>
+                  <button class="ctrl-btn" id="fe-discard-btn" onclick="feDiscard()" style="display:none">&#8635; Hylkaa</button>
+                </div>
+              </div>
+              <div class="file-editor-empty" id="fe-empty">
+                <div class="detail-empty-icon">&#128196;</div>
+                <p>Valitse tiedosto puusta</p>
+              </div>
+              <div id="monaco-editor" style="display:none;width:100%;height:100%;min-height:350px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
-</section>
-{% endif %}
+</div>
+
+<!-- ═══ LOGIT ═══ -->
+<div class="tab-content" id="tab-logs">
+  <div class="logs-header">
+    <select id="log-container-select" class="log-select">{% for svc in services %}<option value="{{ svc.container }}">{{ svc.name }}</option>{% endfor %}</select>
+    <select id="log-tail-select" class="log-select"><option value="50">50</option><option value="100" selected>100</option><option value="200">200</option><option value="500">500</option></select>
+    <button class="refresh-btn" onclick="loadLogs()">&#8635; Hae</button>
+    <label class="auto-refresh-label"><input type="checkbox" id="log-auto-refresh"> Auto</label>
+  </div>
+  <pre class="log-output" id="log-output">Valitse palvelu ja paina "Hae"</pre>
+</div>
+
+<!-- ═══ TYOKALUT ═══ -->
+<div class="tab-content" id="tab-tools">
+  <div class="tools-grid">
+    <a href="{{ portainer_url }}" target="_blank" class="tool-card"><div class="tool-icon">&#9881;</div><h3>Portainer</h3><p>Docker-konttien hallinta</p></a>
+    <a href="{{ grafana_url }}" target="_blank" class="tool-card"><div class="tool-icon">&#128200;</div><h3>Grafana</h3><p>Metriikat ja dashboardit</p></a>
+    <a href="http://localhost:18042" target="_blank" class="tool-card"><div class="tool-icon">&#9762;</div><h3>Orthanc Explorer</h3><p>DICOM-kuvien selaus</p></a>
+    <a href="/admin/" class="tool-card"><div class="tool-icon">&#128274;</div><h3>Django Admin</h3><p>Kayttajahallinta ja asetukset</p></a>
+  </div>
+</div>
+
+</div>
+
+<!-- ═══ MODAALIT ═══ -->
+
+<!-- Lisää palvelu -->
+<div id="add-svc-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div class="modal-header"><h3>Lisaa uusi palvelu</h3><button class="detail-close" onclick="closeModal('add-svc-modal')">&times;</button></div>
+    <div class="modal-body">
+      <label>Nimi *<input id="as-name" class="modal-input" placeholder="My Service"></label>
+      <label>Kuvaus<input id="as-desc" class="modal-input" placeholder="Lyhyt kuvaus"></label>
+      <label>Docker-kontti<input id="as-container" class="modal-input" placeholder="autoqad-myservice"></label>
+      <label>Docker host<input id="as-host" class="modal-input" placeholder="my-service"></label>
+      <div class="modal-row">
+        <label>Portti<input id="as-port" class="modal-input" type="number" value="0"></label>
+        <label>Host-portti<input id="as-hport" class="modal-input" type="number" value="0"></label>
+      </div>
+      <div class="modal-row">
+        <label>Kategoria<select id="as-cat" class="modal-input">{% for val, txt in category_choices %}<option value="{{ val }}">{{ txt }}</option>{% endfor %}</select></label>
+        <label>Layer<select id="as-layer" class="modal-input">{% for val, txt in layer_choices %}<option value="{{ val }}">{{ txt }}</option>{% endfor %}</select></label>
+      </div>
+      <label>URL (valinnainen)<input id="as-url" class="modal-input" placeholder="http://localhost:..."></label>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="submitAddService()">Lisaa palvelu</button></div>
+  </div>
+</div>
+
+<!-- Lisää yhteys -->
+<div id="add-conn-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div class="modal-header"><h3>Lisaa uusi yhteys</h3><button class="detail-close" onclick="closeModal('add-conn-modal')">&times;</button></div>
+    <div class="modal-body">
+      <label>Lahde<select id="ac-from" class="modal-input"></select></label>
+      <label>Kohde<select id="ac-to" class="modal-input"></select></label>
+      <label>Protokolla<select id="ac-proto" class="modal-input">{% for val, txt in protocol_choices %}<option value="{{ val }}">{{ txt }}</option>{% endfor %}</select></label>
+      <label>Label<input id="ac-label" class="modal-input" placeholder="Kuvaus"></label>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="submitAddConnection()">Lisaa yhteys</button></div>
+  </div>
+</div>
 
 {% endblock %}
 
 {% block extra_js %}
 <script>
-function refreshStatus() {
-  fetch("{% url 'platform:api_status' %}")
-    .then(r => r.json())
-    .then(data => {
-      Object.entries(data.services).forEach(([name, info]) => {
-        var card = document.querySelector('[data-service="' + name + '"]');
-        if (!card) return;
-        card.classList.toggle('running', info.running);
-        card.classList.toggle('stopped', !info.running);
-        var badge = card.querySelector('.service-badge');
-        if (badge) badge.textContent = info.running ? 'Käynnissä' : 'Pysäytetty';
-      });
+var SERVICES = {{ services_json|safe }};
+var CONNECTIONS = {{ connections_json|safe }};
+var CSRF = '{{ csrf_token }}';
+var currentContainer = null;
+var currentServiceId = null;
+var editMode = false;
+var dragTarget = null;
+var dragOffset = {x:0, y:0};
+var NW = 145, NH = 48;
+var positionsDirty = false;
+
+// ══ SVG HELPERS ═════════════════════════════════════════════════════════════
+
+function mkSVG(tag, a) {
+  var el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (var k in a) el.setAttribute(k, a[k]);
+  return el;
+}
+
+// ══ DRAW ════════════════════════════════════════════════════════════════════
+
+function drawArch() {
+  var ng = document.getElementById('nodes-group');
+  var cg = document.getElementById('connections-group');
+  ng.innerHTML = ''; cg.innerHTML = '';
+  var sMap = {}; SERVICES.forEach(function(s) { sMap[s.name] = s; });
+
+  // Connections
+  CONNECTIONS.forEach(function(cn) {
+    var fs = sMap[cn.from], ts = sMap[cn.to];
+    if (!fs || !ts) return;
+    var active = fs.running && ts.running;
+    var x1 = fs.pos_x+NW/2, y1 = fs.pos_y+NH/2, x2 = ts.pos_x+NW/2, y2 = ts.pos_y+NH/2;
+    var dx = x2-x1, dy = y2-y1, d = Math.sqrt(dx*dx+dy*dy);
+    if (!d) return;
+    x1 += dx/d*NW/2; y1 += dy/d*NH/2; x2 -= dx/d*NW/2; y2 -= dy/d*NH/2;
+    var grpc = cn.protocol === 'gRPC';
+    var col = active ? (grpc ? 'var(--accent-blue)' : 'var(--status-warn)') : 'var(--border-color)';
+    var ln = mkSVG('line', {x1:x1,y1:y1,x2:x2,y2:y2,stroke:col,'stroke-width':active?1.5:1,opacity:active?.6:.25,'marker-end':active?'url(#arr-a)':'url(#arr)'});
+    if (grpc) ln.setAttribute('stroke-dasharray','5,4');
+    cg.appendChild(ln);
+
+    // Delete button in edit mode
+    if (editMode && cn.id) {
+      var mx = (x1+x2)/2, my = (y1+y2)/2;
+      var del = mkSVG('text', {x:mx, y:my-6, 'text-anchor':'middle', fill:'var(--status-fail)', 'font-size':11, cursor:'pointer', opacity:0.7});
+      del.textContent = '\u00D7';
+      del.addEventListener('click', function(e) { e.stopPropagation(); deleteConnection(cn.id); });
+      cg.appendChild(del);
+    }
+
+    var lbl = mkSVG('text', {x:(x1+x2)/2, y:(y1+y2)/2+6, 'text-anchor':'middle', fill:col, 'font-size':8, opacity:active?.6:.3});
+    lbl.textContent = cn.protocol;
+    cg.appendChild(lbl);
+  });
+
+  // External
+  drawExt(cg, ng, sMap);
+
+  // Nodes
+  SERVICES.forEach(function(s) {
+    var g = mkSVG('g', {'class':'arch-node','data-service':s.name,'data-container':s.container||''});
+    g.style.cursor = editMode ? 'grab' : 'pointer';
+    var sel = currentContainer && currentContainer === s.container;
+
+    g.appendChild(mkSVG('rect', {x:s.pos_x, y:s.pos_y, width:NW, height:NH, rx:8,
+      fill: sel ? 'var(--bg-card-hover)' : 'var(--bg-card)',
+      stroke: sel ? 'var(--accent-blue)' : (s.running ? 'var(--status-ok)' : 'var(--status-fail)'),
+      'stroke-width': sel ? 2.5 : 1.5}));
+
+    var dot = mkSVG('circle', {cx:s.pos_x+12, cy:s.pos_y+15, r:3.5, fill:s.running?'var(--status-ok)':'var(--status-fail)'});
+    if (s.running) dot.setAttribute('filter','url(#glow)');
+    g.appendChild(dot);
+
+    var txt = mkSVG('text', {x:s.pos_x+22, y:s.pos_y+18, fill:'var(--text-primary)', 'font-size':11, 'font-weight':600});
+    txt.textContent = s.name.length > 16 ? s.name.substring(0,14) + '..' : s.name;
+    g.appendChild(txt);
+
+    var port = mkSVG('text', {x:s.pos_x+12, y:s.pos_y+36, fill:'var(--accent-blue)', 'font-size':9, 'font-family':'monospace'});
+    port.textContent = ':' + s.host_port;
+    g.appendChild(port);
+
+    g.appendChild(mkSVG('text', {x:s.pos_x+NW-8, y:s.pos_y+36, 'text-anchor':'end', fill:'var(--text-secondary)', 'font-size':7}));
+    g.lastChild.textContent = s.container ? 'docker' : 'ext';
+
+    // Events
+    g.addEventListener('mousedown', function(e) {
+      if (!editMode) return;
+      e.preventDefault();
+      dragTarget = s;
+      var svg = document.getElementById('arch-svg');
+      var pt = svg.createSVGPoint();
+      pt.x = e.clientX; pt.y = e.clientY;
+      var svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+      dragOffset.x = svgP.x - s.pos_x;
+      dragOffset.y = svgP.y - s.pos_y;
+      g.style.cursor = 'grabbing';
+    });
+
+    g.addEventListener('click', function(e) {
+      if (editMode || !s.container) return;
+      openDetail(s.container, s.name, s.id);
+    });
+
+    ng.appendChild(g);
+  });
+}
+
+function drawExt(cg, ng, sMap) {
+  var g = mkSVG('g', {});
+  // PACS
+  g.appendChild(mkSVG('rect', {x:100,y:450,width:160,height:32,rx:8,fill:'none',stroke:'var(--border-color)','stroke-dasharray':'4,4'}));
+  var t1 = mkSVG('text', {x:180,y:465,'text-anchor':'middle',fill:'var(--text-secondary)','font-size':10,'font-weight':500}); t1.textContent = 'Hospital PACS'; g.appendChild(t1);
+  var t1b = mkSVG('text', {x:180,y:478,'text-anchor':'middle',fill:'var(--text-secondary)','font-size':8}); t1b.textContent = 'DICOM C-STORE'; g.appendChild(t1b);
+  var ort = sMap['Orthanc DICOM'];
+  if (ort) cg.appendChild(mkSVG('line', {x1:180,y1:450,x2:ort.pos_x+NW/2,y2:ort.pos_y+NH,stroke:'var(--text-secondary)','stroke-width':1,'stroke-dasharray':'5,4',opacity:.35,'marker-end':'url(#arr)'}));
+
+  // User
+  g.appendChild(mkSVG('rect', {x:400,y:450,width:160,height:32,rx:8,fill:'none',stroke:'var(--border-color)','stroke-dasharray':'4,4'}));
+  var t2 = mkSVG('text', {x:480,y:465,'text-anchor':'middle',fill:'var(--text-secondary)','font-size':10,'font-weight':500}); t2.textContent = 'User Browser'; g.appendChild(t2);
+  var t2b = mkSVG('text', {x:480,y:478,'text-anchor':'middle',fill:'var(--text-secondary)','font-size':8}); t2b.textContent = 'QA Dashboard'; g.appendChild(t2b);
+  var dj = sMap['Django Web'];
+  if (dj) cg.appendChild(mkSVG('line', {x1:dj.pos_x+NW/2,y1:dj.pos_y+NH,x2:435,y2:450,stroke:'var(--text-secondary)','stroke-width':1,'stroke-dasharray':'5,4',opacity:.35,'marker-end':'url(#arr)'}));
+
+  // OpenAI + Slack
+  [{x:520,y:345,t:'OpenAI GPT',s:'AI'},{x:680,y:345,t:'Slack',s:'Alerts'}].forEach(function(b) {
+    g.appendChild(mkSVG('rect', {x:b.x,y:b.y,width:110,height:32,rx:8,fill:'var(--bg-card)',stroke:'var(--border-color)','stroke-dasharray':'3,3'}));
+    var bt = mkSVG('text', {x:b.x+55,y:b.y+14,'text-anchor':'middle',fill:'var(--text-secondary)','font-size':9,'font-weight':500}); bt.textContent = b.t; g.appendChild(bt);
+    var bs = mkSVG('text', {x:b.x+55,y:b.y+26,'text-anchor':'middle',fill:'var(--text-secondary)','font-size':7}); bs.textContent = b.s; g.appendChild(bs);
+    if (dj) cg.appendChild(mkSVG('line', {x1:dj.pos_x+NW,y1:dj.pos_y+NH/2,x2:b.x,y2:b.y+16,stroke:'var(--text-secondary)','stroke-width':1,'stroke-dasharray':'4,4',opacity:.3,'marker-end':'url(#arr)'}));
+  });
+  ng.appendChild(g);
+}
+
+// ══ DRAG & DROP ═════════════════════════════════════════════════════════════
+
+document.getElementById('arch-svg').addEventListener('mousemove', function(e) {
+  if (!dragTarget) return;
+  var svg = this, pt = svg.createSVGPoint();
+  pt.x = e.clientX; pt.y = e.clientY;
+  var p = pt.matrixTransform(svg.getScreenCTM().inverse());
+  dragTarget.pos_x = Math.max(20, Math.min(1100-NW, p.x - dragOffset.x));
+  dragTarget.pos_y = Math.max(8, Math.min(560-NH, p.y - dragOffset.y));
+  positionsDirty = true;
+  drawArch();
+});
+
+document.addEventListener('mouseup', function() {
+  if (dragTarget) {
+    dragTarget = null;
+    if (positionsDirty) savePositions();
+  }
+});
+
+function savePositions() {
+  var pos = {};
+  SERVICES.forEach(function(s) { pos[s.name] = {x: Math.round(s.pos_x), y: Math.round(s.pos_y)}; });
+  fetch('/platform/api/positions/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+    body: JSON.stringify({positions: pos}),
+  }).then(function() { positionsDirty = false; });
+}
+
+// ══ EDIT MODE ═══════════════════════════════════════════════════════════════
+
+document.getElementById('edit-mode').addEventListener('change', function() {
+  editMode = this.checked;
+  document.getElementById('edit-hint').style.display = editMode ? '' : 'none';
+  document.getElementById('btn-add-service').style.display = editMode ? '' : 'none';
+  document.getElementById('btn-add-conn').style.display = editMode ? '' : 'none';
+  document.getElementById('dp-delete-btn').style.display = editMode ? '' : 'none';
+  drawArch();
+});
+
+// ══ DETAIL PANEL ════════════════════════════════════════════════════════════
+
+function openDetail(container, name, svcId) {
+  currentContainer = container;
+  currentServiceId = svcId;
+  document.getElementById('detail-empty').style.display = 'none';
+  document.getElementById('detail-content').style.display = 'flex';
+  document.getElementById('dp-name').textContent = name;
+  document.getElementById('dp-id').textContent = container;
+  document.getElementById('dp-overview-table').innerHTML = '<div class="loading">Ladataan...</div>';
+  document.getElementById('dp-stats').style.display = 'none';
+  document.getElementById('dp-delete-btn').style.display = editMode ? '' : 'none';
+  drawArch();
+
+  fetch('/platform/api/inspect/' + container + '/')
+    .then(function(r) { return r.json(); })
+    .then(function(d) { if (d.error) { document.getElementById('dp-overview-table').innerHTML = '<div class="err">'+d.error+'</div>'; return; } renderDetail(d); })
+    .catch(function(e) { document.getElementById('dp-overview-table').innerHTML = '<div class="err">'+e+'</div>'; });
+}
+
+function closeDetail() { currentContainer = null; currentServiceId = null; document.getElementById('detail-empty').style.display = 'flex'; document.getElementById('detail-content').style.display = 'none'; document.getElementById('detail-panel').classList.remove('files-active'); drawArch(); }
+
+function renderDetail(d) {
+  document.getElementById('dp-dot').className = 'detail-status-dot ' + (d.state.running ? 'running' : 'stopped');
+  document.getElementById('dp-id').textContent = d.id + ' | ' + (d.image.tags[0] || d.image.id);
+  document.getElementById('dp-stop-btn').style.display = d.state.running ? '' : 'none';
+  document.getElementById('dp-start-btn').style.display = d.state.running ? 'none' : '';
+
+  if (d.stats && d.stats.cpu_percent !== undefined) {
+    document.getElementById('dp-stats').style.display = 'flex';
+    document.getElementById('dp-cpu-val').textContent = d.stats.cpu_percent + '%';
+    document.getElementById('dp-cpu-fill').style.width = Math.min(d.stats.cpu_percent, 100) + '%';
+    document.getElementById('dp-cpu-fill').style.background = d.stats.cpu_percent > 80 ? 'var(--status-fail)' : 'var(--accent-blue)';
+    document.getElementById('dp-mem-val').textContent = d.stats.memory_usage + ' / ' + d.stats.memory_limit;
+    document.getElementById('dp-mem-fill').style.width = Math.min(d.stats.memory_percent, 100) + '%';
+    document.getElementById('dp-mem-fill').style.background = d.stats.memory_percent > 80 ? 'var(--status-fail)' : 'var(--status-ok)';
+  }
+
+  var rows = [
+    ['Tila', '<span class="badge-'+(d.state.running?'ok':'fail')+'">'+d.state.status+'</span>'],
+    ['ID', '<code>'+d.id+'</code>'], ['Image', '<code>'+(d.image.tags[0]||d.image.id)+'</code>'],
+    ['Koko', d.image.size], ['Kaynnistynyt', d.state.started_at ? new Date(d.state.started_at).toLocaleString() : '-'],
+    ['PID', d.state.pid||'-'], ['Restart', (d.restart_policy.Name||'-')],
+    ['WorkDir', '<code>'+(d.config.working_dir||'/')+'</code>'],
+    ['Cmd', '<code>'+(d.config.cmd?d.config.cmd.join(' '):'-')+'</code>'],
+    ['Entrypoint', '<code>'+(d.config.entrypoint?d.config.entrypoint.join(' '):'-')+'</code>'],
+  ];
+  document.getElementById('dp-overview-table').innerHTML = mkTbl(rows);
+
+  // Network
+  var nr = [];
+  Object.keys(d.networks).forEach(function(n) { var i=d.networks[n]; nr.push(['<strong>'+n+'</strong>','']); nr.push(['IP','<code>'+i.ip+'</code>']); nr.push(['Gateway','<code>'+i.gateway+'</code>']); nr.push(['MAC','<code>'+i.mac+'</code>']); });
+  Object.keys(d.ports).forEach(function(p) { var b=d.ports[p]; nr.push([p, b.length ? b.map(function(x){return x.host_ip+':'+x.host_port}).join(', ') : '-']); });
+  document.getElementById('dp-network-table').innerHTML = mkTbl(nr);
+
+  // Env
+  var er = []; Object.keys(d.env).sort().forEach(function(k) { er.push(['<code>'+k+'</code>','<code>'+d.env[k]+'</code>']); });
+  document.getElementById('dp-env-table').innerHTML = mkTbl(er);
+
+  // Volumes
+  var vr = []; d.mounts.forEach(function(m) { vr.push(['<strong>'+m.type+'</strong>', m.rw?'rw':'ro']); vr.push(['Src','<code style="word-break:break-all">'+m.source+'</code>']); vr.push(['Dst','<code>'+m.destination+'</code>']); });
+  document.getElementById('dp-volumes-table').innerHTML = vr.length ? mkTbl(vr) : '<div class="empty-msg">Ei volumeja</div>';
+
+  // Processes
+  if (d.processes.length) {
+    var keys = Object.keys(d.processes[0]);
+    var h = '<table class="proc-table"><thead><tr>'; keys.forEach(function(k){h+='<th>'+k+'</th>'}); h += '</tr></thead><tbody>';
+    d.processes.forEach(function(p) { h+='<tr>'; keys.forEach(function(k){h+='<td>'+(p[k]||'')+'</td>'}); h+='</tr>'; });
+    document.getElementById('dp-processes-table').innerHTML = h + '</tbody></table>';
+  } else { document.getElementById('dp-processes-table').innerHTML = '<div class="empty-msg">Ei prosesseja</div>'; }
+}
+
+function mkTbl(rows) { var h='<table class="kv-table">'; rows.forEach(function(r){h+='<tr><td class="kv-key">'+r[0]+'</td><td class="kv-val">'+r[1]+'</td></tr>'}); return h+'</table>'; }
+
+// ══ ACTIONS ═════════════════════════════════════════════════════════════════
+
+function dpAction(a) {
+  if (!currentContainer) return;
+  if (a==='stop' && !confirm('Pysaytetaanko '+currentContainer+'?')) return;
+  fetch('/platform/api/container/'+currentContainer+'/'+a+'/', {method:'POST',headers:{'X-CSRFToken':CSRF}})
+    .then(function(r){return r.json()}).then(function(d) { if(d.error){alert(d.error);return;} setTimeout(function(){openDetail(currentContainer,document.getElementById('dp-name').textContent,currentServiceId);refreshAll();},2000); });
+}
+
+function dpDelete() {
+  if (!currentServiceId) return;
+  if (!confirm('Poistetaanko palvelu kaaviosta?')) return;
+  fetch('/platform/api/service/'+currentServiceId+'/delete/', {method:'POST',headers:{'X-CSRFToken':CSRF}})
+    .then(function(r){return r.json()}).then(function() { location.reload(); });
+}
+
+function dpLoadLogs() {
+  if (!currentContainer) return;
+  var out = document.getElementById('dp-log-output');
+  out.textContent = 'Ladataan...';
+  fetch('/platform/api/logs/'+currentContainer+'/?tail='+document.getElementById('dp-log-tail').value)
+    .then(function(r){return r.json()}).then(function(d){out.textContent=d.logs||d.error||'Ei logeja';out.scrollTop=out.scrollHeight;});
+}
+
+function bulkAction(a) {
+  if (!confirm((a==='stop'?'Pysaytetaanko':a==='start'?'Kaynnistetaanko':'Kaynnistetaanko uudelleen')+' kaikki palvelut?')) return;
+  fetch('/platform/api/bulk/'+a+'/', {method:'POST',headers:{'X-CSRFToken':CSRF}})
+    .then(function(r){return r.json()}).then(function(d) {
+      var msg = Object.entries(d.results).map(function(e){return e[0]+': '+e[1]}).join('\n');
+      alert('Tulos:\n'+msg);
+      setTimeout(refreshAll, 2000);
     });
 }
 
-// Automaattinen päivitys 30 sekunnin välein
-setInterval(refreshStatus, 30000);
+// ══ ADD SERVICE / CONNECTION ════════════════════════════════════════════════
+
+function openAddServiceModal() { document.getElementById('add-svc-modal').style.display = 'flex'; }
+function openAddConnModal() {
+  var sel1 = document.getElementById('ac-from'), sel2 = document.getElementById('ac-to');
+  sel1.innerHTML = ''; sel2.innerHTML = '';
+  SERVICES.forEach(function(s) { sel1.innerHTML += '<option value="'+s.id+'">'+s.name+'</option>'; sel2.innerHTML += '<option value="'+s.id+'">'+s.name+'</option>'; });
+  document.getElementById('add-conn-modal').style.display = 'flex';
+}
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+function submitAddService() {
+  var data = {
+    name: document.getElementById('as-name').value,
+    description: document.getElementById('as-desc').value,
+    container: document.getElementById('as-container').value,
+    host: document.getElementById('as-host').value,
+    port: document.getElementById('as-port').value,
+    host_port: document.getElementById('as-hport').value,
+    category: document.getElementById('as-cat').value,
+    layer: document.getElementById('as-layer').value,
+    url: document.getElementById('as-url').value,
+  };
+  if (!data.name) { alert('Nimi vaaditaan'); return; }
+  fetch('/platform/api/service/add/', {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify(data)})
+    .then(function(r){return r.json()}).then(function(d) { if(d.error){alert(d.error);return;} location.reload(); });
+}
+
+function submitAddConnection() {
+  var data = {
+    from_id: document.getElementById('ac-from').value,
+    to_id: document.getElementById('ac-to').value,
+    protocol: document.getElementById('ac-proto').value,
+    label: document.getElementById('ac-label').value,
+  };
+  fetch('/platform/api/connection/add/', {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify(data)})
+    .then(function(r){return r.json()}).then(function(d) { if(d.error){alert(d.error);return;} location.reload(); });
+}
+
+function deleteConnection(connId) {
+  if (!confirm('Poistetaanko yhteys?')) return;
+  fetch('/platform/api/connection/'+connId+'/delete/', {method:'POST',headers:{'X-CSRFToken':CSRF}})
+    .then(function(r){return r.json()}).then(function() { location.reload(); });
+}
+
+// ══ TABS ════════════════════════════════════════════════════════════════════
+
+document.querySelectorAll('.tab').forEach(function(b) { b.addEventListener('click', function() {
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active')});
+  document.querySelectorAll('.tab-content').forEach(function(t){t.classList.remove('active')});
+  b.classList.add('active'); document.getElementById('tab-'+b.dataset.tab).classList.add('active');
+}); });
+
+document.querySelectorAll('.dtab').forEach(function(b) { b.addEventListener('click', function() {
+  document.querySelectorAll('.dtab').forEach(function(t){t.classList.remove('active')});
+  document.querySelectorAll('.dtab-content').forEach(function(t){t.classList.remove('active')});
+  b.classList.add('active'); document.getElementById('dtab-'+b.dataset.dtab).classList.add('active');
+  if (b.dataset.dtab === 'dlogs') dpLoadLogs();
+  var panel = document.getElementById('detail-panel');
+  if (b.dataset.dtab === 'files') panel.classList.add('files-active');
+  else panel.classList.remove('files-active');
+}); });
+
+// ══ REFRESH + LOGS ══════════════════════════════════════════════════════════
+
+function refreshAll() {
+  fetch("{% url 'platform:api_status' %}").then(function(r){return r.json()}).then(function(data) {
+    Object.entries(data.services).forEach(function(e) { var s = SERVICES.find(function(x){return x.name===e[0]}); if(s) s.running=e[1].running; });
+    document.getElementById('stat-running').textContent = data.running_count+'/'+data.total_count;
+    if(data.qa_stats){document.getElementById('stat-us').textContent=data.qa_stats.us;document.getElementById('stat-xr').textContent=data.qa_stats.xr;document.getElementById('stat-ct').textContent=data.qa_stats.ct;}
+    drawArch();
+  });
+}
+
+function loadLogs() {
+  var out = document.getElementById('log-output'); out.textContent = 'Ladataan...';
+  fetch('/platform/api/logs/'+document.getElementById('log-container-select').value+'/?tail='+document.getElementById('log-tail-select').value)
+    .then(function(r){return r.json()}).then(function(d){out.textContent=d.logs||d.error;out.scrollTop=out.scrollHeight;});
+}
+
+var logAutoInterval;
+document.getElementById('log-auto-refresh').addEventListener('change', function() {
+  if(this.checked){loadLogs();logAutoInterval=setInterval(loadLogs,5000);}else clearInterval(logAutoInterval);
+});
+
+document.querySelectorAll('.modal-overlay').forEach(function(m) { m.addEventListener('click', function(e) { if(e.target===m) m.style.display='none'; }); });
+document.addEventListener('keydown', function(e) { if(e.key==='Escape'){closeDetail();document.querySelectorAll('.modal-overlay').forEach(function(m){m.style.display='none'});} });
+
+drawArch();
+setInterval(refreshAll, 30000);
+
+// ══ FILE BROWSER & EDITOR ═══════════════════════════════════════════════════
+
+var ftCurrentPath = '/app';
+var monacoEditor = null;
+var monacoReady = false;
+var feCurrentFile = null;
+var feOrigContent = '';
+var feEditable = false;
+
+// Load Monaco lazily when Files tab is opened
+function loadMonaco(cb) {
+  if (monacoReady) { cb(); return; }
+  var script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js';
+  script.onload = function() {
+    require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' }});
+    require(['vs/editor/editor.main'], function() {
+      monacoReady = true;
+      cb();
+    });
+  };
+  document.head.appendChild(script);
+}
+
+function initMonaco() {
+  if (monacoEditor) return;
+  var el = document.getElementById('monaco-editor');
+  monacoEditor = monaco.editor.create(el, {
+    value: '',
+    language: 'plaintext',
+    theme: 'vs-dark',
+    readOnly: true,
+    minimap: { enabled: false },
+    fontSize: 12,
+    lineNumbers: 'on',
+    scrollBeyondLastLine: false,
+    wordWrap: 'on',
+    automaticLayout: true,
+  });
+  monacoEditor.onDidChangeModelContent(function() {
+    if (!feCurrentFile) return;
+    var changed = monacoEditor.getValue() !== feOrigContent;
+    document.getElementById('fe-modified').style.display = changed ? '' : 'none';
+    document.getElementById('fe-save-btn').style.display = (changed && feEditable) ? '' : 'none';
+    document.getElementById('fe-discard-btn').style.display = changed ? '' : 'none';
+  });
+}
+
+function ftNavigate(path) {
+  if (!currentContainer) return;
+  ftCurrentPath = path;
+  document.getElementById('ft-path').textContent = path;
+  document.getElementById('ft-tree').innerHTML = '<div class="loading">Ladataan...</div>';
+  fetch('/platform/api/files/' + currentContainer + '/tree/?path=' + encodeURIComponent(path))
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.error) { document.getElementById('ft-tree').innerHTML = '<div class="err">' + d.error + '</div>'; return; }
+      feEditable = d.editable;
+      renderTree(d.items, path);
+    })
+    .catch(function(e) { document.getElementById('ft-tree').innerHTML = '<div class="err">' + e + '</div>'; });
+}
+
+function ftUp() {
+  var parts = ftCurrentPath.split('/').filter(Boolean);
+  if (parts.length <= 1) { ftNavigate('/'); return; }
+  parts.pop();
+  ftNavigate('/' + parts.join('/'));
+}
+
+function renderTree(items, parentPath) {
+  var tree = document.getElementById('ft-tree');
+  if (!items.length) { tree.innerHTML = '<div class="empty-msg">Tyhja hakemisto</div>'; return; }
+  var html = '';
+  items.forEach(function(item) {
+    var icon = item.type === 'dir' ? '&#128193;' : getFileIcon(item.name);
+    var sizeStr = item.type === 'file' ? formatSize(item.size) : '';
+    html += '<div class="ft-item ft-' + item.type + '" data-path="' + escHtml(item.path) + '" data-type="' + item.type + '">';
+    html += '<span class="ft-icon">' + icon + '</span>';
+    html += '<span class="ft-name">' + escHtml(item.name) + '</span>';
+    if (sizeStr) html += '<span class="ft-size">' + sizeStr + '</span>';
+    html += '</div>';
+  });
+  tree.innerHTML = html;
+
+  tree.querySelectorAll('.ft-item').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var p = el.dataset.path, t = el.dataset.type;
+      if (t === 'dir') { ftNavigate(p); }
+      else { feOpenFile(p); }
+    });
+  });
+}
+
+function feOpenFile(path) {
+  if (!currentContainer) return;
+  document.getElementById('fe-empty').style.display = 'none';
+  document.getElementById('monaco-editor').style.display = 'block';
+  document.getElementById('fe-header').style.display = 'flex';
+  document.getElementById('fe-filename').textContent = path.split('/').pop();
+  document.getElementById('fe-size').textContent = 'Ladataan...';
+  document.getElementById('fe-modified').style.display = 'none';
+  document.getElementById('fe-save-btn').style.display = 'none';
+  document.getElementById('fe-discard-btn').style.display = 'none';
+
+  loadMonaco(function() {
+    initMonaco();
+    fetch('/platform/api/files/' + currentContainer + '/read/?path=' + encodeURIComponent(path))
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.error) { alert(d.error); return; }
+        feCurrentFile = path;
+        feOrigContent = d.content;
+        feEditable = d.editable;
+        document.getElementById('fe-size').textContent = formatSize(d.size);
+        monaco.editor.setModelLanguage(monacoEditor.getModel(), d.language || 'plaintext');
+        monacoEditor.setValue(d.content);
+        monacoEditor.updateOptions({ readOnly: !d.editable });
+        monacoEditor.revealLine(1);
+      })
+      .catch(function(e) { alert('Virhe: ' + e); });
+  });
+}
+
+function feSave() {
+  if (!currentContainer || !feCurrentFile || !feEditable) return;
+  var content = monacoEditor.getValue();
+  document.getElementById('fe-save-btn').textContent = 'Tallennetaan...';
+  fetch('/platform/api/files/' + currentContainer + '/write/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+    body: JSON.stringify({ path: feCurrentFile, content: content }),
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.error) { alert(d.error); return; }
+    feOrigContent = content;
+    document.getElementById('fe-modified').style.display = 'none';
+    document.getElementById('fe-save-btn').style.display = 'none';
+    document.getElementById('fe-discard-btn').style.display = 'none';
+    document.getElementById('fe-save-btn').innerHTML = '&#128190; Tallenna';
+    document.getElementById('fe-size').textContent = formatSize(d.size);
+  })
+  .catch(function(e) { alert('Tallennusvirhe: ' + e); })
+  .finally(function() { document.getElementById('fe-save-btn').innerHTML = '&#128190; Tallenna'; });
+}
+
+function feDiscard() {
+  if (!monacoEditor) return;
+  monacoEditor.setValue(feOrigContent);
+  document.getElementById('fe-modified').style.display = 'none';
+  document.getElementById('fe-save-btn').style.display = 'none';
+  document.getElementById('fe-discard-btn').style.display = 'none';
+}
+
+function getFileIcon(name) {
+  var ext = name.split('.').pop().toLowerCase();
+  var icons = { py:'&#128013;', js:'&#9997;', ts:'&#9997;', html:'&#127760;', css:'&#127912;', json:'&#128203;', yml:'&#9881;', yaml:'&#9881;', md:'&#128196;', sh:'&#9889;', sql:'&#128451;', proto:'&#128260;' };
+  return icons[ext] || '&#128196;';
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/1048576).toFixed(1) + ' MB';
+}
+
+function escHtml(s) { var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+// Hook into detail tab switching — load file tree when Files tab opened
+var origDtabHandler = true;
+document.querySelectorAll('.dtab').forEach(function(b) {
+  if (b.dataset.dtab === 'files') {
+    b.addEventListener('click', function() {
+      if (currentContainer) ftNavigate(ftCurrentPath);
+    });
+  }
+});
+
 </script>
 {% endblock %}

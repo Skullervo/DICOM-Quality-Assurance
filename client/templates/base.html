@@ -24,7 +24,7 @@
         <a class="nav-link {% block nav_active_index %}{% endblock %}" href="{% url 'index' %}">{% trans "Aloitus" %}</a>
         <a class="nav-link {% block nav_active_modalities %}{% endblock %}" href="{% url 'modaliteetit' %}">{% trans "Modaliteetit" %}</a>
         <a class="nav-link {% block nav_active_tietoa %}{% endblock %}" href="{% url 'tietoa' %}">{% trans "Tietoa" %}</a>
-        {% if user.is_staff %}<a class="nav-link {% block nav_active_platform %}{% endblock %}" href="{% url 'platform:dashboard' %}">Platform</a>{% endif %}
+        {% if user.is_staff %}<a class="nav-link {% block nav_active_platform %}{% endblock %}" href="{% url 'platform:dashboard' %}">Platform</a><a class="nav-link {% block nav_active_projects %}{% endblock %}" href="{% url 'platform:project_list' %}">Projektit</a>{% endif %}
       </div>
       {% block nav_right %}{% endblock %}
       <div class="nav-controls">
