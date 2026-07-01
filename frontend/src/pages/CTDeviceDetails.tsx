@@ -10,6 +10,7 @@ import { C, MetaRow, formatDate } from '../components/DeviceShared'
 import { VerdictBar } from '../components/qa/VerdictBar'
 import { MetricCard } from '../components/qa/MetricCard'
 import { MainArea } from '../components/qa/MainArea'
+import { ConsolidatedTrend } from '../components/qa/ConsolidatedTrend'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
 import { hasTolerance } from '../lib/qa/status'
 
@@ -31,7 +32,7 @@ type CTChartDef = { dataKey: string; label: string; color: string; nominal?: num
 
 // Trendikäyrät ryhmitelty välilehtiin (vähemmän kerralla, isommat)
 const CHART_GROUPS: { key: string; label: string; charts: CTChartDef[] }[] = [
-  { key: 'hu', label: 'HU-lineaarisuus', charts: [
+  { key: 'hu', label: 'HU-poikkeama', charts: [
     { dataKey: 'hu_air', label: 'HU Ilma', nominal: -1000, color: '#94a3b8' },
     { dataKey: 'hu_pmp', label: 'HU PMP', nominal: -196, color: '#7dd3fc' },
     { dataKey: 'hu_ldpe', label: 'HU LDPE', nominal: -104, color: '#6ee7b7' },
@@ -245,11 +246,16 @@ export default function CTDeviceDetails() {
             ))}
           </div>
           {chartData && chartData.length > 0 ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridAutoRows: '150px', gap: '8px 12px' }}>
-              {(CHART_GROUPS.find((g) => g.key === group)?.charts ?? []).map((c) => (
-                <CTChart key={c.dataKey} data={chartData} dataKey={c.dataKey} label={c.label} nominal={c.nominal} color={c.color} />
-              ))}
-            </div>
+            group === 'hu' ? (
+              // Konsolidoitu: 7 HU-materiaalia yhtenä poikkeama-nominaalista -käyränä
+              <ConsolidatedTrend metrics={metrics.filter((m) => m.id.startsWith('hu_'))} tol={40} warn={20} unit="HU" />
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridAutoRows: '150px', gap: '8px 12px' }}>
+                {(CHART_GROUPS.find((g) => g.key === group)?.charts ?? []).map((c) => (
+                  <CTChart key={c.dataKey} data={chartData} dataKey={c.dataKey} label={c.label} nominal={c.nominal} color={c.color} />
+                ))}
+              </div>
+            )
           ) : (
             <p className="text-[11px]" style={{ color: C.muted }}>Ei trendidataa saatavilla.</p>
           )}
