@@ -16,7 +16,11 @@ function limitText(m: Metric): string {
   return ''
 }
 
-export function MetricCard({ metric }: { metric: Metric }) {
+export function MetricCard({ metric, activeIndex, onSelect }: {
+  metric: Metric
+  activeIndex?: number
+  onSelect?: (index: number) => void
+}) {
   const toleranced = hasTolerance(metric)
   const noData = metric.value == null
   const status: Status = noData ? 'nodata' : toleranced ? deriveStatus(metric) : 'nodata'
@@ -55,7 +59,7 @@ export function MetricCard({ metric }: { metric: Metric }) {
           Ei historiaa
         </div>
       ) : (
-        <Sparkline metric={metric} />
+        <Sparkline metric={metric} activeIndex={activeIndex} onSelect={onSelect} />
       )}
 
       {trend != null && !noData && (

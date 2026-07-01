@@ -1,23 +1,13 @@
 import { useState, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ReferenceLine, ResponsiveContainer
-} from 'recharts'
 import { api, type USDataPoint, type USImageResponse } from '../api/client'
-import { C, MetaRow, formatDate } from '../components/DeviceShared'
+import { C, MetaRow } from '../components/DeviceShared'
 import { VerdictBar } from '../components/qa/VerdictBar'
 import { MetricCard } from '../components/qa/MetricCard'
 import { MainArea } from '../components/qa/MainArea'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
 import { hasTolerance } from '../lib/qa/status'
-
-// Tolerance limits (Aljahdali et al. 2021, van Horssen et al. 2017, IPEM 102)
-const LIMITS = {
-  u_cov:   { warn: 5.0, fail: 10.0 },  // %
-  u_skew:  { warn: 0.5, fail: 1.5 },   // absolute
-}
 
 /* Vertikaalinen profiili — kapea palkki kuvan oikealla puolella, täyttää parent-korkeuden */
 function VertProfileSVG({ data }: { data: number[] }) {
@@ -71,56 +61,6 @@ function HorizProfileSVG({ data }: { data: number[] }) {
       {divFracs.map((f, i) => <line key={i} x1={f * W} y1={0} x2={f * W} y2={H} stroke="#4b5563" strokeWidth="1" />)}
       {segMins.map((m, i) => <circle key={i} cx={m.x} cy={m.y} r={4} fill={C.bad} />)}
     </svg>
-  )
-}
-
-function USChart({ data, dataKey, label, unit, warnLine, failLine, color, activeIndex, onClickPoint }: {
-  data: USDataPoint[]; dataKey: keyof USDataPoint; label: string; unit: string
-  warnLine?: number; failLine?: number; color: string
-  activeIndex?: number; onClickPoint?: (index: number) => void
-}) {
-  const chartData = data.map((d, i) => ({
-    date: formatDate(d.study_date ?? ''),
-    value: d[dataKey] as number | null,
-    _idx: i,
-  }))
-
-  const CustomDot = (props: Record<string, unknown>) => {
-    const { cx, cy, payload } = props as { cx: number; cy: number; payload: { _idx: number } }
-    if (cx == null || cy == null) return null
-    const isActive = payload._idx === activeIndex
-    return (
-      <circle cx={cx} cy={cy} r={isActive ? 6 : 3.5} fill={isActive ? '#fff' : color}
-        stroke={color} strokeWidth={isActive ? 2.5 : 1} style={{ cursor: 'pointer' }}
-        onClick={() => onClickPoint?.(payload._idx)} />
-    )
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0, outline: 'none' }}>
-      <h3 style={{ fontSize: 11, fontWeight: 600, color: C.neutral, margin: 0 }}>{label} [{unit}]</h3>
-      <div style={{ flex: 1, minHeight: 0 }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData} margin={{ top: 6, right: 12, left: -8, bottom: 0 }}
-          style={{ outline: 'none', cursor: 'pointer' }}
-          onClick={(st) => {
-            if (st && typeof st.activeTooltipIndex === 'number') onClickPoint?.(st.activeTooltipIndex)
-          }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-          <XAxis dataKey="date" tick={{ fontSize: 10, fill: C.muted }} interval="preserveStartEnd" />
-          <YAxis tick={{ fontSize: 10, fill: C.muted }} width={44} />
-          <Tooltip contentStyle={{ background: C.surface, border: `1px solid ${C.border}`, fontSize: 11 }}
-            labelStyle={{ color: C.neutral }} />
-          {warnLine !== undefined && <ReferenceLine y={warnLine} stroke={C.warn} strokeDasharray="4 2"
-            label={{ value: 'Tark.', fill: C.warn, fontSize: 10 }} />}
-          {failLine !== undefined && <ReferenceLine y={failLine} stroke={C.bad} strokeDasharray="4 2"
-            label={{ value: 'Raja', fill: C.bad, fontSize: 10 }} />}
-          <Line type="linear" dataKey="value" stroke={color} dot={<CustomDot />}
-            activeDot={false} strokeWidth={2.5} connectNulls />
-        </LineChart>
-      </ResponsiveContainer>
-      </div>
-    </div>
   )
 }
 
@@ -283,39 +223,12 @@ export default function USDeviceDetails() {
 
         {(latest || selectedPoint) && (
           <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-            {metrics.map((m) => <MetricCard key={m.id} metric={m} />)}
+            {metrics.map((m) => (
+              <MetricCard key={m.id} metric={m} activeIndex={selectedIdx ?? undefined} onSelect={handlePointClick} />
+            ))}
           </div>
         )}
 
-        {/* Trend charts */}
-        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 10, display: 'flex', flexDirection: 'column' }}>
-          <h2 style={{ fontSize: 12, fontWeight: 600, color: C.neutral, marginBottom: 6 }}>Trendikäyrät</h2>
-          {chartData && chartData.length > 0 ? (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gridAutoRows: '170px', gap: 8 }}>
-              <USChart data={chartData} dataKey="s_depth" label="Herkkyys (s_depth)" unit="cm"
-                color="#60a5fa"
-                activeIndex={selectedIdx ?? undefined} onClickPoint={handlePointClick} />
-              <USChart data={chartData} dataKey="u_cov" label="Tasaisuus (U_cov)" unit="%"
-                warnLine={LIMITS.u_cov.warn} failLine={LIMITS.u_cov.fail} color={C.ok}
-                activeIndex={selectedIdx ?? undefined} onClickPoint={handlePointClick} />
-              <USChart data={chartData} dataKey="u_skew" label="Epäsymmetria (U_skew)" unit=""
-                warnLine={LIMITS.u_skew.warn} failLine={LIMITS.u_skew.fail} color="#a78bfa"
-                activeIndex={selectedIdx ?? undefined} onClickPoint={handlePointClick} />
-              </div>
-              <div style={{ display: 'flex', gap: 16, fontSize: 10, color: C.muted, marginTop: 4, flexShrink: 0 }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span style={{ display: 'inline-block', width: 20, borderTop: `2px dashed ${C.warn}` }} /> Tarkkailuraja
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span style={{ display: 'inline-block', width: 20, borderTop: `2px dashed ${C.bad}` }} /> Toimenpideraja
-                </span>
-              </div>
-            </>
-          ) : (
-            <p style={{ fontSize: 12, color: C.muted }}>Ei trendidataa saatavilla.</p>
-          )}
-        </div>
       </MainArea>
     </div>
   )

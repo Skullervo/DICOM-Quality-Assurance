@@ -8,6 +8,7 @@ export type Modality = 'CT' | 'XR' | 'US'
 export interface MetricHistoryPoint {
   date: string // ISO-päivä tai näyttömuoto
   value: number
+  idx?: number // alkuperäinen indeksi lähdedatassa (mittauksen valintaan)
   status?: Status // valinnainen esilaskettu status pisteelle
 }
 

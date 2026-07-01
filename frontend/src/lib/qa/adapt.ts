@@ -40,9 +40,10 @@ export function formatDay(raw: string | number | null | undefined): string | und
 export function buildMetrics(modality: Modality, latest: Row | null, history: Row[] = []): Metric[] {
   return MODALITY_METRICS[modality].map((cfg) => {
     const value = latest ? numOrNull(latest[cfg.id]) : null
+    // Säilytä alkuperäinen indeksi (idx) — mittauksen valinta sparklinesta
     const hist: Metric['history'] = history
-      .map((pt) => ({ date: rowDate(pt), value: numOrNull(pt[cfg.id]) }))
-      .filter((h): h is { date: string; value: number } => h.value != null)
+      .map((pt, idx) => ({ date: rowDate(pt), value: numOrNull(pt[cfg.id]), idx }))
+      .filter((h): h is { date: string; value: number; idx: number } => h.value != null)
     return configToMetric(cfg, value, hist)
   })
 }

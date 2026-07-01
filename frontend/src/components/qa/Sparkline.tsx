@@ -26,7 +26,11 @@ function SparkTooltip(props: Record<string, unknown>) {
   )
 }
 
-export function Sparkline({ metric }: { metric: Metric }) {
+export function Sparkline({ metric, activeIndex, onSelect }: {
+  metric: Metric
+  activeIndex?: number // valittu mittaus (alkuperäinen idx)
+  onSelect?: (index: number) => void
+}) {
   const { history, nominal, lowerLimit, upperLimit, unit, precision } = metric
   const status = deriveStatus(metric)
   const lastIdx = history.length - 1
@@ -41,16 +45,28 @@ export function Sparkline({ metric }: { metric: Metric }) {
   const pad = (hi - lo) * 0.15
   lo -= pad; hi += pad
 
-  const LastDot = (props: Record<string, unknown>) => {
-    const { cx, cy, index } = props as { cx?: number; cy?: number; index?: number }
-    if (index !== lastIdx || cx == null || cy == null) return null
-    return <circle cx={cx} cy={cy} r={3.2} fill={STATUS_COLOR[status]} stroke="var(--surface)" strokeWidth={1.5} />
+  const Dot = (props: Record<string, unknown>) => {
+    const { cx, cy, index, payload } = props as { cx?: number; cy?: number; index?: number; payload?: { idx?: number } }
+    if (cx == null || cy == null) return null
+    const isActive = payload?.idx != null && payload.idx === activeIndex
+    if (isActive) return <circle cx={cx} cy={cy} r={4.5} fill="#fff" stroke={STATUS_COLOR[status]} strokeWidth={2} />
+    if (index === lastIdx) return <circle cx={cx} cy={cy} r={3.2} fill={STATUS_COLOR[status]} stroke="var(--surface)" strokeWidth={1.5} />
+    return <circle cx={cx} cy={cy} r={2} fill={STATUS_COLOR[status]} />
   }
 
   return (
     <div style={{ height: 52, width: '100%' }}>
       <ResponsiveContainer>
-        <LineChart data={history} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
+        <LineChart data={history} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}
+          style={onSelect ? { cursor: 'pointer' } : undefined}
+          onClick={(s) => {
+            if (!onSelect) return
+            const i = s?.activeTooltipIndex
+            if (typeof i === 'number') {
+              const idx = history[i]?.idx
+              if (idx != null) onSelect(idx)
+            }
+          }}>
           <YAxis hide domain={[lo, hi]} />
           <XAxis hide dataKey="date" />
           {(lowerLimit != null || upperLimit != null) && (
@@ -60,7 +76,7 @@ export function Sparkline({ metric }: { metric: Metric }) {
           {upperLimit != null && <ReferenceLine y={upperLimit} stroke="var(--limit-line)" strokeWidth={1} />}
           {lowerLimit != null && <ReferenceLine y={lowerLimit} stroke="var(--limit-line)" strokeWidth={1} />}
           <Tooltip content={<SparkTooltip unit={unit} nominal={nominal} precision={precision} />} cursor={{ stroke: 'var(--border-strong)' }} />
-          <Line type="monotone" dataKey="value" stroke="var(--series)" strokeWidth={1.6} dot={<LastDot />} isAnimationActive={false} />
+          <Line type="monotone" dataKey="value" stroke="var(--series)" strokeWidth={1.6} dot={<Dot />} isAnimationActive={false} />
         </LineChart>
       </ResponsiveContainer>
     </div>

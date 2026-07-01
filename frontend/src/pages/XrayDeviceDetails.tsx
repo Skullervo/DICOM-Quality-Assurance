@@ -1,10 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ReferenceLine, ResponsiveContainer
-} from 'recharts'
 import { api, type ImageResponse } from '../api/client'
 import { C, MetaRow, formatDate } from '../components/DeviceShared'
 import { VerdictBar } from '../components/qa/VerdictBar'
@@ -13,12 +9,6 @@ import { MainArea } from '../components/qa/MainArea'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
 import { hasTolerance } from '../lib/qa/status'
 
-const LIMITS = {
-  uniformity_deviation: { warn: 5, fail: 10 },
-  median_cnr:           { warn: 3, fail: 2 },
-  mtf_50_percent:       { warn: 1.8, fail: 1.5 },
-}
-
 const IMAGE_TABS = [
   { key: 'dicom', label: 'DICOM' },
   { key: 'contrast_rois', label: 'ROI-kartta' },
@@ -26,91 +16,11 @@ const IMAGE_TABS = [
   { key: 'mtf_curve', label: 'MTF-käyrä' },
 ]
 
-type ChartDef = { dataKey: string; label: string; unit: string; color: string; warn?: number; fail?: number }
-
-// 19 metriikkaa ryhmitelty kolmeen välilehteen -> ~4-8 käyrää kerrallaan, ei 19
-const CHART_GROUPS: { key: string; label: string; charts: ChartDef[] }[] = [
-  { key: 'summary', label: 'Yhteenveto', charts: [
-    { dataKey: 'uniformity_deviation', label: 'Tasaisuus — poikkeama', unit: '%', color: '#93c5fd', warn: LIMITS.uniformity_deviation.warn, fail: LIMITS.uniformity_deviation.fail },
-    { dataKey: 'mtf_50_percent', label: 'MTF 50%', unit: 'lp/mm', color: '#a78bfa', warn: LIMITS.mtf_50_percent.warn, fail: LIMITS.mtf_50_percent.fail },
-    { dataKey: 'median_cnr', label: 'Mediaani CNR', unit: '', color: '#6ee7b7', warn: LIMITS.median_cnr.warn, fail: LIMITS.median_cnr.fail },
-    { dataKey: 'median_contrast', label: 'Mediaani kontrasti', unit: '', color: '#52e3a0' },
-    { dataKey: 'uniformity_center', label: 'Tasaisuus — keskialue', unit: '', color: '#60a5fa' },
-    { dataKey: 'num_contrast_rois_seen', label: 'Kontrasti-ROI (kpl)', unit: '', color: '#f59e0b' },
-  ] },
-  { key: 'cu', label: 'Cu-kiila', charts: [
-    { dataKey: 'cu_000_mean', label: 'Cu 0.0 mm', unit: '', color: '#fb923c' },
-    { dataKey: 'cu_030_mean', label: 'Cu 0.3 mm', unit: '', color: '#fbbf24' },
-    { dataKey: 'cu_065_mean', label: 'Cu 0.65 mm', unit: '', color: '#facc15' },
-    { dataKey: 'cu_100_mean', label: 'Cu 1.0 mm', unit: '', color: '#a3e635' },
-    { dataKey: 'cu_140_mean', label: 'Cu 1.4 mm', unit: '', color: '#4ade80' },
-    { dataKey: 'cu_185_mean', label: 'Cu 1.85 mm', unit: '', color: '#2dd4bf' },
-    { dataKey: 'cu_230_mean', label: 'Cu 2.3 mm', unit: '', color: '#22d3ee' },
-  ] },
-  { key: 'lc', label: 'Matala kontrasti', charts: [
-    { dataKey: 'lc_08_contrast', label: 'Matala k. 0.8 %', unit: '', color: '#818cf8' },
-    { dataKey: 'lc_12_contrast', label: 'Matala k. 1.2 %', unit: '', color: '#a78bfa' },
-    { dataKey: 'lc_20_contrast', label: 'Matala k. 2.0 %', unit: '', color: '#c084fc' },
-    { dataKey: 'lc_28_contrast', label: 'Matala k. 2.8 %', unit: '', color: '#e879f9' },
-    { dataKey: 'lc_40_contrast', label: 'Matala k. 4.0 %', unit: '', color: '#f472b6' },
-    { dataKey: 'lc_56_contrast', label: 'Matala k. 5.6 %', unit: '', color: '#fb7185' },
-  ] },
-]
-
-function XRChart({ data, def, activeIndex, onClickPoint }: {
-  data: Record<string, unknown>[]; def: ChartDef
-  activeIndex?: number; onClickPoint?: (i: number) => void
-}) {
-  const chartData = data.map((d, i) => ({
-    date: formatDate(String(d.study_date ?? '')),
-    value: d[def.dataKey] as number | null,
-    _idx: i,
-  }))
-  if (chartData.every(d => typeof d.value !== 'number')) return null
-
-  const CustomDot = (props: Record<string, unknown>) => {
-    const { cx, cy, payload } = props as { cx: number; cy: number; payload: { _idx: number } }
-    if (cx == null || cy == null) return null
-    const active = payload._idx === activeIndex
-    return <circle cx={cx} cy={cy} r={active ? 5.5 : 3} fill={active ? '#fff' : def.color}
-      stroke={def.color} strokeWidth={active ? 2.5 : 1} style={{ cursor: 'pointer' }}
-      onClick={() => onClickPoint?.(payload._idx)} />
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}>
-      <h3 className="text-[11px] font-medium" style={{ color: C.neutral, margin: 0 }}>
-        {def.label}{def.unit && <span style={{ color: C.muted }}> [{def.unit}]</span>}
-      </h3>
-      <div style={{ flex: 1, minHeight: 0 }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData} margin={{ top: 4, right: 10, left: -10, bottom: 0 }}
-          style={{ cursor: 'pointer' }}
-          onClick={(s) => {
-            if (s && typeof s.activeTooltipIndex === 'number') onClickPoint?.(s.activeTooltipIndex)
-          }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-          <XAxis dataKey="date" tick={{ fontSize: 9, fill: C.muted }} interval="preserveStartEnd" />
-          <YAxis tick={{ fontSize: 9, fill: C.muted }} width={44} />
-          <Tooltip contentStyle={{ background: C.surface, border: `1px solid ${C.border}`, fontSize: 11 }}
-            labelStyle={{ color: C.neutral }} />
-          {def.warn !== undefined && <ReferenceLine y={def.warn} stroke={C.warn} strokeDasharray="4 2" />}
-          {def.fail !== undefined && <ReferenceLine y={def.fail} stroke={C.bad} strokeDasharray="4 2" />}
-          <Line type="linear" dataKey="value" stroke={def.color} dot={<CustomDot />}
-            activeDot={false} strokeWidth={2} connectNulls />
-        </LineChart>
-      </ResponsiveContainer>
-      </div>
-    </div>
-  )
-}
-
 export default function XrayDeviceDetails() {
   const { inst, unit } = useParams<{ inst: string; unit: string }>()
   const dInst = inst ? decodeURIComponent(inst) : ''
   const dUnit = unit ? decodeURIComponent(unit) : ''
   const [imgTab, setImgTab] = useState('dicom')
-  const [group, setGroup] = useState('summary')
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
 
   const { data: detail } = useQuery<Record<string, unknown>[]>({
@@ -155,8 +65,6 @@ export default function XrayDeviceDetails() {
   const reportDefault = latest
     ? `Ongelma laitteella ${latest.station_name ?? dUnit} (XR)\nkVp: ${latest.kvp ?? '?'}, mAs: ${latest.exposure_mAs ?? '?'}\nUniformity: ${chipUnif ?? '?'} %`
     : `Ongelma XR-laitteella: ${dUnit}`
-
-  const activeCharts = CHART_GROUPS.find(g => g.key === group)?.charts ?? []
 
   // Config-vetoiset metriikat; verdiktiin vain toleranssilliset
   const metrics = buildMetrics('XR', latest, (chartData ?? []) as Record<string, unknown>[])
@@ -250,44 +158,12 @@ export default function XrayDeviceDetails() {
 
         {latest && (
           <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-            {metrics.map((m) => <MetricCard key={m.id} metric={m} />)}
+            {metrics.map((m) => (
+              <MetricCard key={m.id} metric={m} activeIndex={selectedIdx ?? undefined} onSelect={handlePointClick} />
+            ))}
           </div>
         )}
 
-        {/* Trendit — ryhmävälilehdet */}
-        <div className="rounded-md" style={{ background: C.surface, border: `1px solid ${C.border}`, padding: 10, display: 'flex', flexDirection: 'column' }}>
-          <div className="flex items-center justify-between mb-2 flex-wrap gap-2" style={{ flexShrink: 0 }}>
-            <h2 className="text-[12px] font-semibold" style={{ color: C.neutral }}>Trendikäyrät — NORMI-13</h2>
-            <div className="flex gap-1">
-              {CHART_GROUPS.map(g => (
-                <button key={g.key} onClick={() => setGroup(g.key)}
-                  className="px-2 py-0.5 text-[10px] rounded transition"
-                  style={{ background: group === g.key ? C.accent : C.surface2,
-                    color: group === g.key ? '#fff' : C.muted,
-                    border: `1px solid ${group === g.key ? C.accent : C.border}` }}>
-                  {g.label} ({g.charts.length})
-                </button>
-              ))}
-            </div>
-          </div>
-          <p className="text-[10px] mb-2" style={{ color: C.muted, flexShrink: 0 }}>
-            Vihje: klikkaa käyrän pistettä nähdäksesi kyseisen mittauksen kuvan ja arvot.
-          </p>
-          {chartData && chartData.length > 0 ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gridAutoRows: '160px', gap: '8px 16px' }}>
-              {activeCharts.map(def => (
-                <XRChart key={def.dataKey} data={chartData} def={def}
-                  activeIndex={selectedIdx ?? undefined} onClickPoint={handlePointClick} />
-              ))}
-            </div>
-          ) : (
-            <p className="text-[11px]" style={{ color: C.muted }}>Ei trendidataa saatavilla.</p>
-          )}
-          <div style={{ display: 'flex', gap: 16, fontSize: 10, color: C.muted, marginTop: 4, flexShrink: 0 }}>
-            <span className="flex items-center gap-1"><span style={{ display: 'inline-block', width: 20, borderTop: `2px dashed ${C.warn}` }} /> Tarkkailuraja</span>
-            <span className="flex items-center gap-1"><span style={{ display: 'inline-block', width: 20, borderTop: `2px dashed ${C.bad}` }} /> Toimenpideraja</span>
-          </div>
-        </div>
       </MainArea>
     </div>
   )

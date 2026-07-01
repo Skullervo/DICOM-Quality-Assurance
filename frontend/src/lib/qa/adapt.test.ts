@@ -50,6 +50,7 @@ describe('buildMetrics', () => {
     ]
     const ucov = buildMetrics('US', { u_cov: 5 }, hist).find((m) => m.id === 'u_cov')!
     expect(ucov.history).toHaveLength(2)
-    expect(ucov.history[0]).toEqual({ date: '20240801', value: 3 })
+    expect(ucov.history[0]).toEqual({ date: '20240801', value: 3, idx: 0 })
+    expect(ucov.history[1]).toEqual({ date: '20241001', value: 5, idx: 2 }) // idx säilyy nullin yli
   })
 })
