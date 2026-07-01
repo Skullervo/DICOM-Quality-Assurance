@@ -6,8 +6,9 @@ import {
   ReferenceLine, ResponsiveContainer
 } from 'recharts'
 import { api, type ImageResponse } from '../api/client'
-import { C, SlackForm, AiChat, MetaRow, MetricPanel, MetricSection, MetricGrid, MetricCell, formatDate } from '../components/DeviceShared'
+import { C, SlackForm, AiChat, MetaRow, formatDate } from '../components/DeviceShared'
 import { VerdictBar } from '../components/qa/VerdictBar'
+import { MetricCard } from '../components/qa/MetricCard'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
 import { hasTolerance } from '../lib/qa/status'
 
@@ -15,17 +16,6 @@ const LIMITS = {
   uniformity_deviation: { warn: 5, fail: 10 },
   median_cnr:           { warn: 3, fail: 2 },
   mtf_50_percent:       { warn: 1.8, fail: 1.5 },
-}
-
-function getStatus(value: number | null, metric: string): 'ok' | 'warn' | 'bad' | 'neutral' {
-  if (typeof value !== 'number') return 'neutral'
-  if (metric === 'uniformity_deviation')
-    return value > LIMITS.uniformity_deviation.fail ? 'bad' : value > LIMITS.uniformity_deviation.warn ? 'warn' : 'ok'
-  if (metric === 'mtf_50_percent')
-    return value < LIMITS.mtf_50_percent.fail ? 'bad' : value < LIMITS.mtf_50_percent.warn ? 'warn' : 'ok'
-  if (metric === 'median_cnr')
-    return value < LIMITS.median_cnr.fail ? 'bad' : value < LIMITS.median_cnr.warn ? 'warn' : 'ok'
-  return 'ok'
 }
 
 const IMAGE_TABS = [
@@ -156,9 +146,6 @@ export default function XrayDeviceDetails() {
   const chipUnif = num(selectedPoint?.uniformity_deviation ?? latest?.uniformity_deviation)
   const chipMtf = num(selectedPoint?.mtf_50_percent ?? latest?.mtf_50_percent)
   const chipCnr = num(selectedPoint?.median_cnr ?? latest?.median_cnr)
-  const chipContrast = num(selectedPoint?.median_contrast ?? latest?.median_contrast)
-  const chipCu100 = num(selectedPoint?.cu_100_mean ?? latest?.cu_100_mean)
-  const chipRois = num(selectedPoint?.num_contrast_rois_seen ?? latest?.num_contrast_rois_seen)
 
   const aiCtx = latest
     ? `Röntgenlaite: ${latest.station_name ?? dUnit}\nkVp: ${latest.kvp ?? '?'}, mAs: ${latest.exposure_mAs ?? '?'}\nUniformity: ${chipUnif ?? '?'} %\nMTF 50%: ${chipMtf ?? '?'} lp/mm\nCNR: ${chipCnr ?? '?'}`
@@ -166,8 +153,9 @@ export default function XrayDeviceDetails() {
 
   const activeCharts = CHART_GROUPS.find(g => g.key === group)?.charts ?? []
 
-  // Verdikti — config-vetoiset metriikat, vain rajalliset lasketaan mukaan
-  const verdictMetrics = buildMetrics('XR', latest, (chartData ?? []) as Record<string, unknown>[]).filter(hasTolerance)
+  // Config-vetoiset metriikat; verdiktiin vain toleranssilliset
+  const metrics = buildMetrics('XR', latest, (chartData ?? []) as Record<string, unknown>[])
+  const verdictMetrics = metrics.filter(hasTolerance)
   const verdictDevice = {
     deviceId: String(latest?.station_name ?? dUnit),
     phantom: latest?.phantom_model ? String(latest.phantom_model) : undefined,
@@ -239,9 +227,9 @@ export default function XrayDeviceDetails() {
         </div>
       </div>
 
-      {/* === KESKIPANEELI — täyttää korkeuden, ei skrollia === */}
-      <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: `1px solid ${C.border}` }}>
-        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, padding: '12px 16px', gap: 8 }}>
+      {/* === KESKIPANEELI — vierittyvä analyysialue === */}
+      <div style={{ overflowY: 'auto', borderRight: `1px solid ${C.border}` }}>
+        <div style={{ display: 'flex', flexDirection: 'column', padding: '12px 16px', gap: 10 }}>
           <nav className="text-[12px] flex gap-1 flex-wrap" style={{ color: C.muted, flexShrink: 0 }}>
             <Link to="/" className="hover:text-white">Aloitus</Link><span>/</span>
             <Link to="/xray/institutions" className="hover:text-white">Röntgen</Link><span>/</span>
@@ -252,26 +240,15 @@ export default function XrayDeviceDetails() {
 
           {latest && <VerdictBar device={verdictDevice} metrics={verdictMetrics} />}
 
-          {/* Mittarit — yhtenäinen paneeli */}
+          {/* KPI-stat-kortit — config-vetoiset metriikat */}
           {latest && (
-            <div style={{ flexShrink: 0 }}>
-              <MetricPanel>
-                <MetricSection label="Mittarit" first
-                  right={selectedPoint ? <span style={{ fontSize: 9, color: C.accent }}>valittu mittaus</span> : undefined} />
-                <MetricGrid cols={6}>
-                  <MetricCell label="Tasaisuus" value={chipUnif} unit="%" status={getStatus(chipUnif, 'uniformity_deviation')} />
-                  <MetricCell label="MTF 50%" value={chipMtf} unit="lp/mm" status={getStatus(chipMtf, 'mtf_50_percent')} />
-                  <MetricCell label="Mediaani CNR" value={chipCnr} unit="" status={getStatus(chipCnr, 'median_cnr')} />
-                  <MetricCell label="Mediaani kontrasti" value={chipContrast} unit="" status="ok" />
-                  <MetricCell label="Cu 1.0mm" value={chipCu100} unit="" status="ok" />
-                  <MetricCell label="Kontrasti-ROI" value={chipRois} unit="" status="ok" decimals={0} />
-                </MetricGrid>
-              </MetricPanel>
+            <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+              {metrics.map((m) => <MetricCard key={m.id} metric={m} />)}
             </div>
           )}
 
-          {/* Trendit — ryhmävälilehdet, täyttävät jäljellä olevan korkeuden */}
-          <div className="rounded-md" style={{ background: C.surface, border: `1px solid ${C.border}`, padding: 10, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          {/* Trendit — ryhmävälilehdet */}
+          <div className="rounded-md" style={{ background: C.surface, border: `1px solid ${C.border}`, padding: 10, display: 'flex', flexDirection: 'column' }}>
             <div className="flex items-center justify-between mb-2 flex-wrap gap-2" style={{ flexShrink: 0 }}>
               <h2 className="text-[12px] font-semibold" style={{ color: C.neutral }}>Trendikäyrät — NORMI-13</h2>
               <div className="flex gap-1">
@@ -290,7 +267,7 @@ export default function XrayDeviceDetails() {
               Vihje: klikkaa käyrän pistettä nähdäksesi kyseisen mittauksen kuvan ja arvot.
             </p>
             {chartData && chartData.length > 0 ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gridAutoRows: 'minmax(0, 1fr)', gap: '4px 16px', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gridAutoRows: '160px', gap: '8px 16px' }}>
                 {activeCharts.map(def => (
                   <XRChart key={def.dataKey} data={chartData} def={def}
                     activeIndex={selectedIdx ?? undefined} onClickPoint={handlePointClick} />

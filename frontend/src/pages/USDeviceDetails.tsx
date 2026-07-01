@@ -6,8 +6,9 @@ import {
   ReferenceLine, ResponsiveContainer
 } from 'recharts'
 import { api, type USDataPoint, type USImageResponse } from '../api/client'
-import { C, SlackForm, AiChat, MetaRow, MetricPanel, MetricSection, MetricGrid, MetricCell, formatDate } from '../components/DeviceShared'
+import { C, SlackForm, AiChat, MetaRow, formatDate } from '../components/DeviceShared'
 import { VerdictBar } from '../components/qa/VerdictBar'
+import { MetricCard } from '../components/qa/MetricCard'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
 import { hasTolerance } from '../lib/qa/status'
 
@@ -15,22 +16,6 @@ import { hasTolerance } from '../lib/qa/status'
 const LIMITS = {
   u_cov:   { warn: 5.0, fail: 10.0 },  // %
   u_skew:  { warn: 0.5, fail: 1.5 },   // absolute
-}
-
-function getStatus(value: number | null, metric: string): 'ok' | 'warn' | 'bad' | 'neutral' {
-  if (value === null) return 'neutral'
-  if (metric === 's_depth') return 'neutral'
-  if (metric === 'u_cov') {
-    if (value > LIMITS.u_cov.fail) return 'bad'
-    if (value > LIMITS.u_cov.warn) return 'warn'
-    return 'ok'
-  }
-  if (metric === 'u_skew') {
-    if (Math.abs(value) > LIMITS.u_skew.fail) return 'bad'
-    if (Math.abs(value) > LIMITS.u_skew.warn) return 'warn'
-    return 'ok'
-  }
-  return 'neutral'
 }
 
 /* Vertikaalinen profiili — kapea palkki kuvan oikealla puolella, täyttää parent-korkeuden */
@@ -182,8 +167,9 @@ export default function USDeviceDetails() {
     ? `Ultraäänilaite: ${latest.stationname ?? s}\ns_depth: ${chipSDepth ?? '?'} cm\nu_cov: ${chipUCov ?? '?'} %\nu_skew: ${chipUSkew ?? '?'}\nAnturityyppi: ${latest.tranducertype ?? '?'}`
     : `Ultraäänilaite: ${s}`
 
-  // Verdikti — config-vetoiset metriikat, vain rajalliset lasketaan mukaan
-  const verdictMetrics = buildMetrics('US', latest, (chartData ?? []) as unknown as Record<string, unknown>[]).filter(hasTolerance)
+  // Config-vetoiset metriikat; verdiktiin vain toleranssilliset
+  const metrics = buildMetrics('US', latest, (chartData ?? []) as unknown as Record<string, unknown>[])
+  const verdictMetrics = metrics.filter(hasTolerance)
   const verdictDevice = {
     deviceId: String(latest?.stationname ?? s),
     measuredAt: formatDay((latest?.studydate ?? latest?.contentdate) as string | undefined),
@@ -275,9 +261,9 @@ export default function USDeviceDetails() {
         </div>
       </div>
 
-      {/* === KESKIPANEELI — täyttää korkeuden, ei skrollia === */}
-      <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: `1px solid ${C.border}` }}>
-        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, padding: '12px 16px', gap: 8 }}>
+      {/* === KESKIPANEELI — vierittyvä analyysialue === */}
+      <div style={{ overflowY: 'auto', borderRight: `1px solid ${C.border}` }}>
+        <div style={{ display: 'flex', flexDirection: 'column', padding: '12px 16px', gap: 10 }}>
           {/* Breadcrumb */}
           <nav style={{ fontSize: 12, color: C.muted, flexShrink: 0, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             <Link to="/" style={{ color: C.muted }}>Aloitus</Link><span>/</span>
@@ -288,27 +274,19 @@ export default function USDeviceDetails() {
 
           {(latest || selectedPoint) && <VerdictBar device={verdictDevice} metrics={verdictMetrics} />}
 
-          {/* Mittarit — yhtenäinen paneeli */}
+          {/* KPI-stat-kortit — config-vetoiset metriikat */}
           {(latest || selectedPoint) && (
-            <div style={{ flexShrink: 0 }}>
-              <MetricPanel>
-                <MetricSection label="Mittarit" first
-                  right={selectedPoint ? <span style={{ fontSize: 9, color: C.accent }}>valittu mittaus</span> : undefined} />
-                <MetricGrid cols={3}>
-                  <MetricCell label="Herkkyys (s_depth)" value={chipSDepth} unit="cm" status={getStatus(chipSDepth, 's_depth')} />
-                  <MetricCell label="Tasaisuus (U_cov)" value={chipUCov} unit="%" status={getStatus(chipUCov, 'u_cov')} />
-                  <MetricCell label="Epäsymmetria (U_skew)" value={chipUSkew} unit="" status={getStatus(chipUSkew, 'u_skew')} />
-                </MetricGrid>
-              </MetricPanel>
+            <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+              {metrics.map((m) => <MetricCard key={m.id} metric={m} />)}
             </div>
           )}
 
-          {/* Trend charts — täyttävät jäljellä olevan korkeuden */}
-          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 10, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-            <h2 style={{ fontSize: 12, fontWeight: 600, color: C.neutral, marginBottom: 6, flexShrink: 0 }}>Trendikäyrät</h2>
+          {/* Trend charts */}
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 10, display: 'flex', flexDirection: 'column' }}>
+            <h2 style={{ fontSize: 12, fontWeight: 600, color: C.neutral, marginBottom: 6 }}>Trendikäyrät</h2>
             {chartData && chartData.length > 0 ? (
               <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gridAutoRows: 'minmax(0, 1fr)', gap: 4, flex: 1, minHeight: 0, overflow: 'hidden' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gridAutoRows: '170px', gap: 8 }}>
                 <USChart data={chartData} dataKey="s_depth" label="Herkkyys (s_depth)" unit="cm"
                   color="#60a5fa"
                   activeIndex={selectedIdx ?? undefined} onClickPoint={handlePointClick} />

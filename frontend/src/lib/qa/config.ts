@@ -54,6 +54,8 @@ const XR_METRICS: MetricConfig[] = [
   { id: 'median_cnr', label: 'Mediaani CNR', unit: '', nominal: null, lowerLimit: 2, upperLimit: null, lowerWarn: 3, precision: 2 },
   // TODO: vahvista fyysikon kanssa — ei rajoja repossa.
   { id: 'median_contrast', label: 'Mediaani kontrasti', unit: '', nominal: null, lowerLimit: null, upperLimit: null, precision: 2 },
+  { id: 'cu_100_mean', label: 'Cu 1.0 mm', unit: '', nominal: null, lowerLimit: null, upperLimit: null, precision: 2 },
+  { id: 'num_contrast_rois_seen', label: 'Kontrasti-ROI', unit: '', nominal: null, lowerLimit: null, upperLimit: null, precision: 0 },
 ]
 
 // US (in-air reverberation) — repon LIMITS. s_depth on informatiivinen (ei rajoja),

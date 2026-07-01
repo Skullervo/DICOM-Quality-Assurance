@@ -6,21 +6,11 @@ import {
   ReferenceLine, ResponsiveContainer
 } from 'recharts'
 import { api } from '../api/client'
-import { C, SlackForm, AiChat, MetaRow, MetricPanel, MetricSection, MetricGrid, MetricCell, formatDate } from '../components/DeviceShared'
+import { C, SlackForm, AiChat, MetaRow, formatDate } from '../components/DeviceShared'
 import { VerdictBar } from '../components/qa/VerdictBar'
+import { MetricCard } from '../components/qa/MetricCard'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
 import { hasTolerance } from '../lib/qa/status'
-
-const HU_NOMINAL: Record<string, number> = {
-  hu_air: -1000, hu_pmp: -196, hu_ldpe: -104, hu_poly: -35,
-  hu_acrylic: 120, hu_delrin: 340, hu_teflon: 990,
-}
-
-function huStatus(value: number | null, nominal: number): 'ok' | 'warn' | 'bad' | 'neutral' {
-  if (value === null) return 'neutral'
-  const diff = Math.abs(value - nominal)
-  return diff > 40 ? 'bad' : diff > 20 ? 'warn' : 'ok'
-}
 
 const IMAGE_TABS = [
   { key: 'hu_linearity', label: 'HU-lin.' },
@@ -105,8 +95,9 @@ export default function CTDeviceDetails() {
   const imgUrl = instanceId ? api.ctAnalysisImageUrl(instanceId, imgTab) : null
   const chartImgUrl = instanceId ? api.ctAnalysisImageUrl(instanceId, chartTab) : null
 
-  // Verdikti — config-vetoiset metriikat, vain rajalliset lasketaan mukaan
-  const verdictMetrics = buildMetrics('CT', latest, (chartData ?? []) as Record<string, unknown>[]).filter(hasTolerance)
+  // Config-vetoiset metriikat; verdiktiin vain toleranssilliset
+  const metrics = buildMetrics('CT', latest, (chartData ?? []) as Record<string, unknown>[])
+  const verdictMetrics = metrics.filter(hasTolerance)
   const verdictDevice = {
     deviceId: String(latest?.station_name ?? station),
     phantom: latest?.phantom_model ? String(latest.phantom_model) : undefined,
@@ -209,9 +200,9 @@ export default function CTDeviceDetails() {
         </div>
       </div>
 
-      {/* KESKIPANEELI — täyttää korkeuden, ei skrollia */}
-      <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: `1px solid ${C.border}` }}>
-        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, padding: 12, gap: 8 }}>
+      {/* KESKIPANEELI — vierittyvä analyysialue (verdiktti + KPI + trendit) */}
+      <div style={{ overflowY: 'auto', borderRight: `1px solid ${C.border}` }}>
+        <div style={{ display: 'flex', flexDirection: 'column', padding: 12, gap: 10 }}>
           <nav className="text-[12px] flex gap-1 flex-wrap" style={{ color: C.muted, flexShrink: 0 }}>
             <Link to="/" className="hover:text-white">Aloitus</Link><span>/</span>
             <Link to="/ct/institutions" className="hover:text-white">TT</Link><span>/</span>
@@ -221,34 +212,15 @@ export default function CTDeviceDetails() {
 
           {latest && <VerdictBar device={verdictDevice} metrics={verdictMetrics} />}
 
-          {/* Mittausarvot — yksi paneeli, kaksi osiota */}
+          {/* KPI-stat-kortit — config-vetoiset metriikat (label + arvo + status + sparkline) */}
           {latest && (
-            <div style={{ flexShrink: 0 }}>
-              <MetricPanel>
-                <MetricSection
-                  label="HU-lineaarisuus (CTP404)"
-                  first
-                  right={latest.phantom_model ? <span style={{ fontSize: 9, color: C.muted }}>{String(latest.phantom_model)}</span> : undefined}
-                />
-                <MetricGrid cols={7}>
-                  {Object.entries(HU_NOMINAL).map(([key, nom]) => (
-                    <MetricCell key={key} label={key.replace('hu_', '')} value={latest[key] as number | null}
-                      status={huStatus(latest[key] as number | null, nom)} nominal={nom} decimals={0} />
-                  ))}
-                </MetricGrid>
-                <MetricSection label="Laatu" />
-                <MetricGrid cols={4}>
-                  <MetricCell label="Uniformiteetti" value={latest.uniformity_index as number | null} unit="%" status="ok" />
-                  <MetricCell label="MTF 50%" value={latest.mtf_50_percent as number | null} unit="lp/cm" status="ok" />
-                  <MetricCell label="Kohina (HU SD)" value={latest.noise_hu_std as number | null} unit="" status="ok" />
-                  <MetricCell label="Viipalepaksuus" value={latest.slice_thickness_mm as number | null} unit="mm" status="ok" />
-                </MetricGrid>
-              </MetricPanel>
+            <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+              {metrics.map((m) => <MetricCard key={m.id} metric={m} />)}
             </div>
           )}
 
-          {/* Trend charts — ryhmitelty välilehtiin, täyttävät jäljellä olevan korkeuden */}
-          <div className="rounded-md" style={{ background: C.surface, border: `1px solid ${C.border}`, padding: 10, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          {/* Trend charts — ryhmitelty välilehtiin */}
+          <div className="rounded-md" style={{ background: C.surface, border: `1px solid ${C.border}`, padding: 10, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', gap: 4, marginBottom: 6, flexShrink: 0 }}>
               {CHART_GROUPS.map((g) => (
                 <button
@@ -266,7 +238,7 @@ export default function CTDeviceDetails() {
               ))}
             </div>
             {chartData && chartData.length > 0 ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridAutoRows: 'minmax(0, 1fr)', gap: '4px 12px', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridAutoRows: '150px', gap: '8px 12px' }}>
                 {(CHART_GROUPS.find((g) => g.key === group)?.charts ?? []).map((c) => (
                   <CTChart key={c.dataKey} data={chartData} dataKey={c.dataKey} label={c.label} nominal={c.nominal} color={c.color} />
                 ))}
