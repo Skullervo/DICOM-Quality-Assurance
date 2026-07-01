@@ -6,9 +6,10 @@ import {
   ReferenceLine, ResponsiveContainer
 } from 'recharts'
 import { api, type USDataPoint, type USImageResponse } from '../api/client'
-import { C, SlackForm, AiChat, MetaRow, formatDate } from '../components/DeviceShared'
+import { C, MetaRow, formatDate } from '../components/DeviceShared'
 import { VerdictBar } from '../components/qa/VerdictBar'
 import { MetricCard } from '../components/qa/MetricCard'
+import { MainArea } from '../components/qa/MainArea'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
 import { hasTolerance } from '../lib/qa/status'
 
@@ -176,10 +177,14 @@ export default function USDeviceDetails() {
     previousAt: formatDay((detail?.[1]?.studydate ?? detail?.[1]?.contentdate) as string | undefined),
   }
 
+  const reportDefault = latest
+    ? `Ongelma laitteella ${latest.stationname ?? s} (US)\ns_depth: ${latest.s_depth ?? '?'} cm, u_cov: ${latest.u_cov ?? '?'} %, u_skew: ${latest.u_skew ?? '?'}`
+    : `Ongelma US-laitteella: ${s}`
+
   return (
     <div style={{
       position: 'fixed', top: 'var(--navbar-height)', left: 0, right: 0, bottom: 0,
-      display: 'grid', gridTemplateColumns: '270px 1fr 300px',
+      display: 'grid', gridTemplateColumns: '300px 1fr',
       background: C.bg,
     }}>
 
@@ -261,69 +266,57 @@ export default function USDeviceDetails() {
         </div>
       </div>
 
-      {/* === KESKIPANEELI — vierittyvä analyysialue === */}
-      <div style={{ overflowY: 'auto', borderRight: `1px solid ${C.border}` }}>
-        <div style={{ display: 'flex', flexDirection: 'column', padding: '12px 16px', gap: 10 }}>
-          {/* Breadcrumb */}
-          <nav style={{ fontSize: 12, color: C.muted, flexShrink: 0, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+      {/* PÄÄALUE — välilehdet (Analyysi / Kysy tekoälyltä / Raportoi ongelmasta) */}
+      <MainArea
+        aiContext={aiCtx}
+        reportDefault={reportDefault}
+        breadcrumb={
+          <nav style={{ fontSize: 12, color: C.muted, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             <Link to="/" style={{ color: C.muted }}>Aloitus</Link><span>/</span>
             <Link to="/us/institutions" style={{ color: C.muted }}>Instituutiot</Link><span>/</span>
             <Link to="/us/units" style={{ color: C.muted }}>Laitteet</Link><span>/</span>
             <span style={{ color: C.neutral }}>{s}</span>
           </nav>
+        }
+      >
+        {(latest || selectedPoint) && <VerdictBar device={verdictDevice} metrics={verdictMetrics} />}
 
-          {(latest || selectedPoint) && <VerdictBar device={verdictDevice} metrics={verdictMetrics} />}
-
-          {/* KPI-stat-kortit — config-vetoiset metriikat */}
-          {(latest || selectedPoint) && (
-            <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-              {metrics.map((m) => <MetricCard key={m.id} metric={m} />)}
-            </div>
-          )}
-
-          {/* Trend charts */}
-          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 10, display: 'flex', flexDirection: 'column' }}>
-            <h2 style={{ fontSize: 12, fontWeight: 600, color: C.neutral, marginBottom: 6 }}>Trendikäyrät</h2>
-            {chartData && chartData.length > 0 ? (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gridAutoRows: '170px', gap: 8 }}>
-                <USChart data={chartData} dataKey="s_depth" label="Herkkyys (s_depth)" unit="cm"
-                  color="#60a5fa"
-                  activeIndex={selectedIdx ?? undefined} onClickPoint={handlePointClick} />
-                <USChart data={chartData} dataKey="u_cov" label="Tasaisuus (U_cov)" unit="%"
-                  warnLine={LIMITS.u_cov.warn} failLine={LIMITS.u_cov.fail} color={C.ok}
-                  activeIndex={selectedIdx ?? undefined} onClickPoint={handlePointClick} />
-                <USChart data={chartData} dataKey="u_skew" label="Epäsymmetria (U_skew)" unit=""
-                  warnLine={LIMITS.u_skew.warn} failLine={LIMITS.u_skew.fail} color="#a78bfa"
-                  activeIndex={selectedIdx ?? undefined} onClickPoint={handlePointClick} />
-                </div>
-                <div style={{ display: 'flex', gap: 16, fontSize: 10, color: C.muted, marginTop: 4, flexShrink: 0 }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ display: 'inline-block', width: 20, borderTop: `2px dashed ${C.warn}` }} /> Tarkkailuraja
-                  </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ display: 'inline-block', width: 20, borderTop: `2px dashed ${C.bad}` }} /> Toimenpideraja
-                  </span>
-                </div>
-              </>
-            ) : (
-              <p style={{ fontSize: 12, color: C.muted }}>Ei trendidataa saatavilla.</p>
-            )}
+        {(latest || selectedPoint) && (
+          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+            {metrics.map((m) => <MetricCard key={m.id} metric={m} />)}
           </div>
+        )}
 
-          {/* Slack */}
-          <SlackForm defaultText={
-            latest
-              ? `Ongelma laitteella ${latest.stationname ?? s} (US)\ns_depth: ${latest.s_depth ?? '?'} cm, u_cov: ${latest.u_cov ?? '?'} %, u_skew: ${latest.u_skew ?? '?'}`
-              : `Ongelma US-laitteella: ${s}`
-          } />
+        {/* Trend charts */}
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 10, display: 'flex', flexDirection: 'column' }}>
+          <h2 style={{ fontSize: 12, fontWeight: 600, color: C.neutral, marginBottom: 6 }}>Trendikäyrät</h2>
+          {chartData && chartData.length > 0 ? (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gridAutoRows: '170px', gap: 8 }}>
+              <USChart data={chartData} dataKey="s_depth" label="Herkkyys (s_depth)" unit="cm"
+                color="#60a5fa"
+                activeIndex={selectedIdx ?? undefined} onClickPoint={handlePointClick} />
+              <USChart data={chartData} dataKey="u_cov" label="Tasaisuus (U_cov)" unit="%"
+                warnLine={LIMITS.u_cov.warn} failLine={LIMITS.u_cov.fail} color={C.ok}
+                activeIndex={selectedIdx ?? undefined} onClickPoint={handlePointClick} />
+              <USChart data={chartData} dataKey="u_skew" label="Epäsymmetria (U_skew)" unit=""
+                warnLine={LIMITS.u_skew.warn} failLine={LIMITS.u_skew.fail} color="#a78bfa"
+                activeIndex={selectedIdx ?? undefined} onClickPoint={handlePointClick} />
+              </div>
+              <div style={{ display: 'flex', gap: 16, fontSize: 10, color: C.muted, marginTop: 4, flexShrink: 0 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ display: 'inline-block', width: 20, borderTop: `2px dashed ${C.warn}` }} /> Tarkkailuraja
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ display: 'inline-block', width: 20, borderTop: `2px dashed ${C.bad}` }} /> Toimenpideraja
+                </span>
+              </div>
+            </>
+          ) : (
+            <p style={{ fontSize: 12, color: C.muted }}>Ei trendidataa saatavilla.</p>
+          )}
         </div>
-      </div>
-
-      {/* === OIKEA PANEELI — AI === */}
-      <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', background: C.surface }}>
-        <AiChat context={aiCtx} />
-      </div>
+      </MainArea>
     </div>
   )
 }

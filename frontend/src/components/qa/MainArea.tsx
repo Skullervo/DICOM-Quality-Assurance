@@ -1,0 +1,50 @@
+// Pääalueen välilehti-runko (brief osio 5): Analyysi · Kysy tekoälyltä · Raportoi ongelmasta.
+// Pysyvä vasen paneeli on tämän ulkopuolella (näkyy kaikilla välilehdillä).
+import { useState, type ReactNode } from 'react'
+import { BarChart3, Sparkles, Flag } from 'lucide-react'
+import { AiChat } from '../DeviceShared'
+import { ReportTab } from './ReportTab'
+
+type TabId = 'analyysi' | 'ai' | 'raportti'
+const TABS: { id: TabId; label: string; Icon: typeof BarChart3 }[] = [
+  { id: 'analyysi', label: 'Analyysi', Icon: BarChart3 },
+  { id: 'ai', label: 'Kysy tekoälyltä', Icon: Sparkles },
+  { id: 'raportti', label: 'Raportoi ongelmasta', Icon: Flag },
+]
+
+export function MainArea({ breadcrumb, aiContext, reportDefault, children }: {
+  breadcrumb: ReactNode
+  aiContext: string
+  reportDefault: string
+  children: ReactNode // Analyysi-välilehden sisältö (verdiktti + KPI + trendit)
+}) {
+  const [tab, setTab] = useState<TabId>('analyysi')
+  return (
+    <main style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+      <div style={{ padding: '10px 16px 0', flexShrink: 0 }}>
+        <div style={{ marginBottom: 8 }}>{breadcrumb}</div>
+        <div role="tablist" style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)' }}>
+          {TABS.map(({ id, label, Icon }) => {
+            const active = tab === id
+            return (
+              <button key={id} role="tab" aria-selected={active} onClick={() => setTab(id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 7, background: 'none', border: 'none', cursor: 'pointer',
+                  color: active ? 'var(--text)' : 'var(--text-muted)', fontSize: 13.5, fontWeight: active ? 600 : 400,
+                  padding: '9px 12px', borderBottom: active ? '2px solid var(--info)' : '2px solid transparent', marginBottom: -1,
+                }}>
+                <Icon size={16} aria-hidden />{label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        {tab === 'analyysi' && <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>{children}</div>}
+        {tab === 'ai' && <div style={{ height: '100%' }}><AiChat context={aiContext} /></div>}
+        {tab === 'raportti' && <ReportTab defaultText={reportDefault} />}
+      </div>
+    </main>
+  )
+}

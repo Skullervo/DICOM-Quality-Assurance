@@ -6,9 +6,10 @@ import {
   ReferenceLine, ResponsiveContainer
 } from 'recharts'
 import { api } from '../api/client'
-import { C, SlackForm, AiChat, MetaRow, formatDate } from '../components/DeviceShared'
+import { C, MetaRow, formatDate } from '../components/DeviceShared'
 import { VerdictBar } from '../components/qa/VerdictBar'
 import { MetricCard } from '../components/qa/MetricCard'
+import { MainArea } from '../components/qa/MainArea'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
 import { hasTolerance } from '../lib/qa/status'
 
@@ -109,10 +110,14 @@ export default function CTDeviceDetails() {
     ? `CT-laite: ${latest.station_name ?? station}\nPhantom: ${latest.phantom_model ?? '?'}\nkVp: ${latest.kvp ?? '?'}, mAs: ${latest.exposure_mAs ?? '?'}\nHU Air: ${latest.hu_air ?? '?'}, Acrylic: ${latest.hu_acrylic ?? '?'}, Teflon: ${latest.hu_teflon ?? '?'}\nUniformity: ${latest.uniformity_index ?? '?'} %, MTF 50%: ${latest.mtf_50_percent ?? '?'} lp/cm\nOverall: ${latest.overall_pass === true ? 'PASS' : latest.overall_pass === false ? 'FAIL' : '?'}`
     : `CT-laite: ${station}`
 
+  const reportDefault = latest
+    ? `Ongelma laitteella ${latest.station_name ?? station} (CT)\nPhantom: ${latest.phantom_model ?? '?'}\nHU Acrylic: ${latest.hu_acrylic ?? '?'}, Uniformity: ${latest.uniformity_index ?? '?'} %\nOverall: ${latest.overall_pass === true ? 'PASS' : latest.overall_pass === false ? 'FAIL' : '?'}`
+    : `Ongelma CT-laitteella: ${station}`
+
   return (
     <div style={{
       position: 'fixed', top: 'var(--navbar-height)', left: 0, right: 0, bottom: 0,
-      display: 'grid', gridTemplateColumns: '270px 1fr 300px', background: C.bg,
+      display: 'grid', gridTemplateColumns: '300px 1fr', background: C.bg,
     }}>
 
       {/* === VASEN PANEELI === */}
@@ -200,66 +205,56 @@ export default function CTDeviceDetails() {
         </div>
       </div>
 
-      {/* KESKIPANEELI — vierittyvä analyysialue (verdiktti + KPI + trendit) */}
-      <div style={{ overflowY: 'auto', borderRight: `1px solid ${C.border}` }}>
-        <div style={{ display: 'flex', flexDirection: 'column', padding: 12, gap: 10 }}>
-          <nav className="text-[12px] flex gap-1 flex-wrap" style={{ color: C.muted, flexShrink: 0 }}>
+      {/* PÄÄALUE — välilehdet (Analyysi / Kysy tekoälyltä / Raportoi ongelmasta) */}
+      <MainArea
+        aiContext={aiCtx}
+        reportDefault={reportDefault}
+        breadcrumb={
+          <nav className="text-[12px] flex gap-1 flex-wrap" style={{ color: C.muted }}>
             <Link to="/" className="hover:text-white">Aloitus</Link><span>/</span>
             <Link to="/ct/institutions" className="hover:text-white">TT</Link><span>/</span>
             <Link to="/ct/units" className="hover:text-white">Laitteet</Link><span>/</span>
             <span style={{ color: C.neutral }}>{station}</span>
           </nav>
+        }
+      >
+        {latest && <VerdictBar device={verdictDevice} metrics={verdictMetrics} />}
 
-          {latest && <VerdictBar device={verdictDevice} metrics={verdictMetrics} />}
+        {latest && (
+          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+            {metrics.map((m) => <MetricCard key={m.id} metric={m} />)}
+          </div>
+        )}
 
-          {/* KPI-stat-kortit — config-vetoiset metriikat (label + arvo + status + sparkline) */}
-          {latest && (
-            <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-              {metrics.map((m) => <MetricCard key={m.id} metric={m} />)}
-            </div>
-          )}
-
-          {/* Trend charts — ryhmitelty välilehtiin */}
-          <div className="rounded-md" style={{ background: C.surface, border: `1px solid ${C.border}`, padding: 10, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', gap: 4, marginBottom: 6, flexShrink: 0 }}>
-              {CHART_GROUPS.map((g) => (
-                <button
-                  key={g.key}
-                  onClick={() => setGroup(g.key)}
-                  className="text-[11px] rounded px-2 py-1"
-                  style={{
-                    background: group === g.key ? C.accent : 'transparent',
-                    color: group === g.key ? '#fff' : C.muted,
-                    border: `1px solid ${group === g.key ? C.accent : C.border}`,
-                  }}
-                >
-                  {g.label} ({g.charts.length})
-                </button>
+        {/* Trend charts — ryhmitelty välilehtiin */}
+        <div className="rounded-md" style={{ background: C.surface, border: `1px solid ${C.border}`, padding: 10, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', gap: 4, marginBottom: 6, flexShrink: 0 }}>
+            {CHART_GROUPS.map((g) => (
+              <button
+                key={g.key}
+                onClick={() => setGroup(g.key)}
+                className="text-[11px] rounded px-2 py-1"
+                style={{
+                  background: group === g.key ? C.accent : 'transparent',
+                  color: group === g.key ? '#fff' : C.muted,
+                  border: `1px solid ${group === g.key ? C.accent : C.border}`,
+                }}
+              >
+                {g.label} ({g.charts.length})
+              </button>
+            ))}
+          </div>
+          {chartData && chartData.length > 0 ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridAutoRows: '150px', gap: '8px 12px' }}>
+              {(CHART_GROUPS.find((g) => g.key === group)?.charts ?? []).map((c) => (
+                <CTChart key={c.dataKey} data={chartData} dataKey={c.dataKey} label={c.label} nominal={c.nominal} color={c.color} />
               ))}
             </div>
-            {chartData && chartData.length > 0 ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridAutoRows: '150px', gap: '8px 12px' }}>
-                {(CHART_GROUPS.find((g) => g.key === group)?.charts ?? []).map((c) => (
-                  <CTChart key={c.dataKey} data={chartData} dataKey={c.dataKey} label={c.label} nominal={c.nominal} color={c.color} />
-                ))}
-              </div>
-            ) : (
-              <p className="text-[11px]" style={{ color: C.muted }}>Ei trendidataa saatavilla.</p>
-            )}
-          </div>
-
-          <SlackForm defaultText={
-            latest
-              ? `Ongelma laitteella ${latest.station_name ?? station} (CT)\nPhantom: ${latest.phantom_model ?? '?'}\nHU Acrylic: ${latest.hu_acrylic ?? '?'}, Uniformity: ${latest.uniformity_index ?? '?'} %\nOverall: ${latest.overall_pass === true ? 'PASS' : latest.overall_pass === false ? 'FAIL' : '?'}`
-              : `Ongelma CT-laitteella: ${station}`
-          } />
+          ) : (
+            <p className="text-[11px]" style={{ color: C.muted }}>Ei trendidataa saatavilla.</p>
+          )}
         </div>
-      </div>
-
-      {/* OIKEA PANEELI — AI */}
-      <div className="flex flex-col overflow-hidden" style={{ background: C.surface }}>
-        <AiChat context={aiCtx} />
-      </div>
+      </MainArea>
     </div>
   )
 }

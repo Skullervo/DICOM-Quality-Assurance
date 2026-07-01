@@ -6,9 +6,10 @@ import {
   ReferenceLine, ResponsiveContainer
 } from 'recharts'
 import { api, type ImageResponse } from '../api/client'
-import { C, SlackForm, AiChat, MetaRow, formatDate } from '../components/DeviceShared'
+import { C, MetaRow, formatDate } from '../components/DeviceShared'
 import { VerdictBar } from '../components/qa/VerdictBar'
 import { MetricCard } from '../components/qa/MetricCard'
+import { MainArea } from '../components/qa/MainArea'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
 import { hasTolerance } from '../lib/qa/status'
 
@@ -151,6 +152,10 @@ export default function XrayDeviceDetails() {
     ? `Röntgenlaite: ${latest.station_name ?? dUnit}\nkVp: ${latest.kvp ?? '?'}, mAs: ${latest.exposure_mAs ?? '?'}\nUniformity: ${chipUnif ?? '?'} %\nMTF 50%: ${chipMtf ?? '?'} lp/mm\nCNR: ${chipCnr ?? '?'}`
     : `Röntgenlaite: ${dUnit}`
 
+  const reportDefault = latest
+    ? `Ongelma laitteella ${latest.station_name ?? dUnit} (XR)\nkVp: ${latest.kvp ?? '?'}, mAs: ${latest.exposure_mAs ?? '?'}\nUniformity: ${chipUnif ?? '?'} %`
+    : `Ongelma XR-laitteella: ${dUnit}`
+
   const activeCharts = CHART_GROUPS.find(g => g.key === group)?.charts ?? []
 
   // Config-vetoiset metriikat; verdiktiin vain toleranssilliset
@@ -166,7 +171,7 @@ export default function XrayDeviceDetails() {
   return (
     <div style={{
       position: 'fixed', top: 'var(--navbar-height)', left: 0, right: 0, bottom: 0,
-      display: 'grid', gridTemplateColumns: '270px 1fr 300px', background: C.bg,
+      display: 'grid', gridTemplateColumns: '300px 1fr', background: C.bg,
     }}>
 
       {/* === VASEN PANEELI === */}
@@ -227,73 +232,63 @@ export default function XrayDeviceDetails() {
         </div>
       </div>
 
-      {/* === KESKIPANEELI — vierittyvä analyysialue === */}
-      <div style={{ overflowY: 'auto', borderRight: `1px solid ${C.border}` }}>
-        <div style={{ display: 'flex', flexDirection: 'column', padding: '12px 16px', gap: 10 }}>
-          <nav className="text-[12px] flex gap-1 flex-wrap" style={{ color: C.muted, flexShrink: 0 }}>
+      {/* PÄÄALUE — välilehdet (Analyysi / Kysy tekoälyltä / Raportoi ongelmasta) */}
+      <MainArea
+        aiContext={aiCtx}
+        reportDefault={reportDefault}
+        breadcrumb={
+          <nav className="text-[12px] flex gap-1 flex-wrap" style={{ color: C.muted }}>
             <Link to="/" className="hover:text-white">Aloitus</Link><span>/</span>
             <Link to="/xray/institutions" className="hover:text-white">Röntgen</Link><span>/</span>
             <Link to={`/xray/units?institution=${encodeURIComponent(dInst)}`} className="hover:text-white">{dInst}</Link><span>/</span>
             <span style={{ color: C.neutral }}>{dUnit}</span>
             {selectedPoint && <span style={{ color: C.accent }}>· valittu mittaus {formatDate(String(selectedPoint.study_date ?? ''))}</span>}
           </nav>
+        }
+      >
+        {latest && <VerdictBar device={verdictDevice} metrics={verdictMetrics} />}
 
-          {latest && <VerdictBar device={verdictDevice} metrics={verdictMetrics} />}
+        {latest && (
+          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+            {metrics.map((m) => <MetricCard key={m.id} metric={m} />)}
+          </div>
+        )}
 
-          {/* KPI-stat-kortit — config-vetoiset metriikat */}
-          {latest && (
-            <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-              {metrics.map((m) => <MetricCard key={m.id} metric={m} />)}
-            </div>
-          )}
-
-          {/* Trendit — ryhmävälilehdet */}
-          <div className="rounded-md" style={{ background: C.surface, border: `1px solid ${C.border}`, padding: 10, display: 'flex', flexDirection: 'column' }}>
-            <div className="flex items-center justify-between mb-2 flex-wrap gap-2" style={{ flexShrink: 0 }}>
-              <h2 className="text-[12px] font-semibold" style={{ color: C.neutral }}>Trendikäyrät — NORMI-13</h2>
-              <div className="flex gap-1">
-                {CHART_GROUPS.map(g => (
-                  <button key={g.key} onClick={() => setGroup(g.key)}
-                    className="px-2 py-0.5 text-[10px] rounded transition"
-                    style={{ background: group === g.key ? C.accent : C.surface2,
-                      color: group === g.key ? '#fff' : C.muted,
-                      border: `1px solid ${group === g.key ? C.accent : C.border}` }}>
-                    {g.label} ({g.charts.length})
-                  </button>
-                ))}
-              </div>
-            </div>
-            <p className="text-[10px] mb-2" style={{ color: C.muted, flexShrink: 0 }}>
-              Vihje: klikkaa käyrän pistettä nähdäksesi kyseisen mittauksen kuvan ja arvot.
-            </p>
-            {chartData && chartData.length > 0 ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gridAutoRows: '160px', gap: '8px 16px' }}>
-                {activeCharts.map(def => (
-                  <XRChart key={def.dataKey} data={chartData} def={def}
-                    activeIndex={selectedIdx ?? undefined} onClickPoint={handlePointClick} />
-                ))}
-              </div>
-            ) : (
-              <p className="text-[11px]" style={{ color: C.muted }}>Ei trendidataa saatavilla.</p>
-            )}
-            <div style={{ display: 'flex', gap: 16, fontSize: 10, color: C.muted, marginTop: 4, flexShrink: 0 }}>
-              <span className="flex items-center gap-1"><span style={{ display: 'inline-block', width: 20, borderTop: `2px dashed ${C.warn}` }} /> Tarkkailuraja</span>
-              <span className="flex items-center gap-1"><span style={{ display: 'inline-block', width: 20, borderTop: `2px dashed ${C.bad}` }} /> Toimenpideraja</span>
+        {/* Trendit — ryhmävälilehdet */}
+        <div className="rounded-md" style={{ background: C.surface, border: `1px solid ${C.border}`, padding: 10, display: 'flex', flexDirection: 'column' }}>
+          <div className="flex items-center justify-between mb-2 flex-wrap gap-2" style={{ flexShrink: 0 }}>
+            <h2 className="text-[12px] font-semibold" style={{ color: C.neutral }}>Trendikäyrät — NORMI-13</h2>
+            <div className="flex gap-1">
+              {CHART_GROUPS.map(g => (
+                <button key={g.key} onClick={() => setGroup(g.key)}
+                  className="px-2 py-0.5 text-[10px] rounded transition"
+                  style={{ background: group === g.key ? C.accent : C.surface2,
+                    color: group === g.key ? '#fff' : C.muted,
+                    border: `1px solid ${group === g.key ? C.accent : C.border}` }}>
+                  {g.label} ({g.charts.length})
+                </button>
+              ))}
             </div>
           </div>
-
-          <SlackForm defaultText={
-            latest
-              ? `Ongelma laitteella ${latest.station_name ?? dUnit} (XR)\nkVp: ${latest.kvp ?? '?'}, mAs: ${latest.exposure_mAs ?? '?'}\nUniformity: ${chipUnif ?? '?'} %`
-              : `Ongelma XR-laitteella: ${dUnit}`
-          } />
+          <p className="text-[10px] mb-2" style={{ color: C.muted, flexShrink: 0 }}>
+            Vihje: klikkaa käyrän pistettä nähdäksesi kyseisen mittauksen kuvan ja arvot.
+          </p>
+          {chartData && chartData.length > 0 ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gridAutoRows: '160px', gap: '8px 16px' }}>
+              {activeCharts.map(def => (
+                <XRChart key={def.dataKey} data={chartData} def={def}
+                  activeIndex={selectedIdx ?? undefined} onClickPoint={handlePointClick} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-[11px]" style={{ color: C.muted }}>Ei trendidataa saatavilla.</p>
+          )}
+          <div style={{ display: 'flex', gap: 16, fontSize: 10, color: C.muted, marginTop: 4, flexShrink: 0 }}>
+            <span className="flex items-center gap-1"><span style={{ display: 'inline-block', width: 20, borderTop: `2px dashed ${C.warn}` }} /> Tarkkailuraja</span>
+            <span className="flex items-center gap-1"><span style={{ display: 'inline-block', width: 20, borderTop: `2px dashed ${C.bad}` }} /> Toimenpideraja</span>
+          </div>
         </div>
-      </div>
-
-      {/* === OIKEA PANEELI — AI === */}
-      <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', background: C.surface }}>
-        <AiChat context={aiCtx} />
-      </div>
+      </MainArea>
     </div>
   )
 }
