@@ -8,7 +8,10 @@ import { MetricsSection } from '../components/qa/MetricsSection'
 import { MainArea } from '../components/qa/MainArea'
 import { DeviceInfo } from '../components/qa/DeviceInfo'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
-import { hasTolerance } from '../lib/qa/status'
+import { hasTolerance, deriveVerdict } from '../lib/qa/status'
+
+const VERDICT_FI = { pass: 'Hyväksytty', warn: 'Varoitus', fail: 'Hylätty', nodata: 'Ei dataa' } as const
+const rnd = (v: unknown, p = 2) => (typeof v === 'number' ? v.toFixed(p) : '?')
 
 const IMAGE_TABS = [
   { key: 'hu_linearity', label: 'HU-lin.' },
@@ -52,8 +55,9 @@ export default function CTDeviceDetails() {
     previousAt: formatDay(detail?.[1]?.content_date as string | undefined),
   }
 
+  const v = deriveVerdict(verdictMetrics)
   const aiCtx = latest
-    ? `CT-laite: ${latest.station_name ?? station}\nPhantom: ${latest.phantom_model ?? '?'}\nkVp: ${latest.kvp ?? '?'}, mAs: ${latest.exposure_mAs ?? '?'}\nHU Air: ${latest.hu_air ?? '?'}, Acrylic: ${latest.hu_acrylic ?? '?'}, Teflon: ${latest.hu_teflon ?? '?'}\nUniformity: ${latest.uniformity_index ?? '?'} %, MTF 50%: ${latest.mtf_50_percent ?? '?'} lp/cm\nOverall: ${latest.overall_pass === true ? 'PASS' : latest.overall_pass === false ? 'FAIL' : '?'}`
+    ? `CT-laite: ${latest.station_name ?? station}\nFantomi: ${latest.phantom_model ?? '?'}\nkVp: ${latest.kvp ?? '?'}, mAs: ${latest.exposure_mAs ?? '?'}\nHU Ilma: ${rnd(latest.hu_air, 0)}, Akryyli: ${rnd(latest.hu_acrylic, 0)}, Teflon: ${rnd(latest.hu_teflon, 0)} HU\nUniformiteetti: ${rnd(latest.uniformity_index)} %, MTF 50%: ${rnd(latest.mtf_50_percent)} lp/cm\nVerdiktti: ${VERDICT_FI[v.verdict]} (${v.pass}/${v.measured})`
     : `CT-laite: ${station}`
 
   const reportDefault = latest
@@ -61,10 +65,7 @@ export default function CTDeviceDetails() {
     : `Ongelma CT-laitteella: ${station}`
 
   return (
-    <div style={{
-      position: 'fixed', top: 'var(--navbar-height)', left: 0, right: 0, bottom: 0,
-      display: 'grid', gridTemplateColumns: '300px 1fr', background: C.bg,
-    }}>
+    <div className="device-shell">
 
       {/* === VASEN PANEELI === */}
       <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden',

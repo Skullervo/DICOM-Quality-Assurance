@@ -8,7 +8,10 @@ import { MetricsSection } from '../components/qa/MetricsSection'
 import { MainArea } from '../components/qa/MainArea'
 import { DeviceInfo } from '../components/qa/DeviceInfo'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
-import { hasTolerance } from '../lib/qa/status'
+import { hasTolerance, deriveVerdict } from '../lib/qa/status'
+
+const VERDICT_FI = { pass: 'Hyväksytty', warn: 'Varoitus', fail: 'Hylätty', nodata: 'Ei dataa' } as const
+const rnd = (v: unknown, p = 2) => (typeof v === 'number' ? v.toFixed(p) : '?')
 
 const IMAGE_TABS = [
   { key: 'dicom', label: 'DICOM' },
@@ -59,17 +62,10 @@ export default function XrayDeviceDetails() {
   const chipMtf = num(selectedPoint?.mtf_50_percent ?? latest?.mtf_50_percent)
   const chipCnr = num(selectedPoint?.median_cnr ?? latest?.median_cnr)
 
-  const aiCtx = latest
-    ? `Röntgenlaite: ${latest.station_name ?? dUnit}\nkVp: ${latest.kvp ?? '?'}, mAs: ${latest.exposure_mAs ?? '?'}\nUniformity: ${chipUnif ?? '?'} %\nMTF 50%: ${chipMtf ?? '?'} lp/mm\nCNR: ${chipCnr ?? '?'}`
-    : `Röntgenlaite: ${dUnit}`
-
-  const reportDefault = latest
-    ? `Ongelma laitteella ${latest.station_name ?? dUnit} (XR)\nkVp: ${latest.kvp ?? '?'}, mAs: ${latest.exposure_mAs ?? '?'}\nUniformity: ${chipUnif ?? '?'} %`
-    : `Ongelma XR-laitteella: ${dUnit}`
-
   // Config-vetoiset metriikat; verdiktiin vain toleranssilliset
   const metrics = buildMetrics('XR', latest, (chartData ?? []) as Record<string, unknown>[])
   const verdictMetrics = metrics.filter(hasTolerance)
+  const v = deriveVerdict(verdictMetrics)
   const verdictDevice = {
     deviceId: String(latest?.station_name ?? dUnit),
     phantom: latest?.phantom_model ? String(latest.phantom_model) : undefined,
@@ -77,11 +73,16 @@ export default function XrayDeviceDetails() {
     previousAt: formatDay(detail?.[1]?.content_date as string | undefined),
   }
 
+  const aiCtx = latest
+    ? `Röntgenlaite: ${latest.station_name ?? dUnit}\nkVp: ${latest.kvp ?? '?'}, mAs: ${latest.exposure_mAs ?? '?'}\nTasaisuus: ${rnd(chipUnif)} %\nMTF 50%: ${rnd(chipMtf)} lp/mm\nMediaani CNR: ${rnd(chipCnr)}\nVerdiktti: ${VERDICT_FI[v.verdict]} (${v.pass}/${v.measured})`
+    : `Röntgenlaite: ${dUnit}`
+
+  const reportDefault = latest
+    ? `Ongelma laitteella ${latest.station_name ?? dUnit} (XR)\nkVp: ${latest.kvp ?? '?'}, mAs: ${latest.exposure_mAs ?? '?'}\nTasaisuus: ${rnd(chipUnif)} %`
+    : `Ongelma XR-laitteella: ${dUnit}`
+
   return (
-    <div style={{
-      position: 'fixed', top: 'var(--navbar-height)', left: 0, right: 0, bottom: 0,
-      display: 'grid', gridTemplateColumns: '300px 1fr', background: C.bg,
-    }}>
+    <div className="device-shell">
 
       {/* === VASEN PANEELI === */}
       <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden',

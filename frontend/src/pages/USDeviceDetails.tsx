@@ -8,7 +8,10 @@ import { MetricsSection } from '../components/qa/MetricsSection'
 import { MainArea } from '../components/qa/MainArea'
 import { DeviceInfo } from '../components/qa/DeviceInfo'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
-import { hasTolerance } from '../lib/qa/status'
+import { hasTolerance, deriveVerdict } from '../lib/qa/status'
+
+const VERDICT_FI = { pass: 'Hyväksytty', warn: 'Varoitus', fail: 'Hylätty', nodata: 'Ei dataa' } as const
+const rnd = (v: unknown, p = 2) => (typeof v === 'number' ? v.toFixed(p) : '?')
 
 /* Vertikaalinen profiili — kapea palkki kuvan oikealla puolella, täyttää parent-korkeuden */
 function VertProfileSVG({ data }: { data: number[] }) {
@@ -105,29 +108,26 @@ export default function USDeviceDetails() {
   const chipUCov = selectedPoint?.u_cov ?? (latest?.u_cov as number | null)
   const chipUSkew = selectedPoint?.u_skew ?? (latest?.u_skew as number | null)
 
-  const aiCtx = latest
-    ? `Ultraäänilaite: ${latest.stationname ?? s}\ns_depth: ${chipSDepth ?? '?'} cm\nu_cov: ${chipUCov ?? '?'} %\nu_skew: ${chipUSkew ?? '?'}\nAnturityyppi: ${latest.tranducertype ?? '?'}`
-    : `Ultraäänilaite: ${s}`
-
   // Config-vetoiset metriikat; verdiktiin vain toleranssilliset
   const metrics = buildMetrics('US', latest, (chartData ?? []) as unknown as Record<string, unknown>[])
   const verdictMetrics = metrics.filter(hasTolerance)
+  const v = deriveVerdict(verdictMetrics)
   const verdictDevice = {
     deviceId: String(latest?.stationname ?? s),
     measuredAt: formatDay((latest?.studydate ?? latest?.contentdate) as string | undefined),
     previousAt: formatDay((detail?.[1]?.studydate ?? detail?.[1]?.contentdate) as string | undefined),
   }
 
+  const aiCtx = latest
+    ? `Ultraäänilaite: ${latest.stationname ?? s}\nHerkkyys: ${rnd(chipSDepth)} cm\nTasaisuus: ${rnd(chipUCov)} %\nEpäsymmetria: ${rnd(chipUSkew)}\nAnturityyppi: ${latest.tranducertype ?? '?'}\nVerdiktti: ${VERDICT_FI[v.verdict]} (${v.pass}/${v.measured})`
+    : `Ultraäänilaite: ${s}`
+
   const reportDefault = latest
     ? `Ongelma laitteella ${latest.stationname ?? s} (US)\ns_depth: ${latest.s_depth ?? '?'} cm, u_cov: ${latest.u_cov ?? '?'} %, u_skew: ${latest.u_skew ?? '?'}`
     : `Ongelma US-laitteella: ${s}`
 
   return (
-    <div style={{
-      position: 'fixed', top: 'var(--navbar-height)', left: 0, right: 0, bottom: 0,
-      display: 'grid', gridTemplateColumns: '300px 1fr',
-      background: C.bg,
-    }}>
+    <div className="device-shell">
 
       {/* === VASEN PANEELI === */}
       <div style={{
