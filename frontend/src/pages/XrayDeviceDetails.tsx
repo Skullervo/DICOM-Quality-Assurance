@@ -7,6 +7,9 @@ import {
 } from 'recharts'
 import { api, type ImageResponse } from '../api/client'
 import { C, SlackForm, AiChat, MetaRow, MetricPanel, MetricSection, MetricGrid, MetricCell, formatDate } from '../components/DeviceShared'
+import { VerdictBar } from '../components/qa/VerdictBar'
+import { buildMetrics, formatDay } from '../lib/qa/adapt'
+import { hasTolerance } from '../lib/qa/status'
 
 const LIMITS = {
   uniformity_deviation: { warn: 5, fail: 10 },
@@ -163,6 +166,15 @@ export default function XrayDeviceDetails() {
 
   const activeCharts = CHART_GROUPS.find(g => g.key === group)?.charts ?? []
 
+  // Verdikti — config-vetoiset metriikat, vain rajalliset lasketaan mukaan
+  const verdictMetrics = buildMetrics('XR', latest, (chartData ?? []) as Record<string, unknown>[]).filter(hasTolerance)
+  const verdictDevice = {
+    deviceId: String(latest?.station_name ?? dUnit),
+    phantom: latest?.phantom_model ? String(latest.phantom_model) : undefined,
+    measuredAt: formatDay(latest?.content_date as string | undefined),
+    previousAt: formatDay(detail?.[1]?.content_date as string | undefined),
+  }
+
   return (
     <div style={{
       position: 'fixed', top: 'var(--navbar-height)', left: 0, right: 0, bottom: 0,
@@ -237,6 +249,8 @@ export default function XrayDeviceDetails() {
             <span style={{ color: C.neutral }}>{dUnit}</span>
             {selectedPoint && <span style={{ color: C.accent }}>· valittu mittaus {formatDate(String(selectedPoint.study_date ?? ''))}</span>}
           </nav>
+
+          {latest && <VerdictBar device={verdictDevice} metrics={verdictMetrics} />}
 
           {/* Mittarit — yhtenäinen paneeli */}
           {latest && (

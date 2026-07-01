@@ -7,6 +7,9 @@ import {
 } from 'recharts'
 import { api } from '../api/client'
 import { C, SlackForm, AiChat, MetaRow, MetricPanel, MetricSection, MetricGrid, MetricCell, formatDate } from '../components/DeviceShared'
+import { VerdictBar } from '../components/qa/VerdictBar'
+import { buildMetrics, formatDay } from '../lib/qa/adapt'
+import { hasTolerance } from '../lib/qa/status'
 
 const HU_NOMINAL: Record<string, number> = {
   hu_air: -1000, hu_pmp: -196, hu_ldpe: -104, hu_poly: -35,
@@ -101,6 +104,15 @@ export default function CTDeviceDetails() {
 
   const imgUrl = instanceId ? api.ctAnalysisImageUrl(instanceId, imgTab) : null
   const chartImgUrl = instanceId ? api.ctAnalysisImageUrl(instanceId, chartTab) : null
+
+  // Verdikti — config-vetoiset metriikat, vain rajalliset lasketaan mukaan
+  const verdictMetrics = buildMetrics('CT', latest, (chartData ?? []) as Record<string, unknown>[]).filter(hasTolerance)
+  const verdictDevice = {
+    deviceId: String(latest?.station_name ?? station),
+    phantom: latest?.phantom_model ? String(latest.phantom_model) : undefined,
+    measuredAt: formatDay(latest?.content_date as string | undefined),
+    previousAt: formatDay(detail?.[1]?.content_date as string | undefined),
+  }
 
   const aiCtx = latest
     ? `CT-laite: ${latest.station_name ?? station}\nPhantom: ${latest.phantom_model ?? '?'}\nkVp: ${latest.kvp ?? '?'}, mAs: ${latest.exposure_mAs ?? '?'}\nHU Air: ${latest.hu_air ?? '?'}, Acrylic: ${latest.hu_acrylic ?? '?'}, Teflon: ${latest.hu_teflon ?? '?'}\nUniformity: ${latest.uniformity_index ?? '?'} %, MTF 50%: ${latest.mtf_50_percent ?? '?'} lp/cm\nOverall: ${latest.overall_pass === true ? 'PASS' : latest.overall_pass === false ? 'FAIL' : '?'}`
@@ -206,6 +218,8 @@ export default function CTDeviceDetails() {
             <Link to="/ct/units" className="hover:text-white">Laitteet</Link><span>/</span>
             <span style={{ color: C.neutral }}>{station}</span>
           </nav>
+
+          {latest && <VerdictBar device={verdictDevice} metrics={verdictMetrics} />}
 
           {/* Mittausarvot — yksi paneeli, kaksi osiota */}
           {latest && (

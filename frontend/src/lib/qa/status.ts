@@ -33,6 +33,17 @@ export function deriveStatus(m: StatusInput): Status {
   return 'pass'
 }
 
+/** Onko metriikalle määritelty jokin toleranssi (muuten sitä ei voi arvioida). */
+export function hasTolerance(m: StatusInput): boolean {
+  return (
+    m.lowerLimit != null ||
+    m.upperLimit != null ||
+    m.actionLimit != null ||
+    m.lowerWarn != null ||
+    m.upperWarn != null
+  )
+}
+
 export interface VerdictSummary {
   verdict: Status
   measured: number // pass + warn + fail

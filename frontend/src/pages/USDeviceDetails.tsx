@@ -7,6 +7,9 @@ import {
 } from 'recharts'
 import { api, type USDataPoint, type USImageResponse } from '../api/client'
 import { C, SlackForm, AiChat, MetaRow, MetricPanel, MetricSection, MetricGrid, MetricCell, formatDate } from '../components/DeviceShared'
+import { VerdictBar } from '../components/qa/VerdictBar'
+import { buildMetrics, formatDay } from '../lib/qa/adapt'
+import { hasTolerance } from '../lib/qa/status'
 
 // Tolerance limits (Aljahdali et al. 2021, van Horssen et al. 2017, IPEM 102)
 const LIMITS = {
@@ -179,6 +182,14 @@ export default function USDeviceDetails() {
     ? `Ultraäänilaite: ${latest.stationname ?? s}\ns_depth: ${chipSDepth ?? '?'} cm\nu_cov: ${chipUCov ?? '?'} %\nu_skew: ${chipUSkew ?? '?'}\nAnturityyppi: ${latest.tranducertype ?? '?'}`
     : `Ultraäänilaite: ${s}`
 
+  // Verdikti — config-vetoiset metriikat, vain rajalliset lasketaan mukaan
+  const verdictMetrics = buildMetrics('US', latest, (chartData ?? []) as unknown as Record<string, unknown>[]).filter(hasTolerance)
+  const verdictDevice = {
+    deviceId: String(latest?.stationname ?? s),
+    measuredAt: formatDay((latest?.studydate ?? latest?.contentdate) as string | undefined),
+    previousAt: formatDay((detail?.[1]?.studydate ?? detail?.[1]?.contentdate) as string | undefined),
+  }
+
   return (
     <div style={{
       position: 'fixed', top: 'var(--navbar-height)', left: 0, right: 0, bottom: 0,
@@ -274,6 +285,8 @@ export default function USDeviceDetails() {
             <Link to="/us/units" style={{ color: C.muted }}>Laitteet</Link><span>/</span>
             <span style={{ color: C.neutral }}>{s}</span>
           </nav>
+
+          {(latest || selectedPoint) && <VerdictBar device={verdictDevice} metrics={verdictMetrics} />}
 
           {/* Mittarit — yhtenäinen paneeli */}
           {(latest || selectedPoint) && (
