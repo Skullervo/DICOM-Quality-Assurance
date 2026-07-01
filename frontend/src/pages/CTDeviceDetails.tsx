@@ -1,16 +1,11 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ReferenceLine, ResponsiveContainer
-} from 'recharts'
 import { api } from '../api/client'
-import { C, MetaRow, formatDate } from '../components/DeviceShared'
+import { C, MetaRow } from '../components/DeviceShared'
 import { VerdictBar } from '../components/qa/VerdictBar'
 import { MetricCard } from '../components/qa/MetricCard'
 import { MainArea } from '../components/qa/MainArea'
-import { ConsolidatedTrend } from '../components/qa/ConsolidatedTrend'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
 import { hasTolerance } from '../lib/qa/status'
 
@@ -28,62 +23,11 @@ const CHART_TABS = [
   { key: 'side_view', label: 'Sivunäkymä' },
 ]
 
-type CTChartDef = { dataKey: string; label: string; color: string; nominal?: number }
-
-// Trendikäyrät ryhmitelty välilehtiin (vähemmän kerralla, isommat)
-const CHART_GROUPS: { key: string; label: string; charts: CTChartDef[] }[] = [
-  { key: 'hu', label: 'HU-poikkeama', charts: [
-    { dataKey: 'hu_air', label: 'HU Ilma', nominal: -1000, color: '#94a3b8' },
-    { dataKey: 'hu_pmp', label: 'HU PMP', nominal: -196, color: '#7dd3fc' },
-    { dataKey: 'hu_ldpe', label: 'HU LDPE', nominal: -104, color: '#6ee7b7' },
-    { dataKey: 'hu_poly', label: 'HU Poly', nominal: -35, color: '#fde68a' },
-    { dataKey: 'hu_acrylic', label: 'HU Akryyli', nominal: 120, color: '#60a5fa' },
-    { dataKey: 'hu_delrin', label: 'HU Delrin', nominal: 340, color: '#f59e0b' },
-    { dataKey: 'hu_teflon', label: 'HU Teflon', nominal: 990, color: '#f87171' },
-  ] },
-  { key: 'laatu', label: 'Laatumetriikat', charts: [
-    { dataKey: 'uniformity_index', label: 'Uniformiteetti [%]', color: '#52e3a0' },
-    { dataKey: 'mtf_50_percent', label: 'MTF 50% [lp/cm]', color: '#a78bfa' },
-    { dataKey: 'num_low_contrast_rois_seen', label: 'Matalakontrasti-ROI', color: '#fb923c' },
-    { dataKey: 'noise_hu_std', label: 'Kohina (HU std)', color: '#64748b' },
-    { dataKey: 'slice_thickness_mm', label: 'Viipalepaksuus [mm]', color: '#a3e635' },
-  ] },
-]
-
-function CTChart({ data, dataKey, label, nominal, color }: {
-  data: Record<string, unknown>[]; dataKey: string; label: string; nominal?: number; color: string
-}) {
-  const chartData = data.map(d => ({
-    date: formatDate(String(d.study_date ?? '')),
-    value: d[dataKey] as number | null,
-  })).filter(d => d.value !== null)
-  if (chartData.length === 0) return null
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}>
-      <h3 className="text-[11px] font-medium" style={{ color: C.neutral, margin: 0 }}>{label}</h3>
-      <div style={{ flex: 1, minHeight: 0 }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData} margin={{ top: 2, right: 6, left: -14, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-          <XAxis dataKey="date" tick={{ fontSize: 8, fill: C.muted }} interval="preserveStartEnd" />
-          <YAxis tick={{ fontSize: 8, fill: C.muted }} width={48} />
-          <Tooltip contentStyle={{ background: C.surface, border: `1px solid ${C.border}`, fontSize: 10 }} />
-          {nominal !== undefined && <ReferenceLine y={nominal} stroke="#6b7280" strokeDasharray="4 2"
-            label={{ value: `nom:${nominal}`, fill: '#6b7280', fontSize: 8 }} />}
-          <Line type="linear" dataKey="value" stroke={color} dot={{ r: 2.5, fill: color }} strokeWidth={1.5} connectNulls />
-        </LineChart>
-      </ResponsiveContainer>
-      </div>
-    </div>
-  )
-}
-
 export default function CTDeviceDetails() {
   const { id } = useParams<{ id: string }>()
   const station = id ? decodeURIComponent(id) : ''
   const [imgTab, setImgTab] = useState('hu_linearity')
   const [chartTab, setChartTab] = useState('hu_linearity_chart')
-  const [group, setGroup] = useState('hu')
 
   const { data: detail } = useQuery<Record<string, unknown>[]>({
     queryKey: ['ct', 'device', station], queryFn: () => api.ctDeviceDetail(station), enabled: !!station,
@@ -226,40 +170,6 @@ export default function CTDeviceDetails() {
             {metrics.map((m) => <MetricCard key={m.id} metric={m} />)}
           </div>
         )}
-
-        {/* Trend charts — ryhmitelty välilehtiin */}
-        <div className="rounded-md" style={{ background: C.surface, border: `1px solid ${C.border}`, padding: 10, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', gap: 4, marginBottom: 6, flexShrink: 0 }}>
-            {CHART_GROUPS.map((g) => (
-              <button
-                key={g.key}
-                onClick={() => setGroup(g.key)}
-                className="text-[11px] rounded px-2 py-1"
-                style={{
-                  background: group === g.key ? C.accent : 'transparent',
-                  color: group === g.key ? '#fff' : C.muted,
-                  border: `1px solid ${group === g.key ? C.accent : C.border}`,
-                }}
-              >
-                {g.label} ({g.charts.length})
-              </button>
-            ))}
-          </div>
-          {chartData && chartData.length > 0 ? (
-            group === 'hu' ? (
-              // Konsolidoitu: 7 HU-materiaalia yhtenä poikkeama-nominaalista -käyränä
-              <ConsolidatedTrend metrics={metrics.filter((m) => m.id.startsWith('hu_'))} tol={40} warn={20} unit="HU" />
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridAutoRows: '150px', gap: '8px 12px' }}>
-                {(CHART_GROUPS.find((g) => g.key === group)?.charts ?? []).map((c) => (
-                  <CTChart key={c.dataKey} data={chartData} dataKey={c.dataKey} label={c.label} nominal={c.nominal} color={c.color} />
-                ))}
-              </div>
-            )
-          ) : (
-            <p className="text-[11px]" style={{ color: C.muted }}>Ei trendidataa saatavilla.</p>
-          )}
-        </div>
       </MainArea>
     </div>
   )
