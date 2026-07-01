@@ -2,10 +2,11 @@ import { useState, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api, type USDataPoint, type USImageResponse } from '../api/client'
-import { C, MetaRow } from '../components/DeviceShared'
+import { C } from '../components/DeviceShared'
 import { VerdictBar } from '../components/qa/VerdictBar'
 import { MetricCard } from '../components/qa/MetricCard'
 import { MainArea } from '../components/qa/MainArea'
+import { DeviceInfo } from '../components/qa/DeviceInfo'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
 import { hasTolerance } from '../lib/qa/status'
 
@@ -181,27 +182,24 @@ export default function USDeviceDetails() {
           )}
         </div>
 
-        {/* Metadata — scrollable */}
+        {/* Laitetiedot — chipit + Lisätiedot */}
         <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
           {latest && (
-            <div>
-              <div style={{ padding: '8px 14px 4px', fontSize: 9, fontWeight: 600, letterSpacing: 1.2,
-                textTransform: 'uppercase', color: C.muted, borderBottom: `1px solid ${C.border}` }}>
-                Metatiedot
-              </div>
-              <div style={{ padding: '0' }}>
-                <MetaRow label="Laite" value={String(latest.stationname ?? '')} />
-                <MetaRow label="Instituutio" value={String(latest.institutionname ?? '')} />
-                <MetaRow label="Päivämäärä" value={String(latest.studydate ?? latest.contentdate ?? '')} />
-                <MetaRow label="Modaliteetti" value="US" />
-                <MetaRow label="Valmistaja" value={String(latest.manufacturer ?? '')} />
-                <MetaRow label="Malli" value={String(latest.manufacturermodelname ?? '')} />
-                <MetaRow label="Sarjanumero" value={String(latest.deviceserialnumber ?? '')} />
-                <MetaRow label="Anturityyppi" value={String(latest.tranducertype ?? '')} />
-                <MetaRow label="Signaalihäviö" value={latest.u_low ? JSON.stringify(latest.u_low) : '—'} small />
-                <MetaRow label="Instance" value={String(latest.instance ?? '').slice(0, 24)} small />
-              </div>
-            </div>
+            <DeviceInfo
+              chips={[
+                { label: 'Modaliteetti', value: 'US' },
+                { label: 'Anturityyppi', value: String(latest.tranducertype ?? '') },
+                { label: 'Pvm', value: formatDay((latest.studydate ?? latest.contentdate) as string | undefined) ?? '' },
+                { label: 'Sarjanro', value: String(latest.deviceserialnumber ?? '') },
+              ]}
+              more={[
+                { label: 'Laite', value: String(latest.stationname ?? '') },
+                { label: 'Instituutio', value: String(latest.institutionname ?? '') },
+                { label: 'Valmistaja', value: String(latest.manufacturer ?? '') },
+                { label: 'Malli', value: String(latest.manufacturermodelname ?? '') },
+                { label: 'Instance', value: String(latest.instance ?? '').slice(0, 24) },
+              ]}
+            />
           )}
         </div>
       </div>

@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
-import { C, MetaRow } from '../components/DeviceShared'
+import { C } from '../components/DeviceShared'
 import { VerdictBar } from '../components/qa/VerdictBar'
 import { MetricCard } from '../components/qa/MetricCard'
 import { MainArea } from '../components/qa/MainArea'
+import { DeviceInfo } from '../components/qa/DeviceInfo'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
 import { hasTolerance } from '../lib/qa/status'
 
@@ -120,32 +121,25 @@ export default function CTDeviceDetails() {
           </div>
         )}
 
-        {/* Metatiedot — skrollaava */}
+        {/* Laitetiedot — chipit + Lisätiedot */}
         <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
           {latest && (
-            <div>
-              <div style={{ padding: '8px 14px 4px', fontSize: 9, fontWeight: 600, letterSpacing: 1.2,
-                textTransform: 'uppercase', color: C.muted, borderBottom: `1px solid ${C.border}` }}>
-                Metatiedot
-              </div>
-              <MetaRow label="Laite" value={String(latest.station_name ?? '')} />
-              <MetaRow label="Instituutio" value={String(latest.institution_name ?? '')} />
-              <MetaRow label="Päivämäärä" value={String(latest.content_date ?? '').slice(0, 10)} />
-              <MetaRow label="Valmistaja" value={String(latest.manufacturer ?? '')} />
-              <MetaRow label="Malli" value={String(latest.manufacturer_model_name ?? '')} />
-              <MetaRow label="Phantom" value={String(latest.phantom_model ?? '—')} />
-              <MetaRow label="kVp" value={String(latest.kvp ?? '—')} />
-              <MetaRow label="Valotus (mAs)" value={String(latest.exposure_mAs ?? '—')} />
-              <MetaRow label="Viipalepaksuus" value={latest.slice_thickness ? `${latest.slice_thickness} mm` : '—'} />
-              <div className="flex justify-between" style={{ padding: '8px 14px', borderTop: `1px solid ${C.border}` }}>
-                <span className="text-[11px]" style={{ color: C.muted }}>Overall</span>
-                <span className="text-[11px] font-bold" style={{
-                  color: latest.overall_pass === true ? C.ok : latest.overall_pass === false ? C.bad : C.muted
-                }}>
-                  {latest.overall_pass === null || latest.overall_pass === undefined ? '—' : latest.overall_pass ? 'PASS' : 'FAIL'}
-                </span>
-              </div>
-            </div>
+            <DeviceInfo
+              chips={[
+                { label: 'Modaliteetti', value: 'CT' },
+                { label: 'Fantomi', value: String(latest.phantom_model ?? '') },
+                { label: 'kVp', value: String(latest.kvp ?? '') },
+                { label: 'mAs', value: String(latest.exposure_mAs ?? '') },
+                { label: 'Leike', value: latest.slice_thickness ? `${latest.slice_thickness} mm` : '' },
+                { label: 'Pvm', value: formatDay(latest.content_date as string | undefined) ?? '' },
+              ]}
+              more={[
+                { label: 'Laite', value: String(latest.station_name ?? '') },
+                { label: 'Instituutio', value: String(latest.institution_name ?? '') },
+                { label: 'Valmistaja', value: String(latest.manufacturer ?? '') },
+                { label: 'Malli', value: String(latest.manufacturer_model_name ?? '') },
+              ]}
+            />
           )}
         </div>
       </div>
