@@ -96,3 +96,14 @@ export function fmtDelta(d: number | null | undefined, precision: number): strin
   const sign = d > 0 ? '+' : d < 0 ? MINUS : '±'
   return sign + Math.abs(d).toFixed(precision)
 }
+
+/** Rajan näyttömuoto: "±40", "1.5…10", "≤ 10", "≥ 1.5" tai "—". */
+export function limitText(m: Pick<Metric, 'lowerLimit' | 'upperLimit' | 'nominal' | 'precision'>): string {
+  const p = m.precision
+  const { lowerLimit: lo, upperLimit: hi, nominal: nom } = m
+  if (nom != null && lo != null && hi != null && Math.abs(hi - nom - (nom - lo)) < 1e-9) return `±${fmt(hi - nom, p)}`
+  if (lo != null && hi != null) return `${fmt(lo, p)}…${fmt(hi, p)}`
+  if (hi != null) return `≤ ${fmt(hi, p)}`
+  if (lo != null) return `≥ ${fmt(lo, p)}`
+  return '—'
+}

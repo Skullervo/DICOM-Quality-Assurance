@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api, type ImageResponse } from '../api/client'
 import { C, formatDate } from '../components/DeviceShared'
 import { VerdictBar } from '../components/qa/VerdictBar'
-import { MetricCard } from '../components/qa/MetricCard'
+import { MetricsSection } from '../components/qa/MetricsSection'
 import { MainArea } from '../components/qa/MainArea'
 import { DeviceInfo } from '../components/qa/DeviceInfo'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
@@ -159,13 +159,7 @@ export default function XrayDeviceDetails() {
       >
         {latest && <VerdictBar device={verdictDevice} metrics={verdictMetrics} />}
 
-        {latest && (
-          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-            {metrics.map((m) => (
-              <MetricCard key={m.id} metric={m} activeIndex={selectedIdx ?? undefined} onSelect={handlePointClick} />
-            ))}
-          </div>
-        )}
+        {latest && <MetricsSection metrics={metrics} activeIndex={selectedIdx ?? undefined} onSelect={handlePointClick} />}
 
       </MainArea>
     </div>

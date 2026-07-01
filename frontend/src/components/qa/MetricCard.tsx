@@ -1,20 +1,10 @@
 // KPI-stat-kortti (brief osio 6.2): label + iso arvo + statusmerkki + Δ/raja
 // + sparkline + trendisuunta. Toleranssiton metriikka näytetään ilman statusväitettä.
 import { ArrowUp, ArrowDown, ArrowRight } from 'lucide-react'
-import { deriveStatus, hasTolerance, fmt, fmtDelta } from '../../lib/qa/status'
+import { deriveStatus, hasTolerance, fmt, fmtDelta, limitText } from '../../lib/qa/status'
 import type { Metric, Status } from '../../lib/qa/types'
 import { StatusBadge } from './StatusBadge'
 import { Sparkline } from './Sparkline'
-
-function limitText(m: Metric): string {
-  const p = m.precision
-  const { lowerLimit: lo, upperLimit: hi, nominal: nom } = m
-  if (nom != null && lo != null && hi != null && Math.abs(hi - nom - (nom - lo)) < 1e-9) return `raja ±${fmt(hi - nom, p)}`
-  if (lo != null && hi != null) return `raja ${fmt(lo, p)}…${fmt(hi, p)}`
-  if (hi != null) return `raja ≤ ${fmt(hi, p)}`
-  if (lo != null) return `raja ≥ ${fmt(lo, p)}`
-  return ''
-}
 
 export function MetricCard({ metric, activeIndex, onSelect }: {
   metric: Metric
@@ -49,7 +39,7 @@ export function MetricCard({ metric, activeIndex, onSelect }: {
         ) : (
           <>
             {delta != null && <>Δ {fmtDelta(delta, metric.precision)} {metric.unit} </>}
-            <span style={{ color: 'var(--text-faint)' }}>{limitText(metric)}</span>
+            <span style={{ color: 'var(--text-faint)' }}>{hasTolerance(metric) ? `raja ${limitText(metric)}` : ''}</span>
           </>
         )}
       </div>

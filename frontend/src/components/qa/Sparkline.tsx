@@ -26,10 +26,11 @@ function SparkTooltip(props: Record<string, unknown>) {
   )
 }
 
-export function Sparkline({ metric, activeIndex, onSelect }: {
+export function Sparkline({ metric, activeIndex, onSelect, height = 52 }: {
   metric: Metric
   activeIndex?: number // valittu mittaus (alkuperäinen idx)
   onSelect?: (index: number) => void
+  height?: number
 }) {
   const { history, nominal, lowerLimit, upperLimit, unit, precision } = metric
   const status = deriveStatus(metric)
@@ -55,7 +56,7 @@ export function Sparkline({ metric, activeIndex, onSelect }: {
   }
 
   return (
-    <div style={{ height: 52, width: '100%' }}>
+    <div style={{ height, width: '100%' }}>
       <ResponsiveContainer>
         <LineChart data={history} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}
           style={onSelect ? { cursor: 'pointer' } : undefined}
