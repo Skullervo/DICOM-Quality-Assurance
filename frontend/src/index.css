@@ -51,7 +51,7 @@
   --accent-blue-hover: #6b85f7;
   --border-radius: 14px;
   --font-family:   var(--sans);
-  --navbar-height: 60px;
+  --navbar-height: 0px; /* yläpaneeli poistettu; navigointi oikean yläkulman valikosta */
 }
 
 /* Tabulaariset numerot mitatuille arvoille (fyysikon UI:n allekirjoitus) */
