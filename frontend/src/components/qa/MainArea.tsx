@@ -39,7 +39,9 @@ export function MainArea({ breadcrumb, aiContext, reportDefault, children }: {
               )
             })}
           </div>
-          <div style={{ marginLeft: 'auto', paddingBottom: 8, minWidth: 0, whiteSpace: 'nowrap',
+          {/* paddingRight varaa tilaa oikean ylakulman kiinteille painikkeille (valikko + teema),
+              jotta breadcrumb jaa niiden vasemmalle puolelle eika mene paallekkain */}
+          <div style={{ marginLeft: 'auto', paddingBottom: 8, paddingRight: 90, minWidth: 0, whiteSpace: 'nowrap',
             overflow: 'hidden', textOverflow: 'ellipsis' }}>{breadcrumb}</div>
         </div>
       </div>
