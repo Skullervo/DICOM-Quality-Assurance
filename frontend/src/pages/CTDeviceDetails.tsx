@@ -57,10 +57,6 @@ export default function CTDeviceDetails() {
   const roiStatus: Record<string, Status> = Object.fromEntries(
     metrics.map((m) => [m.id, m.value != null && hasTolerance(m) ? deriveStatus(m) : 'nodata']),
   )
-  // Trendipaneelien ryhmät (CatPhan-moduulit)
-  const huMetrics = metrics.filter((m) => m.id.startsWith('hu_'))
-  const uniNoiseMetrics = metrics.filter((m) => m.id === 'uniformity_index' || m.id === 'noise_hu_std')
-  const resGeoMetrics = metrics.filter((m) => m.id === 'mtf_50_percent' || m.id === 'slice_thickness_mm')
   const verdictDevice = {
     deviceId: String(latest?.station_name ?? station),
     phantom: latest?.phantom_model ? String(latest.phantom_model) : undefined,
@@ -158,11 +154,7 @@ export default function CTDeviceDetails() {
         }
       >
         {latest && (
-          <>
-            <TrendPanel title="HU-lineaarisuus (CTP404)" metrics={huMetrics} cols={4} highlightId={hoverRoi} onHover={setHoverRoi} />
-            <TrendPanel title="Tasaisuus & kohina (CTP486)" metrics={uniNoiseMetrics} cols={2} highlightId={hoverRoi} onHover={setHoverRoi} />
-            <TrendPanel title="Resoluutio & geometria" metrics={resGeoMetrics} cols={2} highlightId={hoverRoi} onHover={setHoverRoi} />
-          </>
+          <TrendPanel title="Mittaustrendit" metrics={metrics} cols={4} highlightId={hoverRoi} onHover={setHoverRoi} />
         )}
       </MainArea>
     </div>
