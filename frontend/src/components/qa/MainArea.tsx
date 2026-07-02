@@ -21,9 +21,10 @@ export function MainArea({ breadcrumb, aiContext, reportDefault, children }: {
   const [tab, setTab] = useState<TabId>('analyysi')
   return (
     <main style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
-      <div style={{ padding: '8px 16px 0', flexShrink: 0 }}>
+      {/* Kiinteä 46px korkeus -> ylin jakoviiva kohdistuu vasemman paneelin otsikkoriviin */}
+      <div style={{ height: 46, boxSizing: 'border-box', padding: '0 16px', display: 'flex', alignItems: 'stretch', flexShrink: 0 }}>
         {/* Välilehdet vasemmalle, breadcrumb samalle riville oikeaan laitaan (säästää pystytilaa) */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, borderBottom: '1px solid var(--border)' }}>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', gap: 16, borderBottom: '1px solid var(--border)' }}>
           <div role="tablist" style={{ display: 'flex', gap: 4 }}>
             {TABS.map(({ id, label, Icon }) => {
               const active = tab === id

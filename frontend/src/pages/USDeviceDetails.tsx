@@ -136,8 +136,8 @@ export default function USDeviceDetails() {
       }}>
         {/* Panel label */}
         <div className="shrink-0 flex items-center justify-between"
-          style={{ padding: '10px 14px', borderBottom: `1px solid ${C.border}` }}>
-          <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: 1.5, textTransform: 'uppercase', color: C.muted }}>
+          style={{ height: 46, boxSizing: 'border-box', padding: '0 14px', borderBottom: `1px solid ${C.border}` }}>
+          <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.5px', textTransform: 'uppercase', color: C.muted }}>
             Laitetiedot
           </span>
           <span style={{ fontSize: 10, fontFamily: 'var(--mono)', padding: '2px 8px', borderRadius: 4,
