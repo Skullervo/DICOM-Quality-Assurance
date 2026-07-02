@@ -139,6 +139,9 @@ export default function CTDeviceDetails() {
             />
           )}
         </div>
+
+        {/* Verdiktti — kompakti, vasemman paneelin alakulmassa */}
+        {latest && <VerdictBar device={verdictDevice} metrics={verdictMetrics} compact />}
       </div>
 
       {/* PÄÄALUE — välilehdet (Analyysi / Kysy tekoälyltä / Raportoi ongelmasta) */}
@@ -154,8 +157,6 @@ export default function CTDeviceDetails() {
           </nav>
         }
       >
-        {latest && <VerdictBar device={verdictDevice} metrics={verdictMetrics} />}
-
         {latest && (
           <>
             <TrendPanel title="HU-lineaarisuus (CTP404)" metrics={huMetrics} cols={4} highlightId={hoverRoi} onHover={setHoverRoi} />

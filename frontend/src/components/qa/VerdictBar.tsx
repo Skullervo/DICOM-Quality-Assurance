@@ -18,7 +18,7 @@ export interface VerdictDevice {
   previousAt?: string
 }
 
-export function VerdictBar({ device, metrics }: { device: VerdictDevice; metrics: Metric[] }) {
+export function VerdictBar({ device, metrics, compact = false }: { device: VerdictDevice; metrics: Metric[]; compact?: boolean }) {
   const { verdict, measured, pass, warn, fail, nodata } = deriveVerdict(metrics)
   const s = STATUS[verdict]
   const Icon = s.Icon
@@ -29,6 +29,26 @@ export function VerdictBar({ device, metrics }: { device: VerdictDevice; metrics
   if (nodata > 0) parts.push(`${nodata} ei dataa`)
 
   const meta = [device.phantom, device.measuredAt].filter(Boolean).join(' · ')
+
+  // Kompakti muoto — vasemman paneelin alakulmaan (laitetiedot jo näkyvissä paneelissa)
+  if (compact) {
+    return (
+      <div
+        role="status"
+        style={{
+          flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 3,
+          background: s.bg, borderTop: `1px solid color-mix(in srgb, ${s.color} 34%, transparent)`,
+          padding: '9px 14px',
+        }}
+      >
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, color: s.color }}>
+          <Icon size={16} strokeWidth={2.2} aria-hidden />
+          <span style={{ fontSize: 13.5, fontWeight: 700, letterSpacing: '.02em' }}>{s.word}</span>
+        </span>
+        <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{parts.join(' · ')}</span>
+      </div>
+    )
+  }
 
   return (
     <div
