@@ -140,7 +140,7 @@ export default function USDeviceDetails() {
           <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: 1.5, textTransform: 'uppercase', color: C.muted }}>
             Laitetiedot
           </span>
-          <span style={{ fontSize: 10, fontFamily: 'monospace', padding: '2px 8px', borderRadius: 4,
+          <span style={{ fontSize: 10, fontFamily: 'var(--mono)', padding: '2px 8px', borderRadius: 4,
             background: `${C.accent}26`, color: C.accent, border: `1px solid ${C.accent}4d` }}>US</span>
         </div>
 

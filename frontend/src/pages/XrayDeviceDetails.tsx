@@ -90,7 +90,7 @@ export default function XrayDeviceDetails() {
         <div className="shrink-0 flex items-center justify-between"
           style={{ padding: '10px 14px', borderBottom: `1px solid ${C.border}` }}>
           <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: 1.5, textTransform: 'uppercase', color: C.muted }}>Laitetiedot</span>
-          <span style={{ fontSize: 10, fontFamily: 'monospace', padding: '2px 8px', borderRadius: 4,
+          <span style={{ fontSize: 10, fontFamily: 'var(--mono)', padding: '2px 8px', borderRadius: 4,
             background: 'rgba(96,165,250,0.15)', color: '#93c5fd', border: '1px solid rgba(96,165,250,0.3)' }}>XR</span>
         </div>
 

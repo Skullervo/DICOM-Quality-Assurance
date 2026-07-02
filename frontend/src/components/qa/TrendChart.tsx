@@ -56,9 +56,16 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
   )
   let lo = cand.length ? Math.min(...cand) : 0
   let hi = cand.length ? Math.max(...cand) : 1
-  if (lo === hi) { lo -= 1; hi += 1 }
+  if (lo === hi) {
+    // Litteä / yksittäinen mittaus: paddaa suhteessa suuruusluokkaan (ei kiinteä ±1,
+    // joka näyttää absurdilta isoilla HU-arvoilla)
+    const e = Math.max(Math.abs(lo) * 0.05, 1)
+    lo -= e; hi += e
+  }
   const pad = (hi - lo) * 0.15
   lo -= pad; hi += pad
+  // Eksplisiittiset tickit -> ei Recharts-"nice"-algoritmin duplikaatteja/hyppyjä
+  const yTicks = [lo, (lo + hi) / 2, hi]
 
   return (
     <div
@@ -74,7 +81,7 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
       </div>
       <div style={{ height: 132 }}>
         <ResponsiveContainer>
-          <LineChart data={history} margin={{ top: 4, right: 8, left: -14, bottom: 0 }}
+          <LineChart data={history} margin={{ top: 4, right: 8, left: -6, bottom: 0 }}
             style={onSelect ? { cursor: 'pointer' } : undefined}
             onClick={(s) => {
               if (!onSelect) return
@@ -85,8 +92,9 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
               }
             }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-            <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'var(--text-muted)' }} interval="preserveStartEnd" tickFormatter={(d) => formatDate(String(d))} />
-            <YAxis domain={[lo, hi]} tick={{ fontSize: 9, fill: 'var(--text-muted)' }} width={44} />
+            <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'var(--text-muted)', fontFamily: 'var(--mono)' }} interval="preserveStartEnd" tickFormatter={(d) => formatDate(String(d))} />
+            <YAxis domain={[lo, hi]} ticks={yTicks} tickFormatter={(v) => fmt(Number(v), precision)}
+              tick={{ fontSize: 9, fill: 'var(--text-muted)', fontFamily: 'var(--mono)' }} width={52} />
             {(lowerLimit != null || upperLimit != null) && (
               <ReferenceArea y1={lowerLimit ?? lo} y2={upperLimit ?? hi} fill="var(--tolerance-band)" strokeOpacity={0} />
             )}
