@@ -89,7 +89,11 @@ export default function XrayDeviceDetails() {
         borderRight: `1px solid ${C.border}`, background: C.surface }}>
         <div className="shrink-0 flex items-center justify-between"
           style={{ height: 46, boxSizing: 'border-box', padding: '0 14px', borderBottom: `1px solid ${C.border}` }}>
-          <span style={{ fontSize: 13.5, fontWeight: 600, color: C.neutral }}>Laitetiedot</span>
+          <span title={String(latest?.manufacturer_model_name ?? '')}
+            style={{ fontSize: 13.5, fontWeight: 600, color: C.neutral, flex: 1, minWidth: 0,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 8 }}>
+            {String(latest?.manufacturer_model_name || latest?.station_name || 'Laite')}
+          </span>
           <span style={{ fontSize: 10, fontFamily: 'var(--mono)', padding: '2px 8px', borderRadius: 4,
             background: 'rgba(96,165,250,0.15)', color: '#93c5fd', border: '1px solid rgba(96,165,250,0.3)' }}>XR</span>
         </div>

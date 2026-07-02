@@ -137,8 +137,10 @@ export default function USDeviceDetails() {
         {/* Panel label */}
         <div className="shrink-0 flex items-center justify-between"
           style={{ height: 46, boxSizing: 'border-box', padding: '0 14px', borderBottom: `1px solid ${C.border}` }}>
-          <span style={{ fontSize: 13.5, fontWeight: 600, color: C.neutral }}>
-            Laitetiedot
+          <span title={String(latest?.manufacturermodelname ?? '')}
+            style={{ fontSize: 13.5, fontWeight: 600, color: C.neutral, flex: 1, minWidth: 0,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 8 }}>
+            {String(latest?.manufacturermodelname || latest?.stationname || 'Laite')}
           </span>
           <span style={{ fontSize: 10, fontFamily: 'var(--mono)', padding: '2px 8px', borderRadius: 4,
             background: `${C.accent}26`, color: C.accent, border: `1px solid ${C.accent}4d` }}>US</span>

@@ -81,7 +81,11 @@ export default function CTDeviceDetails() {
         borderRight: `1px solid ${C.border}`, background: C.surface }}>
         <div className="shrink-0 flex items-center justify-between"
           style={{ height: 46, boxSizing: 'border-box', padding: '0 14px', borderBottom: `1px solid ${C.border}` }}>
-          <span style={{ fontSize: 13.5, fontWeight: 600, color: C.neutral }}>Laitetiedot</span>
+          <span title={String(latest?.manufacturer_model_name ?? '')}
+            style={{ fontSize: 13.5, fontWeight: 600, color: C.neutral, flex: 1, minWidth: 0,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 8 }}>
+            {String(latest?.manufacturer_model_name || latest?.station_name || 'Laite')}
+          </span>
           <span style={{ fontSize: 10, fontFamily: 'var(--mono)', padding: '2px 8px', borderRadius: 4,
             background: 'rgba(45,212,191,0.15)', color: '#5eead4', border: '1px solid rgba(45,212,191,0.3)' }}>CT</span>
         </div>
