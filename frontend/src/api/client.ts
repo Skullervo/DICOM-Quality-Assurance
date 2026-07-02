@@ -101,6 +101,14 @@ export const api = {
   ctAnalysisImageUrl: (instance: string, type: string) =>
     `${BASE}/ct/analysis-image/${encodeURIComponent(instance)}/${type}`,
 
+  // CT DICOM-katselin: sarjan metatiedot + palvelinpuolella renderöity viipale (W/L)
+  ctSeriesMeta: (instance: string) =>
+    fetchJSON<{ sliceCount: number; defaultSlice: number; windowCenter: string; windowWidth: string }>(
+      `/ct/series-meta/${encodeURIComponent(instance)}`,
+    ),
+  ctSeriesImageUrl: (instance: string, slice: number, wc: number, ww: number) =>
+    `${BASE}/ct/series-image/${encodeURIComponent(instance)}?slice=${slice}&wc=${wc}&ww=${ww}`,
+
   // AI + Slack
   askAI: async (question: string): Promise<{ answer?: string; error?: string }> => {
     const res = await fetch(`${BASE}/ask-ai`, {

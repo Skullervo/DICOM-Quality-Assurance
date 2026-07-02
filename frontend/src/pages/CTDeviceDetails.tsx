@@ -7,6 +7,7 @@ import { VerdictBar } from '../components/qa/VerdictBar'
 import { MetricsSection } from '../components/qa/MetricsSection'
 import { MainArea } from '../components/qa/MainArea'
 import { DeviceInfo } from '../components/qa/DeviceInfo'
+import { ImageViewer } from '../components/qa/ImageViewer'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
 import { hasTolerance, deriveVerdict } from '../lib/qa/status'
 
@@ -80,6 +81,11 @@ export default function CTDeviceDetails() {
         {/* Kuva + kaaviokuvat */}
         {instanceId && (
           <div style={{ flexShrink: 0, padding: '8px 10px', borderBottom: `1px solid ${C.border}` }}>
+            {/* Ensisijainen: interaktiivinen DICOM-leike (W/L + zoom + viipaleselailu) */}
+            <ImageViewer key={instanceId} instance={instanceId} />
+            <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '.04em', color: C.muted, margin: '12px 0 4px' }}>
+              Analyysikuvat
+            </div>
             <div className="flex gap-0.5 mb-1.5 flex-wrap">
               {IMAGE_TABS.map(t => (
                 <button key={t.key} onClick={() => setImgTab(t.key)}
