@@ -138,10 +138,7 @@ export function AiChat({ context, attachments = [] }: { context: string; attachm
       </div>
 
       {/* Alapalkki: lähetä (sama sijainti/koko kuin raporttivälilehdellä) */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-        <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>
-          {selected.size > 0 ? `${selected.size} kuvaliitettä` : hasAtt ? 'Valitse liitettävät kuvat oikealta' : ''}
-        </span>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
         <button onClick={send} disabled={loading || !input.trim()} aria-label="Lähetä kysymys"
           style={{
             display: 'flex', alignItems: 'center', gap: 7,
