@@ -1,21 +1,38 @@
 // Kysy tekoälyltä -välilehden chat. Konteksti (pyöristetty yhteenveto) tulee sivulta.
+// Käyttäjä voi valita analyysikuvia liitteeksi (pikkukuvat inputin yllä); nyt kuvat
+// välitetään tekstiviittauksina kysymykseen (varsinainen vision = jatkokehitys, ks. ROADMAP).
 import { useState } from 'react'
+import { Check } from 'lucide-react'
 import { api } from '../../api/client'
 import { C } from '../DeviceShared'
+import type { ReportAttachment } from './ReportTab'
 
-export function AiChat({ context }: { context: string }) {
-  const [messages, setMessages] = useState<{ role: 'user' | 'ai'; text: string }[]>([])
+export function AiChat({ context, attachments = [] }: { context: string; attachments?: ReportAttachment[] }) {
+  const [messages, setMessages] = useState<{ role: 'user' | 'ai'; text: string; imgs?: string[] }[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [broken, setBroken] = useState<Set<string>>(new Set())
+
+  const toggle = (key: string) => setSelected((prev) => {
+    const next = new Set(prev)
+    if (next.has(key)) next.delete(key); else next.add(key)
+    return next
+  })
+  const markBroken = (key: string) => setBroken((prev) => new Set(prev).add(key))
+  const usable = attachments.filter((a) => !broken.has(a.key))
 
   async function send() {
     const q = input.trim()
     if (!q) return
-    setMessages(prev => [...prev, { role: 'user', text: q }])
+    const picked = attachments.filter((a) => selected.has(a.key) && !broken.has(a.key))
+    const refText = picked.length ? `\n\n[Viittaan analyysikuviin: ${picked.map((a) => a.label).join(', ')}]` : ''
+    setMessages(prev => [...prev, { role: 'user', text: q, imgs: picked.map((a) => a.label) }])
     setInput('')
+    setSelected(new Set())
     setLoading(true)
     try {
-      const d = await api.askAI(q)
+      const d = await api.askAI(q + refText)
       setMessages(prev => [...prev, { role: 'ai', text: d.answer ?? d.error ?? 'Virhe' }])
     } catch {
       setMessages(prev => [...prev, { role: 'ai', text: 'Pyyntö epäonnistui' }])
@@ -44,6 +61,15 @@ export function AiChat({ context }: { context: string }) {
           }}>
             {m.role === 'ai' && <span style={{ fontSize: 9, display: 'block', marginBottom: 4, color: C.muted }}>Tekoäly</span>}
             <span style={{ whiteSpace: 'pre-wrap' }}>{m.text}</span>
+            {m.imgs && m.imgs.length > 0 && (
+              <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4, justifyContent: 'flex-end' }}>
+                {m.imgs.map((label) => (
+                  <span key={label} style={{ fontSize: 9, padding: '2px 6px', borderRadius: 10, background: `${C.accent}26`, color: C.accent, border: `1px solid ${C.accent}4d` }}>
+                    {label}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         ))}
         {loading && (
@@ -52,6 +78,35 @@ export function AiChat({ context }: { context: string }) {
           </div>
         )}
       </div>
+
+      {/* Kuvavalitsin — analyysikuvat pikkukuvina (sama kuin raporttivälilehdellä) */}
+      {usable.length > 0 && (
+        <div style={{ padding: '8px 12px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: C.muted }}>
+            Liitä kuvia {selected.size > 0 && <span style={{ color: C.accent }}>({selected.size})</span>}
+          </div>
+          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2 }}>
+            {usable.map((a) => {
+              const sel = selected.has(a.key)
+              return (
+                <button key={a.key} onClick={() => toggle(a.key)} aria-pressed={sel} title={a.label}
+                  style={{
+                    position: 'relative', flexShrink: 0, width: 56, padding: 0, borderRadius: 6, overflow: 'hidden',
+                    cursor: 'pointer', background: C.surface2, border: `2px solid ${sel ? C.accent : C.border}`,
+                  }}>
+                  <img src={a.url} alt={a.label} onError={() => markBroken(a.key)}
+                    style={{ width: '100%', height: 42, objectFit: 'cover', display: 'block', background: '#000' }} />
+                  {sel && (
+                    <span style={{ position: 'absolute', top: 2, right: 2, width: 15, height: 15, borderRadius: '50%', background: C.accent, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Check size={10} strokeWidth={3} aria-hidden />
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       <div style={{ padding: 12, display: 'flex', gap: 8, borderTop: `1px solid ${C.border}` }}>
         <textarea value={input} onChange={(e) => setInput(e.target.value)} rows={2}

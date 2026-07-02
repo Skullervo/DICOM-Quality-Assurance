@@ -50,7 +50,7 @@ export function MainArea({ breadcrumb, aiContext, reportDefault, reportAttachmen
 
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         {tab === 'analyysi' && <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14, minHeight: '100%', boxSizing: 'border-box' }}>{children}</div>}
-        {tab === 'ai' && <div style={{ height: '100%' }}><AiChat context={aiContext} /></div>}
+        {tab === 'ai' && <div style={{ height: '100%' }}><AiChat context={aiContext} attachments={reportAttachments} /></div>}
         {tab === 'raportti' && <ReportTab defaultText={reportDefault} attachments={reportAttachments} />}
       </div>
     </main>
