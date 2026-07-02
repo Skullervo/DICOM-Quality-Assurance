@@ -8,6 +8,21 @@ const STATUS_COLOR: Record<Status, string> = {
   pass: 'var(--pass)', warn: 'var(--warn)', fail: 'var(--fail)', nodata: 'var(--neutral)',
 }
 
+// Piste: aktiivinen (valittu) korostuu; muuten viimeinen piste statusvärillä. Recharts
+// kloonaa elementin lisäten cx/cy/index/payload — omat propit (activeIndex/status/lastIdx)
+// säilyvät. Moduulitasolla (ei luoda renderissä).
+function StatusDot(props: Record<string, unknown>) {
+  const { cx, cy, index, payload, activeIndex, status, lastIdx } = props as {
+    cx?: number; cy?: number; index?: number; payload?: { idx?: number }
+    activeIndex?: number; status: Status; lastIdx: number
+  }
+  if (cx == null || cy == null) return null
+  const isActive = payload?.idx != null && payload.idx === activeIndex
+  if (isActive) return <circle cx={cx} cy={cy} r={4.5} fill="#fff" stroke={STATUS_COLOR[status]} strokeWidth={2} />
+  if (index === lastIdx) return <circle cx={cx} cy={cy} r={3.2} fill={STATUS_COLOR[status]} stroke="var(--surface)" strokeWidth={1.5} />
+  return <circle cx={cx} cy={cy} r={2} fill={STATUS_COLOR[status]} />
+}
+
 function SparkTooltip(props: Record<string, unknown>) {
   const { active, payload, unit, nominal, precision } = props as {
     active?: boolean
@@ -46,15 +61,6 @@ export function Sparkline({ metric, activeIndex, onSelect, height = 52 }: {
   const pad = (hi - lo) * 0.15
   lo -= pad; hi += pad
 
-  const Dot = (props: Record<string, unknown>) => {
-    const { cx, cy, index, payload } = props as { cx?: number; cy?: number; index?: number; payload?: { idx?: number } }
-    if (cx == null || cy == null) return null
-    const isActive = payload?.idx != null && payload.idx === activeIndex
-    if (isActive) return <circle cx={cx} cy={cy} r={4.5} fill="#fff" stroke={STATUS_COLOR[status]} strokeWidth={2} />
-    if (index === lastIdx) return <circle cx={cx} cy={cy} r={3.2} fill={STATUS_COLOR[status]} stroke="var(--surface)" strokeWidth={1.5} />
-    return <circle cx={cx} cy={cy} r={2} fill={STATUS_COLOR[status]} />
-  }
-
   return (
     <div style={{ height, width: '100%' }}>
       <ResponsiveContainer>
@@ -77,7 +83,8 @@ export function Sparkline({ metric, activeIndex, onSelect, height = 52 }: {
           {upperLimit != null && <ReferenceLine y={upperLimit} stroke="var(--limit-line)" strokeWidth={1} />}
           {lowerLimit != null && <ReferenceLine y={lowerLimit} stroke="var(--limit-line)" strokeWidth={1} />}
           <Tooltip content={<SparkTooltip unit={unit} nominal={nominal} precision={precision} />} cursor={{ stroke: 'var(--border-strong)' }} />
-          <Line type="monotone" dataKey="value" stroke="var(--series)" strokeWidth={1.6} dot={<Dot />} isAnimationActive={false} />
+          <Line type="monotone" dataKey="value" stroke="var(--series)" strokeWidth={1.6}
+            dot={<StatusDot activeIndex={activeIndex} status={status} lastIdx={lastIdx} />} isAnimationActive={false} />
         </LineChart>
       </ResponsiveContainer>
     </div>

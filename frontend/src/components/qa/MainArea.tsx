@@ -2,7 +2,7 @@
 // Pysyvä vasen paneeli on tämän ulkopuolella (näkyy kaikilla välilehdillä).
 import { useState, type ReactNode } from 'react'
 import { BarChart3, Sparkles, Flag } from 'lucide-react'
-import { AiChat } from '../DeviceShared'
+import { AiChat } from './AiChat'
 import { ReportTab } from './ReportTab'
 
 type TabId = 'analyysi' | 'ai' | 'raportti'
