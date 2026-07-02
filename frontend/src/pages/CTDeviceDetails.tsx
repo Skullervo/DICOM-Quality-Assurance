@@ -70,8 +70,16 @@ export default function CTDeviceDetails() {
     : `CT-laite: ${station}`
 
   const reportDefault = latest
-    ? `Ongelma laitteella ${latest.station_name ?? station} (CT)\nPhantom: ${latest.phantom_model ?? '?'}\nHU Acrylic: ${latest.hu_acrylic ?? '?'}, Uniformity: ${latest.uniformity_index ?? '?'} %\nOverall: ${latest.overall_pass === true ? 'PASS' : latest.overall_pass === false ? 'FAIL' : '?'}`
+    ? `Ongelma laitteella ${latest.station_name ?? station} (CT)\nPhantom: ${latest.phantom_model ?? '?'}\nHU Acrylic: ${rnd(latest.hu_acrylic, 0)} HU, Uniformity: ${rnd(latest.uniformity_index)} %\nOverall: ${latest.overall_pass === true ? 'PASS' : latest.overall_pass === false ? 'FAIL' : '?'}`
     : `Ongelma CT-laitteella: ${station}`
+
+  // Raportin kuvaliitteet: analyysikuvat (ei interaktiivinen DICOM-leike)
+  const reportAttachments = instanceId
+    ? IMAGE_OPTIONS.filter((o) => o.key !== 'dicom').map((o) => ({
+        key: o.key, label: o.label,
+        url: api.ctAnalysisImageUrl(instanceId, o.key === 'roi' ? 'hu_linearity_clean' : o.key),
+      }))
+    : []
 
   return (
     <div className="device-shell">
@@ -148,6 +156,7 @@ export default function CTDeviceDetails() {
       <MainArea
         aiContext={aiCtx}
         reportDefault={reportDefault}
+        reportAttachments={reportAttachments}
         breadcrumb={
           <nav className="text-[12px] flex gap-1 flex-wrap" style={{ color: C.muted }}>
             <Link to="/" className="hover:text-white">Aloitus</Link><span>/</span>
