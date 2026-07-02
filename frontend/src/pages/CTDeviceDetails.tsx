@@ -23,7 +23,6 @@ const rnd = (v: unknown, p = 2) => (typeof v === 'number' ? v.toFixed(p) : '?')
 const IMAGE_OPTIONS = [
   { key: 'dicom', label: 'Kuvapakka' },
   { key: 'roi', label: 'ROI-kartta (HU)' },
-  { key: 'hu_linearity', label: 'HU-lineaarisuus' },
   { key: 'thickness', label: 'Viipalepaksuus' },
   { key: 'uniformity', label: 'Uniformiteetti' },
   { key: 'mtf', label: 'MTF' },
