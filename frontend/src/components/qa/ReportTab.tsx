@@ -50,6 +50,7 @@ export function ReportTab({ defaultText, attachments = [] }: { defaultText: stri
       <div style={{
         flex: 1, minHeight: 0, display: 'grid', gap: 16,
         gridTemplateColumns: hasAtt ? 'minmax(0, 1fr) 300px' : 'minmax(0, 720px)',
+        gridTemplateRows: 'minmax(0, 1fr)',
       }}>
         {/* Vasen: lomake */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 0 }}>
