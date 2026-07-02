@@ -10,6 +10,7 @@ import { DeviceInfo } from '../components/qa/DeviceInfo'
 import { ImageViewer } from '../components/qa/ImageViewer'
 import { PngViewer } from '../components/qa/PngViewer'
 import { RoiOverlay, type Roi } from '../components/qa/RoiOverlay'
+import { TrendPanel } from '../components/qa/TrendPanel'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
 import { hasTolerance, deriveVerdict, deriveStatus } from '../lib/qa/status'
 import type { Status } from '../lib/qa/types'
@@ -57,6 +58,10 @@ export default function CTDeviceDetails() {
   const roiStatus: Record<string, Status> = Object.fromEntries(
     metrics.map((m) => [m.id, m.value != null && hasTolerance(m) ? deriveStatus(m) : 'nodata']),
   )
+  // Trendipaneelien ryhmät (CatPhan-moduulit)
+  const huMetrics = metrics.filter((m) => m.id.startsWith('hu_'))
+  const uniNoiseMetrics = metrics.filter((m) => m.id === 'uniformity_index' || m.id === 'noise_hu_std')
+  const resGeoMetrics = metrics.filter((m) => m.id === 'mtf_50_percent' || m.id === 'slice_thickness_mm')
   const verdictDevice = {
     deviceId: String(latest?.station_name ?? station),
     phantom: latest?.phantom_model ? String(latest.phantom_model) : undefined,
@@ -153,6 +158,14 @@ export default function CTDeviceDetails() {
         {latest && <VerdictBar device={verdictDevice} metrics={verdictMetrics} />}
 
         {latest && <MetricsSection metrics={metrics} highlightId={hoverRoi} onHover={setHoverRoi} />}
+
+        {latest && (
+          <>
+            <TrendPanel title="HU-lineaarisuus (CTP404)" metrics={huMetrics} cols={4} />
+            <TrendPanel title="Tasaisuus & kohina (CTP486)" metrics={uniNoiseMetrics} cols={2} />
+            <TrendPanel title="Resoluutio & geometria" metrics={resGeoMetrics} cols={2} />
+          </>
+        )}
       </MainArea>
     </div>
   )
