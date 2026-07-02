@@ -37,13 +37,26 @@ export function ImageViewer({ instance }: { instance: string }) {
     return () => clearTimeout(t)
   }, [effSlice, effWc, effWw])
 
+  // Rajaa panorointi niin että kuva pysyy aina peittämässä kuvaikkunan.
+  const clampPan = (px: number, py: number, z: number) => {
+    const el = containerRef.current
+    if (!el) return { x: px, y: py }
+    const mx = ((z - 1) * el.clientWidth) / 2
+    const my = ((z - 1) * el.clientHeight) / 2
+    return { x: Math.max(-mx, Math.min(mx, px)), y: Math.max(-my, Math.min(my, py)) }
+  }
+
   // Rulla zoomaa — ei-passiivinen kuuntelija, jotta preventDefault estää paneelin vierityksen
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
     const handler = (e: WheelEvent) => {
       e.preventDefault()
-      setZoom((z) => Math.min(6, Math.max(1, z - e.deltaY * 0.0015)))
+      setZoom((z) => {
+        const nz = Math.min(6, Math.max(1, z - e.deltaY * 0.0015))
+        setPan((p) => clampPan(p.x, p.y, nz))
+        return nz
+      })
     }
     el.addEventListener('wheel', handler, { passive: false })
     return () => el.removeEventListener('wheel', handler)
@@ -52,7 +65,7 @@ export function ImageViewer({ instance }: { instance: string }) {
   const onDown = (e: React.MouseEvent) => { drag.current = { x: e.clientX - pan.x, y: e.clientY - pan.y }; setDragging(true) }
   const onMove = (e: React.MouseEvent) => {
     if (!drag.current) return
-    setPan({ x: e.clientX - drag.current.x, y: e.clientY - drag.current.y })
+    setPan(clampPan(e.clientX - drag.current.x, e.clientY - drag.current.y, zoom))
   }
   const endDrag = () => { drag.current = null; setDragging(false) }
   const reset = () => { setZoom(1); setPan({ x: 0, y: 0 }) }
