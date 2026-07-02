@@ -137,7 +137,7 @@ export default function USDeviceDetails() {
         {/* Panel label */}
         <div className="shrink-0 flex items-center justify-between"
           style={{ height: 46, boxSizing: 'border-box', padding: '0 14px', borderBottom: `1px solid ${C.border}` }}>
-          <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.5px', textTransform: 'uppercase', color: C.muted }}>
+          <span style={{ fontSize: 13.5, fontWeight: 600, color: C.neutral }}>
             Laitetiedot
           </span>
           <span style={{ fontSize: 10, fontFamily: 'var(--mono)', padding: '2px 8px', borderRadius: 4,
@@ -146,7 +146,7 @@ export default function USDeviceDetails() {
 
         {/* Image area: grid — col1=image, col2=vert profile; row2=horiz profile under image only */}
         <div style={{
-          flexShrink: 0, background: '#000', padding: '3px 6px',
+          flexShrink: 0, background: '#000', padding: '16px 6px 3px',
           borderBottom: `1px solid ${C.border}`,
         }}>
           {imageData?.image ? (

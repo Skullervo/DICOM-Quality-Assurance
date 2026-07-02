@@ -89,14 +89,14 @@ export default function XrayDeviceDetails() {
         borderRight: `1px solid ${C.border}`, background: C.surface }}>
         <div className="shrink-0 flex items-center justify-between"
           style={{ height: 46, boxSizing: 'border-box', padding: '0 14px', borderBottom: `1px solid ${C.border}` }}>
-          <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.5px', textTransform: 'uppercase', color: C.muted }}>Laitetiedot</span>
+          <span style={{ fontSize: 13.5, fontWeight: 600, color: C.neutral }}>Laitetiedot</span>
           <span style={{ fontSize: 10, fontFamily: 'var(--mono)', padding: '2px 8px', borderRadius: 4,
             background: 'rgba(96,165,250,0.15)', color: '#93c5fd', border: '1px solid rgba(96,165,250,0.3)' }}>XR</span>
         </div>
 
         {/* Kuva + kuvavälilehdet */}
         {activeInstanceId && (
-          <div style={{ flexShrink: 0, padding: '8px 10px', borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ flexShrink: 0, padding: '16px 10px 10px', borderBottom: `1px solid ${C.border}` }}>
             <div className="flex gap-0.5 mb-2">
               {IMAGE_TABS.map(t => (
                 <button key={t.key} onClick={() => setImgTab(t.key)}

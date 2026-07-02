@@ -85,14 +85,14 @@ export default function CTDeviceDetails() {
         borderRight: `1px solid ${C.border}`, background: C.surface }}>
         <div className="shrink-0 flex items-center justify-between"
           style={{ height: 46, boxSizing: 'border-box', padding: '0 14px', borderBottom: `1px solid ${C.border}` }}>
-          <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.5px', textTransform: 'uppercase', color: C.muted }}>Laitetiedot</span>
+          <span style={{ fontSize: 13.5, fontWeight: 600, color: C.neutral }}>Laitetiedot</span>
           <span style={{ fontSize: 10, fontFamily: 'var(--mono)', padding: '2px 8px', borderRadius: 4,
             background: 'rgba(45,212,191,0.15)', color: '#5eead4', border: '1px solid rgba(45,212,191,0.3)' }}>CT</span>
         </div>
 
         {/* Kuva — yksi pudotusvalikko + kuvaikkuna (säästää tilaa vs. välilehdet) */}
         {instanceId && (
-          <div style={{ flexShrink: 0, padding: '8px 10px', borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ flexShrink: 0, padding: '16px 10px 10px', borderBottom: `1px solid ${C.border}` }}>
             <select value={imgSel} onChange={(e) => setImgSel(e.target.value)}
               aria-label="Valitse kuva"
               style={{
