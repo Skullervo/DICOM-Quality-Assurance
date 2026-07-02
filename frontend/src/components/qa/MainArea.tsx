@@ -48,7 +48,7 @@ export function MainArea({ breadcrumb, aiContext, reportDefault, children }: {
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-        {tab === 'analyysi' && <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>{children}</div>}
+        {tab === 'analyysi' && <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14, minHeight: '100%', boxSizing: 'border-box' }}>{children}</div>}
         {tab === 'ai' && <div style={{ height: '100%' }}><AiChat context={aiContext} /></div>}
         {tab === 'raportti' && <ReportTab defaultText={reportDefault} />}
       </div>

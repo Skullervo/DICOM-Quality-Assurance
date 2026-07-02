@@ -9,7 +9,7 @@ import { DeviceInfo } from '../components/qa/DeviceInfo'
 import { ImageViewer } from '../components/qa/ImageViewer'
 import { PngViewer } from '../components/qa/PngViewer'
 import { RoiOverlay, type Roi } from '../components/qa/RoiOverlay'
-import { TrendPanel } from '../components/qa/TrendPanel'
+import { PagedTrendPanel } from '../components/qa/PagedTrendPanel'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
 import { hasTolerance, deriveVerdict, deriveStatus } from '../lib/qa/status'
 import type { Status } from '../lib/qa/types'
@@ -154,7 +154,7 @@ export default function CTDeviceDetails() {
         }
       >
         {latest && (
-          <TrendPanel title="Mittaustrendit" metrics={metrics} cols={4} highlightId={hoverRoi} onHover={setHoverRoi} />
+          <PagedTrendPanel title="Mittaustrendit" metrics={metrics} perPage={3} highlightId={hoverRoi} onHover={setHoverRoi} />
         )}
       </MainArea>
     </div>
