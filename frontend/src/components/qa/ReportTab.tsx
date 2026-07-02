@@ -45,6 +45,19 @@ export function ReportTab({ defaultText, attachments = [] }: { defaultText: stri
 
   const hasAtt = usable.length > 0
 
+  const sendBtn = (
+    <button onClick={send} disabled={status === 'loading' || !text.trim()}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 7,
+        background: '#5b5bd6', border: 'none', color: '#fff', borderRadius: 8,
+        padding: '10px 18px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+        opacity: status === 'loading' || !text.trim() ? 0.6 : 1,
+      }}>
+      <Send size={15} aria-hidden />
+      {status === 'loading' ? 'Lähetetään…' : 'Lähetä raportti'}
+    </button>
+  )
+
   return (
     <div style={{ padding: 16, height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{
@@ -87,7 +100,7 @@ export function ReportTab({ defaultText, attachments = [] }: { defaultText: stri
             <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
               Liitä kuvia {selected.size > 0 && <span style={{ color: 'var(--info)' }}>({selected.size} valittu)</span>}
             </div>
-            <div style={{ overflowY: 'auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignContent: 'start' }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignContent: 'start' }}>
               {usable.map((a) => {
                 const sel = selected.has(a.key)
                 return (
@@ -111,23 +124,18 @@ export function ReportTab({ defaultText, attachments = [] }: { defaultText: stri
                 )
               })}
             </div>
+            {/* Lähetä-nappi sarakkeen pohjalle -> alareuna kuvaus-tekstikentän tasolla */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>{sendBtn}</div>
           </div>
         )}
       </div>
 
-      {/* Alapalkki: lähetä */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-        <button onClick={send} disabled={status === 'loading' || !text.trim()}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 7,
-            background: '#5b5bd6', border: 'none', color: '#fff', borderRadius: 8,
-            padding: '10px 18px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
-            opacity: status === 'loading' || !text.trim() ? 0.6 : 1,
-          }}>
-          <Send size={15} aria-hidden />
-          {status === 'loading' ? 'Lähetetään…' : 'Lähetä raportti'}
-        </button>
-      </div>
+      {/* Ilman liitteitä: lähetä alapalkissa */}
+      {!hasAtt && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+          {sendBtn}
+        </div>
+      )}
 
       {status === 'ok' && (
         <div style={{ background: 'var(--pass-bg)', border: '1px solid var(--pass)', color: 'var(--pass)', borderRadius: 8, padding: '10px 12px', fontSize: 13 }}>
