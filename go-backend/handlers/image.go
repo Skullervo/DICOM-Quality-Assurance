@@ -335,6 +335,7 @@ func CTImage(w http.ResponseWriter, r *http.Request) {
 func CTAnalysisImage(db *sql.DB) http.HandlerFunc {
 	validFields := map[string]string{
 		"hu_linearity":       "hu_linearity_image",
+		"hu_linearity_clean": "hu_linearity_clean_image",
 		"thickness":          "thickness_image",
 		"uniformity":         "uniformity_image",
 		"mtf":                "mtf_image",

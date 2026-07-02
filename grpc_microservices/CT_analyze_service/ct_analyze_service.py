@@ -8,8 +8,7 @@ import ct_analyze_service_pb2
 import ct_analyze_service_pb2_grpc
 import fetch_service_pb2
 import fetch_service_pb2_grpc
-import psycopg2
-import psycopg2.extras
+import pymssql
 import numpy as np
 import io
 import json
@@ -20,6 +19,8 @@ import pydicom
 from pydicom.errors import InvalidDicomError
 from time import time as timer
 import requests
+import threading
+import time
 import logging
 
 from catphan_analyzer import CatphanAnalyzer
@@ -36,17 +37,20 @@ except ImportError:
 
 # Orthanc ja Fetch Service -osoitteet
 ORTHANC_URL = os.getenv("ORTHANC_URL", "http://localhost:8042")
+ORTHANC_USER = os.getenv("ORTHANC_USERNAME", "admin")
+ORTHANC_PASS = os.getenv("ORTHANC_PASSWORD", "")
 FETCH_SERVICE_ADDRESS = os.getenv("FETCH_SERVICE_HOST", "localhost:50051")
 
 # CT-modaliteetit
 CT_MODALITIES = ("CT",)
 
+# MS SQL Server (pymssql). Skeema luodaan scripts/schema_mssql.sql:ssä.
 DB_CONFIG = {
-    "dbname": os.getenv("DATABASE_NAME", "QA-results"),
-    "user": os.getenv("DATABASE_USER", "postgres"),
+    "database": os.getenv("DATABASE_NAME", "QA-results"),
+    "user": os.getenv("DATABASE_USER", "sa"),
     "password": os.getenv("DATABASE_PASSWORD", ""),
-    "host": os.getenv("DATABASE_HOST", "localhost"),
-    "port": os.getenv("DATABASE_PORT", "5432"),
+    "server": os.getenv("DATABASE_HOST", "autoqad-mssql"),
+    "port": os.getenv("DATABASE_PORT", "1433"),
 }
 
 logger = logging.getLogger(__name__)
@@ -54,111 +58,7 @@ logger = logging.getLogger(__name__)
 
 def connect_db():
     """Luo tietokantayhteys ja varmista, että ct_analysis-taulu on olemassa."""
-    conn = psycopg2.connect(**DB_CONFIG)
-    cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS ct_analysis (
-            id SERIAL PRIMARY KEY,
-            instance TEXT UNIQUE,
-            series_id TEXT,
-            processed_at TIMESTAMP DEFAULT NOW(),
-
-            -- DICOM metadata
-            content_date TEXT,
-            content_time TEXT,
-            device_serial_number TEXT,
-            instance_number TEXT,
-            institution_name TEXT,
-            institutional_department_name TEXT,
-            manufacturer TEXT,
-            manufacturer_model_name TEXT,
-            modality TEXT,
-            patient_id TEXT,
-            patient_name TEXT,
-            station_name TEXT,
-            series_date TEXT,
-            study_date TEXT,
-
-            -- CT-kuvausparametrit
-            kvp TEXT,
-            tube_current TEXT,
-            exposure_time TEXT,
-            "exposure_mAs" TEXT,
-            slice_thickness FLOAT,
-            slice_spacing FLOAT,
-            reconstruction_kernel TEXT,
-            reconstruction_algorithm TEXT,
-            ctdi_vol FLOAT,
-            dlp FLOAT,
-
-            -- Fantomi
-            phantom_model TEXT,
-            phantom_roll_deg FLOAT,
-            origin_slice INTEGER,
-            num_images INTEGER,
-
-            -- CTP404: HU-lineaarisuus
-            hu_air FLOAT,
-            hu_pmp FLOAT,
-            hu_ldpe FLOAT,
-            hu_poly FLOAT,
-            hu_acrylic FLOAT,
-            hu_delrin FLOAT,
-            hu_teflon FLOAT,
-            slice_thickness_mm FLOAT,
-            ctp404_pass BOOLEAN,
-
-            -- CTP486: Uniformiteetti
-            uniformity_index FLOAT,
-            integral_non_uniformity FLOAT,
-            hu_center FLOAT,
-            hu_top FLOAT,
-            hu_right FLOAT,
-            hu_bottom FLOAT,
-            hu_left FLOAT,
-            ctp486_pass BOOLEAN,
-
-            -- CTP528: MTF
-            mtf_50_percent FLOAT,
-            mtf_10_percent FLOAT,
-            mtf_data JSONB,
-            ctp528_pass BOOLEAN,
-
-            -- CTP515: Matala kontrasti
-            num_low_contrast_rois_seen INTEGER,
-            median_cnr FLOAT,
-            low_contrast_details JSONB,
-            ctp515_pass BOOLEAN,
-
-            -- Tulokset & kohina
-            overall_pass BOOLEAN,
-            noise_hu_std FLOAT,
-
-            -- Metadata
-            analysis_type TEXT DEFAULT 'CatPhan',
-            analysis_version TEXT,
-            processing_time FLOAT,
-
-            -- Leikekuvat (PNG)
-            summary_image BYTEA,
-            hu_linearity_image BYTEA,
-            thickness_image BYTEA,
-            uniformity_image BYTEA,
-            mtf_image BYTEA,
-            low_contrast_image BYTEA,
-
-            -- Analyysikuvaajat (PNG)
-            hu_linearity_chart_image BYTEA,
-            mtf_chart_image BYTEA,
-            uniformity_profile_image BYTEA,
-            side_view_image BYTEA
-        )
-    """)
-    # Lisää uudet sarakkeet jos taulukko oli jo olemassa (idempotent)
-    cur.execute("ALTER TABLE ct_analysis ADD COLUMN IF NOT EXISTS thickness_image BYTEA")
-    conn.commit()
-    cur.close()
-    return conn
+    return pymssql.connect(**DB_CONFIG)
 
 
 def get_fetch_stub():
@@ -258,7 +158,7 @@ def insert_ct_analysis(cur, instance_id, series_id, metadata, analysis, processi
             instance_number, institution_name, institutional_department_name,
             manufacturer, manufacturer_model_name, modality,
             patient_id, patient_name, station_name, series_date, study_date,
-            kvp, tube_current, exposure_time, "exposure_mAs",
+            kvp, tube_current, exposure_time, [exposure_mAs],
             slice_thickness, slice_spacing,
             reconstruction_kernel, reconstruction_algorithm,
             ctdi_vol, dlp,
@@ -272,10 +172,11 @@ def insert_ct_analysis(cur, instance_id, series_id, metadata, analysis, processi
             overall_pass, noise_hu_std,
             analysis_type, analysis_version, processing_time,
             summary_image, hu_linearity_image, thickness_image, uniformity_image, mtf_image, low_contrast_image,
-            hu_linearity_chart_image, mtf_chart_image, uniformity_profile_image, side_view_image
+            hu_linearity_chart_image, mtf_chart_image, uniformity_profile_image, side_view_image,
+            hu_roi_map, hu_linearity_clean_image
         )
         VALUES (
-            %s, %s, NOW(),
+            %s, %s, SYSDATETIME(),
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
             %s, %s, %s, %s,
             %s, %s, %s, %s, %s, %s,
@@ -287,7 +188,8 @@ def insert_ct_analysis(cur, instance_id, series_id, metadata, analysis, processi
             %s, %s,
             %s, %s, %s,
             %s, %s, %s, %s, %s, %s,
-            %s, %s, %s, %s
+            %s, %s, %s, %s,
+            %s, %s
         )
     """, (
         instance_id, series_id,
@@ -323,16 +225,18 @@ def insert_ct_analysis(cur, instance_id, series_id, metadata, analysis, processi
         analysis.get("analysis_type", "CatPhan"),
         analysis.get("analysis_version", "0.1"),
         processing_time,
-        psycopg2.Binary(images.get("summary")) if images.get("summary") else None,
-        psycopg2.Binary(images.get("hu_linearity")) if images.get("hu_linearity") else None,
-        psycopg2.Binary(images.get("thickness")) if images.get("thickness") else None,
-        psycopg2.Binary(images.get("uniformity")) if images.get("uniformity") else None,
-        psycopg2.Binary(images.get("mtf")) if images.get("mtf") else None,
-        psycopg2.Binary(images.get("low_contrast")) if images.get("low_contrast") else None,
-        psycopg2.Binary(images.get("hu_linearity_chart")) if images.get("hu_linearity_chart") else None,
-        psycopg2.Binary(images.get("mtf_chart")) if images.get("mtf_chart") else None,
-        psycopg2.Binary(images.get("uniformity_profile")) if images.get("uniformity_profile") else None,
-        psycopg2.Binary(images.get("side_view")) if images.get("side_view") else None,
+        (images.get("summary")) if images.get("summary") else None,
+        (images.get("hu_linearity")) if images.get("hu_linearity") else None,
+        (images.get("thickness")) if images.get("thickness") else None,
+        (images.get("uniformity")) if images.get("uniformity") else None,
+        (images.get("mtf")) if images.get("mtf") else None,
+        (images.get("low_contrast")) if images.get("low_contrast") else None,
+        (images.get("hu_linearity_chart")) if images.get("hu_linearity_chart") else None,
+        (images.get("mtf_chart")) if images.get("mtf_chart") else None,
+        (images.get("uniformity_profile")) if images.get("uniformity_profile") else None,
+        (images.get("side_view")) if images.get("side_view") else None,
+        analysis.get("hu_roi_map"),
+        (images.get("hu_linearity_clean")) if images.get("hu_linearity_clean") else None,
     ))
 
 
@@ -341,9 +245,10 @@ class CTAnalyzeService(ct_analyze_service_pb2_grpc.CTAnalyzeServiceServicer):
         logger.info("Received request to analyze all CT series in Orthanc")
 
         # Haetaan kaikki sarjat Orthancista
-        response = requests.get(f"{ORTHANC_URL}/series")
+        auth = (ORTHANC_USER, ORTHANC_PASS) if ORTHANC_PASS else None
+        response = requests.get(f"{ORTHANC_URL}/series", auth=auth)
         if response.status_code != 200:
-            logger.error("Error: Could not fetch series from Orthanc")
+            logger.error("Error: Could not fetch series from Orthanc (status %s)", response.status_code)
             context.set_code(grpc.StatusCode.NOT_FOUND)
             return ct_analyze_service_pb2.AnalyzeResponse(
                 message="No series found", series_id="ALL"
@@ -411,7 +316,8 @@ class CTAnalyzeService(ct_analyze_service_pb2_grpc.CTAnalyzeServiceServicer):
         logger.info("Processing series ID: %s", series_id)
 
         # Haetaan sarjan instanssit Orthancista
-        instance_response = requests.get(f"{ORTHANC_URL}/series/{series_id}/instances")
+        auth = (ORTHANC_USER, ORTHANC_PASS) if ORTHANC_PASS else None
+        instance_response = requests.get(f"{ORTHANC_URL}/series/{series_id}/instances", auth=auth)
         if instance_response.status_code != 200:
             logger.error("Could not fetch instances for series %s", series_id)
             return False
@@ -503,6 +409,7 @@ class CTAnalyzeService(ct_analyze_service_pb2_grpc.CTAnalyzeServiceServicer):
                     analysis = CatphanAnalyzer.extract_metrics(result['results'])
                     analysis['phantom_model'] = analyzer.phantom_model
                     analysis['analysis_type'] = 'CatPhan'
+                    analysis['hu_roi_map'] = json.dumps(result.get('hu_roi_map', []))
                     images = result.get('images', {})
                     phantom_type = analyzer.phantom_model
                 except Exception as e:
@@ -543,6 +450,30 @@ class CTAnalyzeService(ct_analyze_service_pb2_grpc.CTAnalyzeServiceServicer):
             shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+def start_analyze_scheduler(interval_seconds=3600):
+    """Käynnistä taustapollaaja joka ajaa CT-analyysin säännöllisesti."""
+    service = CTAnalyzeService()
+
+    class DummyContext:
+        def set_code(self, code):
+            pass
+
+    def loop():
+        logger.info("CT scheduler started (interval: %ss). Odotetaan ensimmäinen ajo...", interval_seconds)
+        time.sleep(30)  # Odota Orthancin ja Fetchin käynnistyvän
+        while True:
+            try:
+                logger.info("Scheduled CT analysis starting...")
+                service.AnalyzeAllDicomData(None, DummyContext())
+            except Exception as e:
+                logger.error("Scheduled CT analysis failed: %s", e)
+            logger.info("Odotetaan %s sekuntia seuraavaan ajoon...", interval_seconds)
+            time.sleep(interval_seconds)
+
+    t = threading.Thread(target=loop, daemon=True)
+    t.start()
+
+
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     ct_analyze_service_pb2_grpc.add_CTAnalyzeServiceServicer_to_server(
@@ -556,4 +487,5 @@ def serve():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
+    start_analyze_scheduler(3600)  # Ajastettu analyysi kerran tunnissa
     serve()

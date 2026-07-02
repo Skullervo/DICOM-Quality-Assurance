@@ -104,7 +104,7 @@ func CTDeviceDetail(db *sql.DB) http.HandlerFunc {
 			        phantom_model, kvp, [exposure_mAs], slice_thickness,
 			        hu_air, hu_pmp, hu_ldpe, hu_poly, hu_acrylic, hu_delrin, hu_teflon,
 			        uniformity_index, mtf_50_percent, overall_pass,
-			        processed_at
+			        hu_roi_map, processed_at
 			 FROM ct_analysis
 			 WHERE station_name = @p1
 			 ORDER BY processed_at DESC`, station)

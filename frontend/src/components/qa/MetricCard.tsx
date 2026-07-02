@@ -6,10 +6,12 @@ import type { Metric, Status } from '../../lib/qa/types'
 import { StatusBadge } from './StatusBadge'
 import { Sparkline } from './Sparkline'
 
-export function MetricCard({ metric, activeIndex, onSelect }: {
+export function MetricCard({ metric, activeIndex, onSelect, highlighted, onHover }: {
   metric: Metric
   activeIndex?: number
   onSelect?: (index: number) => void
+  highlighted?: boolean
+  onHover?: (id: string | null) => void
 }) {
   const toleranced = hasTolerance(metric)
   const noData = metric.value == null
@@ -22,7 +24,14 @@ export function MetricCard({ metric, activeIndex, onSelect }: {
   const TrendIcon = trend == null ? ArrowRight : trend > 0 ? ArrowUp : trend < 0 ? ArrowDown : ArrowRight
 
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: 14, display: 'flex', flexDirection: 'column', gap: 9 }}>
+    <div
+      onMouseEnter={onHover ? () => onHover(metric.id) : undefined}
+      onMouseLeave={onHover ? () => onHover(null) : undefined}
+      style={{
+        background: 'var(--surface)', borderRadius: 8, padding: 14, display: 'flex', flexDirection: 'column', gap: 9,
+        border: `1px solid ${highlighted ? 'var(--info)' : 'var(--border)'}`,
+        boxShadow: highlighted ? '0 0 0 1px var(--info)' : undefined,
+      }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
         <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{metric.label}</span>
         {showBadge && <StatusBadge status={status} compact />}

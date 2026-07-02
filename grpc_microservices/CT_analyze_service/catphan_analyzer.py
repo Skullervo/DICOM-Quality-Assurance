@@ -234,11 +234,12 @@ class CatphanAnalyzer:
 
         results = catphan.results_data(as_dict=True)
         images = self._capture_images(catphan)
+        hu_roi_map = self._extract_hu_rois(catphan)
 
         logger.info("%s analysis complete. Overall pass: %s",
                      self.phantom_model, results.get('passed'))
 
-        return {'results': results, 'images': images}
+        return {'results': results, 'images': images, 'hu_roi_map': hu_roi_map}
 
     def _capture_images(self, catphan):
         """Tallenna moduulien CT-leikekuvat ja analyysikuvaajat PNG-tavuiksi.
@@ -290,6 +291,26 @@ class CatphanAnalyzer:
             images['hu_linearity'] = buf.read()
         except Exception as e:
             logger.warning("Could not generate hu_linearity (material) image: %s", e)
+
+        # 1b) Puhdas CTP404-leike ILMAN poltettuja ROI-ympyröitä (interaktiiviselle
+        # SVG-overlaylle). plt.imsave kirjoittaa taulukon 1:1 pikseleiksi, joten
+        # normalisoidut ROI-koordinaatit (_extract_hu_rois) osuvat kohdalleen.
+        try:
+            ctp404 = catphan.ctp404
+            arr = ctp404.image.array.astype(float)
+            wmin = getattr(ctp404, 'window_min', None)
+            wmax = getattr(ctp404, 'window_max', None)
+            if wmin is None or wmax is None:
+                lo, hi = float(np.percentile(arr, 1)), float(np.percentile(arr, 99))
+            else:
+                lo, hi = float(wmin), float(wmax)
+            normed = np.clip((arr - lo) / (hi - lo + 1e-9), 0.0, 1.0)
+            buf = io.BytesIO()
+            plt.imsave(buf, normed, cmap='gray', format='png', vmin=0.0, vmax=1.0)
+            buf.seek(0)
+            images['hu_linearity_clean'] = buf.read()
+        except Exception as e:
+            logger.warning("Could not generate clean CTP404 slice: %s", e)
 
         # 2) Vain leikepaksuus-ramppi-ROI:t (Leikepaksuus-välilehti)
         try:
@@ -366,6 +387,39 @@ class CatphanAnalyzer:
                     logger.warning("Could not generate %s chart: %s", image_key, e)
 
         return images
+
+    def _extract_hu_rois(self, catphan):
+        """Poimi CTP404:n HU-materiaali-ROI:t normalisoituina (0..1) koordinaatteina.
+
+        Koordinaatit ovat ctp404.image.array-avaruudessa; normalisointi kuvan
+        mittoihin osuu 'hu_linearity_clean'-leikkeeseen (plt.imsave 1:1).
+        Palauttaa listan {id, name, x, y, r} — id vastaa metriikka-id:tä (hu_air ...).
+        """
+        name_to_id = {
+            'Air': 'hu_air', 'PMP': 'hu_pmp', 'LDPE': 'hu_ldpe', 'Poly': 'hu_poly',
+            'Acrylic': 'hu_acrylic', 'Delrin': 'hu_delrin', 'Teflon': 'hu_teflon',
+        }
+        rois = []
+        try:
+            ctp404 = catphan.ctp404
+            h, w = ctp404.image.array.shape[:2]
+            for name, roi in ctp404.rois.items():
+                center = getattr(roi, 'center', None)
+                radius = getattr(roi, 'radius', None)
+                cx = getattr(center, 'x', None) if center is not None else None
+                cy = getattr(center, 'y', None) if center is not None else None
+                if cx is None or cy is None or radius is None:
+                    continue
+                rois.append({
+                    'id': name_to_id.get(name, 'hu_' + str(name).lower()),
+                    'name': name,
+                    'x': round(float(cx) / w, 5),
+                    'y': round(float(cy) / h, 5),
+                    'r': round(float(radius) / w, 5),
+                })
+        except Exception as e:
+            logger.warning("Could not extract HU ROIs: %s", e)
+        return rois
 
     @staticmethod
     def extract_metrics(results):

@@ -9,8 +9,10 @@ import { MainArea } from '../components/qa/MainArea'
 import { DeviceInfo } from '../components/qa/DeviceInfo'
 import { ImageViewer } from '../components/qa/ImageViewer'
 import { PngViewer } from '../components/qa/PngViewer'
+import { RoiOverlay, type Roi } from '../components/qa/RoiOverlay'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
-import { hasTolerance, deriveVerdict } from '../lib/qa/status'
+import { hasTolerance, deriveVerdict, deriveStatus } from '../lib/qa/status'
+import type { Status } from '../lib/qa/types'
 
 const VERDICT_FI = { pass: 'Hyväksytty', warn: 'Varoitus', fail: 'Hylätty', nodata: 'Ei dataa' } as const
 const rnd = (v: unknown, p = 2) => (typeof v === 'number' ? v.toFixed(p) : '?')
@@ -20,6 +22,7 @@ const rnd = (v: unknown, p = 2) => (typeof v === 'number' ? v.toFixed(p) : '?')
 // analyysikuvat (ei harmaasävysäätöä).
 const IMAGE_OPTIONS = [
   { key: 'dicom', label: 'Kuvapakka' },
+  { key: 'roi', label: 'ROI-kartta (HU)' },
   { key: 'hu_linearity', label: 'HU-lineaarisuus' },
   { key: 'thickness', label: 'Viipalepaksuus' },
   { key: 'uniformity', label: 'Uniformiteetti' },
@@ -37,6 +40,7 @@ export default function CTDeviceDetails() {
   const { id } = useParams<{ id: string }>()
   const station = id ? decodeURIComponent(id) : ''
   const [imgSel, setImgSel] = useState('dicom')
+  const [hoverRoi, setHoverRoi] = useState<string | null>(null)
 
   const { data: detail } = useQuery<Record<string, unknown>[]>({
     queryKey: ['ct', 'device', station], queryFn: () => api.ctDeviceDetail(station), enabled: !!station,
@@ -50,6 +54,10 @@ export default function CTDeviceDetails() {
   // Config-vetoiset metriikat; verdiktiin vain toleranssilliset
   const metrics = buildMetrics('CT', latest, (chartData ?? []) as Record<string, unknown>[])
   const verdictMetrics = metrics.filter(hasTolerance)
+  const rois = (latest?.hu_roi_map as Roi[] | undefined) ?? []
+  const roiStatus: Record<string, Status> = Object.fromEntries(
+    metrics.map((m) => [m.id, m.value != null && hasTolerance(m) ? deriveStatus(m) : 'nodata']),
+  )
   const verdictDevice = {
     deviceId: String(latest?.station_name ?? station),
     phantom: latest?.phantom_model ? String(latest.phantom_model) : undefined,
@@ -95,6 +103,10 @@ export default function CTDeviceDetails() {
             {imgSel === 'dicom' ? (
               // Kuvapakka: aito W/L + viipaleselailu + zoom/pan
               <ImageViewer key={instanceId} instance={instanceId} />
+            ) : imgSel === 'roi' ? (
+              // ROI-kartta: puhdas leike + interaktiiviset ROI:t, kytketty KPI-kortteihin
+              <RoiOverlay src={api.ctAnalysisImageUrl(instanceId, 'hu_linearity_clean')} rois={rois}
+                statusById={roiStatus} hoverId={hoverRoi} onHover={setHoverRoi} />
             ) : (
               // Analyysikuva: zoom/pan + kirkkaus/kontrasti (paitsi kaaviot)
               <PngViewer key={imgSel} src={api.ctAnalysisImageUrl(instanceId, imgSel)} alt={imgSel}
@@ -141,7 +153,7 @@ export default function CTDeviceDetails() {
       >
         {latest && <VerdictBar device={verdictDevice} metrics={verdictMetrics} />}
 
-        {latest && <MetricsSection metrics={metrics} />}
+        {latest && <MetricsSection metrics={metrics} highlightId={hoverRoi} onHover={setHoverRoi} />}
       </MainArea>
     </div>
   )

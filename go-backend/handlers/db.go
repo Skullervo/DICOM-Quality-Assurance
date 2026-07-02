@@ -10,7 +10,7 @@ import (
 // ei JSON-merkkijonoa.
 var jsonColumns = map[string]bool{
 	"horiz_prof": true, "vert_prof": true, "u_low": true,
-	"low_contrast_details": true, "mtf_data": true,
+	"low_contrast_details": true, "mtf_data": true, "hu_roi_map": true,
 }
 
 // scanMaps lukee kaikki rivit []map[string]any -muotoon.

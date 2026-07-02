@@ -12,10 +12,12 @@ const OPTS: { id: View; label: string; Icon: typeof LayoutGrid }[] = [
   { id: 'table', label: 'Taulukko', Icon: Table2 },
 ]
 
-export function MetricsSection({ metrics, activeIndex, onSelect }: {
+export function MetricsSection({ metrics, activeIndex, onSelect, highlightId, onHover }: {
   metrics: Metric[]
   activeIndex?: number
   onSelect?: (index: number) => void
+  highlightId?: string | null
+  onHover?: (id: string | null) => void
 }) {
   const [view, setView] = useState<View>('cards')
   return (
@@ -41,7 +43,8 @@ export function MetricsSection({ metrics, activeIndex, onSelect }: {
       {view === 'cards' ? (
         <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
           {metrics.map((m) => (
-            <MetricCard key={m.id} metric={m} activeIndex={activeIndex} onSelect={onSelect} />
+            <MetricCard key={m.id} metric={m} activeIndex={activeIndex} onSelect={onSelect}
+              highlighted={highlightId === m.id} onHover={onHover} />
           ))}
         </div>
       ) : (
