@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { C } from '../components/DeviceShared'
 import { VerdictBar } from '../components/qa/VerdictBar'
-import { MetricsSection } from '../components/qa/MetricsSection'
 import { MainArea } from '../components/qa/MainArea'
 import { DeviceInfo } from '../components/qa/DeviceInfo'
 import { ImageViewer } from '../components/qa/ImageViewer'
@@ -157,13 +156,11 @@ export default function CTDeviceDetails() {
       >
         {latest && <VerdictBar device={verdictDevice} metrics={verdictMetrics} />}
 
-        {latest && <MetricsSection metrics={metrics} highlightId={hoverRoi} onHover={setHoverRoi} />}
-
         {latest && (
           <>
-            <TrendPanel title="HU-lineaarisuus (CTP404)" metrics={huMetrics} cols={4} />
-            <TrendPanel title="Tasaisuus & kohina (CTP486)" metrics={uniNoiseMetrics} cols={2} />
-            <TrendPanel title="Resoluutio & geometria" metrics={resGeoMetrics} cols={2} />
+            <TrendPanel title="HU-lineaarisuus (CTP404)" metrics={huMetrics} cols={4} highlightId={hoverRoi} onHover={setHoverRoi} />
+            <TrendPanel title="Tasaisuus & kohina (CTP486)" metrics={uniNoiseMetrics} cols={2} highlightId={hoverRoi} onHover={setHoverRoi} />
+            <TrendPanel title="Resoluutio & geometria" metrics={resGeoMetrics} cols={2} highlightId={hoverRoi} onHover={setHoverRoi} />
           </>
         )}
       </MainArea>

@@ -40,10 +40,12 @@ function StatusDot(props: Record<string, unknown>) {
   return <circle cx={cx} cy={cy} r={2.5} fill={STATUS_COLOR[status]} />
 }
 
-export function TrendChart({ metric, activeIndex, onSelect }: {
+export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover }: {
   metric: Metric
   activeIndex?: number
   onSelect?: (index: number) => void
+  highlighted?: boolean
+  onHover?: (id: string | null) => void
 }) {
   const { history, nominal, lowerLimit, upperLimit, unit, precision, label } = metric
   const status = deriveStatus(metric)
@@ -59,7 +61,14 @@ export function TrendChart({ metric, activeIndex, onSelect }: {
   lo -= pad; hi += pad
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+    <div
+      onMouseEnter={onHover ? () => onHover(metric.id) : undefined}
+      onMouseLeave={onHover ? () => onHover(null) : undefined}
+      style={{
+        display: 'flex', flexDirection: 'column', minWidth: 0, borderRadius: 6, padding: 4,
+        outline: `1px solid ${highlighted ? 'var(--info)' : 'transparent'}`,
+        background: highlighted ? 'color-mix(in srgb, var(--info) 9%, transparent)' : 'transparent',
+      }}>
       <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {label}{unit && <span style={{ color: 'var(--text-faint)', fontWeight: 400 }}> [{unit}]</span>}
       </div>

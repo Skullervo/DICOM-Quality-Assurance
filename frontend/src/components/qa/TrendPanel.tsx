@@ -2,12 +2,14 @@
 import type { Metric } from '../../lib/qa/types'
 import { TrendChart } from './TrendChart'
 
-export function TrendPanel({ title, metrics, cols = 2, activeIndex, onSelect }: {
+export function TrendPanel({ title, metrics, cols = 2, activeIndex, onSelect, highlightId, onHover }: {
   title: string
   metrics: Metric[]
   cols?: number
   activeIndex?: number
   onSelect?: (index: number) => void
+  highlightId?: string | null
+  onHover?: (id: string | null) => void
 }) {
   if (metrics.length === 0) return null
   return (
@@ -17,7 +19,8 @@ export function TrendPanel({ title, metrics, cols = 2, activeIndex, onSelect }: 
       </div>
       <div style={{ padding: 12, display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: '14px 16px' }}>
         {metrics.map((m) => (
-          <TrendChart key={m.id} metric={m} activeIndex={activeIndex} onSelect={onSelect} />
+          <TrendChart key={m.id} metric={m} activeIndex={activeIndex} onSelect={onSelect}
+            highlighted={highlightId === m.id} onHover={onHover} />
         ))}
       </div>
     </div>
