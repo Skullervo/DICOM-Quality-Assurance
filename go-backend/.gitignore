@@ -1,0 +1,8 @@
+# Go build-artefaktit
+/autoqad-backend
+/autoqad-backend.exe
+*.exe
+
+# Ympäristö (salaisuudet) — vain .env.example versionhallintaan
+.env
+.env.local
