@@ -89,28 +89,17 @@ export function AiChat({ context, attachments = [] }: { context: string; attachm
             )}
           </div>
 
-          {/* Syöte + lähetä */}
+          {/* Syöte */}
           <div>
             <div style={label}>Kysymys</div>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-              <textarea value={input} onChange={(e) => setInput(e.target.value)} rows={2}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-                style={{
-                  flex: 1, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8,
-                  padding: 12, color: 'var(--text)', fontSize: 13.5, resize: 'none', outline: 'none',
-                  boxSizing: 'border-box', fontFamily: 'var(--sans)', lineHeight: 1.5,
-                }}
-                placeholder="Kirjoita kysymys…" />
-              <button onClick={send} disabled={loading || !input.trim()} aria-label="Lähetä kysymys"
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 7,
-                  background: '#5b5bd6', border: 'none', color: '#fff', borderRadius: 8,
-                  padding: '10px 16px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
-                  opacity: loading || !input.trim() ? 0.6 : 1,
-                }}>
-                <Send size={15} aria-hidden />{loading ? 'Lähetetään…' : 'Lähetä'}
-              </button>
-            </div>
+            <textarea value={input} onChange={(e) => setInput(e.target.value)} rows={2}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+              style={{
+                width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8,
+                padding: 12, color: 'var(--text)', fontSize: 13.5, resize: 'none', outline: 'none',
+                boxSizing: 'border-box', fontFamily: 'var(--sans)', lineHeight: 1.5,
+              }}
+              placeholder="Kirjoita kysymys…" />
           </div>
         </div>
 
@@ -146,6 +135,22 @@ export function AiChat({ context, attachments = [] }: { context: string; attachm
             </div>
           </div>
         )}
+      </div>
+
+      {/* Alapalkki: lähetä (sama sijainti/koko kuin raporttivälilehdellä) */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+        <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>
+          {selected.size > 0 ? `${selected.size} kuvaliitettä` : hasAtt ? 'Valitse liitettävät kuvat oikealta' : ''}
+        </span>
+        <button onClick={send} disabled={loading || !input.trim()} aria-label="Lähetä kysymys"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 7,
+            background: '#5b5bd6', border: 'none', color: '#fff', borderRadius: 8,
+            padding: '10px 18px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+            opacity: loading || !input.trim() ? 0.6 : 1,
+          }}>
+          <Send size={15} aria-hidden />{loading ? 'Lähetetään…' : 'Lähetä'}
+        </button>
       </div>
     </div>
   )
