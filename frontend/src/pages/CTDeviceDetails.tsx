@@ -8,6 +8,7 @@ import { MetricsSection } from '../components/qa/MetricsSection'
 import { MainArea } from '../components/qa/MainArea'
 import { DeviceInfo } from '../components/qa/DeviceInfo'
 import { ImageViewer } from '../components/qa/ImageViewer'
+import { PngViewer } from '../components/qa/PngViewer'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
 import { hasTolerance, deriveVerdict } from '../lib/qa/status'
 
@@ -18,7 +19,7 @@ const rnd = (v: unknown, p = 2) => (typeof v === 'number' ? v.toFixed(p) : '?')
 // 'dicom' = interaktiivinen DICOM-leike (säädettävä W/L); muut = esirenderöidyt
 // analyysikuvat (ei harmaasävysäätöä).
 const IMAGE_OPTIONS = [
-  { key: 'dicom', label: 'DICOM-leike (säädettävä)' },
+  { key: 'dicom', label: 'Kuvapakka' },
   { key: 'hu_linearity', label: 'HU-lineaarisuus' },
   { key: 'thickness', label: 'Viipalepaksuus' },
   { key: 'uniformity', label: 'Uniformiteetti' },
@@ -29,6 +30,8 @@ const IMAGE_OPTIONS = [
   { key: 'uniformity_profile', label: 'Profiilit' },
   { key: 'side_view', label: 'Sivunäkymä' },
 ]
+// Kaaviokuvat (ei harmaasävyä -> ei kirkkaus/kontrasti-liukuja)
+const PLOT_KEYS = ['hu_linearity_chart', 'mtf_chart', 'uniformity_profile']
 
 export default function CTDeviceDetails() {
   const { id } = useParams<{ id: string }>()
@@ -90,15 +93,12 @@ export default function CTDeviceDetails() {
             </select>
 
             {imgSel === 'dicom' ? (
-              // Interaktiivinen DICOM-leike: W/L-liu'ut + viipaleselailu + zoom/pan
+              // Kuvapakka: aito W/L + viipaleselailu + zoom/pan
               <ImageViewer key={instanceId} instance={instanceId} />
             ) : (
-              // Esirenderöity analyysikuva — ei harmaasävysäätöä
-              <div style={{ background: '#000', borderRadius: 6, aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                <img src={api.ctAnalysisImageUrl(instanceId, imgSel)} alt={imgSel}
-                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                  onError={(e) => { (e.target as HTMLImageElement).src = ''; (e.target as HTMLImageElement).alt = 'Ei saatavilla' }} />
-              </div>
+              // Analyysikuva: zoom/pan + kirkkaus/kontrasti (paitsi kaaviot)
+              <PngViewer key={imgSel} src={api.ctAnalysisImageUrl(instanceId, imgSel)} alt={imgSel}
+                adjustable={!PLOT_KEYS.includes(imgSel)} />
             )}
           </div>
         )}
