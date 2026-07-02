@@ -15,6 +15,7 @@ export function PngViewer({ src, alt, adjustable = true }: { src: string; alt: s
   const [dragging, setDragging] = useState(false)
   const drag = useRef<{ x: number; y: number } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const zoomRef = useRef(1)
 
   // Rajaa panorointi niin että kuva pysyy aina peittämässä kuvaikkunan.
   const clampPan = (px: number, py: number, z: number) => {
@@ -30,11 +31,10 @@ export function PngViewer({ src, alt, adjustable = true }: { src: string; alt: s
     if (!el) return
     const handler = (e: WheelEvent) => {
       e.preventDefault()
-      setZoom((z) => {
-        const nz = Math.min(6, Math.max(1, z - e.deltaY * 0.0015))
-        setPan((p) => clampPan(p.x, p.y, nz))
-        return nz
-      })
+      const nz = Math.min(6, Math.max(1, zoomRef.current - e.deltaY * 0.0015))
+      zoomRef.current = nz
+      setZoom(nz)
+      setPan((p) => clampPan(p.x, p.y, nz))
     }
     el.addEventListener('wheel', handler, { passive: false })
     return () => el.removeEventListener('wheel', handler)
@@ -46,7 +46,7 @@ export function PngViewer({ src, alt, adjustable = true }: { src: string; alt: s
     setPan(clampPan(e.clientX - drag.current.x, e.clientY - drag.current.y, zoom))
   }
   const endDrag = () => { drag.current = null; setDragging(false) }
-  const reset = () => { setZoom(1); setPan({ x: 0, y: 0 }) }
+  const reset = () => { setZoom(1); setPan({ x: 0, y: 0 }); zoomRef.current = 1 }
 
   const filter = adjustable ? `brightness(${brightness}%) contrast(${contrast}%)` : undefined
 

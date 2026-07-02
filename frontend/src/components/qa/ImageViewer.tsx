@@ -25,6 +25,7 @@ export function ImageViewer({ instance }: { instance: string }) {
   const [dragging, setDragging] = useState(false)
   const drag = useRef<{ x: number; y: number } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const zoomRef = useRef(1)
 
   const effSlice = slice ?? meta?.defaultSlice ?? 0
   const effWc = wc ?? (meta ? Number(meta.windowCenter) || 40 : 40)
@@ -52,11 +53,10 @@ export function ImageViewer({ instance }: { instance: string }) {
     if (!el) return
     const handler = (e: WheelEvent) => {
       e.preventDefault()
-      setZoom((z) => {
-        const nz = Math.min(6, Math.max(1, z - e.deltaY * 0.0015))
-        setPan((p) => clampPan(p.x, p.y, nz))
-        return nz
-      })
+      const nz = Math.min(6, Math.max(1, zoomRef.current - e.deltaY * 0.0015))
+      zoomRef.current = nz
+      setZoom(nz)
+      setPan((p) => clampPan(p.x, p.y, nz))
     }
     el.addEventListener('wheel', handler, { passive: false })
     return () => el.removeEventListener('wheel', handler)
@@ -68,7 +68,7 @@ export function ImageViewer({ instance }: { instance: string }) {
     setPan(clampPan(e.clientX - drag.current.x, e.clientY - drag.current.y, zoom))
   }
   const endDrag = () => { drag.current = null; setDragging(false) }
-  const reset = () => { setZoom(1); setPan({ x: 0, y: 0 }) }
+  const reset = () => { setZoom(1); setPan({ x: 0, y: 0 }); zoomRef.current = 1 }
 
   if (!meta) {
     return (
