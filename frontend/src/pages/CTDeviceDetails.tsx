@@ -14,14 +14,16 @@ import { hasTolerance, deriveVerdict } from '../lib/qa/status'
 const VERDICT_FI = { pass: 'Hyväksytty', warn: 'Varoitus', fail: 'Hylätty', nodata: 'Ei dataa' } as const
 const rnd = (v: unknown, p = 2) => (typeof v === 'number' ? v.toFixed(p) : '?')
 
-const IMAGE_TABS = [
-  { key: 'hu_linearity', label: 'HU-lin.' },
-  { key: 'thickness', label: 'Paksuus' },
-  { key: 'uniformity', label: 'Unif.' },
+// Vasemman paneelin kuvavalinnat (yksi pudotusvalikko, säästää tilaa vs. välilehdet).
+// 'dicom' = interaktiivinen DICOM-leike (säädettävä W/L); muut = esirenderöidyt
+// analyysikuvat (ei harmaasävysäätöä).
+const IMAGE_OPTIONS = [
+  { key: 'dicom', label: 'DICOM-leike (säädettävä)' },
+  { key: 'hu_linearity', label: 'HU-lineaarisuus' },
+  { key: 'thickness', label: 'Viipalepaksuus' },
+  { key: 'uniformity', label: 'Uniformiteetti' },
   { key: 'mtf', label: 'MTF' },
-  { key: 'low_contrast', label: 'Matala K.' },
-]
-const CHART_TABS = [
+  { key: 'low_contrast', label: 'Matala kontrasti' },
   { key: 'hu_linearity_chart', label: 'HU scatter' },
   { key: 'mtf_chart', label: 'MTF-käyrä' },
   { key: 'uniformity_profile', label: 'Profiilit' },
@@ -31,8 +33,7 @@ const CHART_TABS = [
 export default function CTDeviceDetails() {
   const { id } = useParams<{ id: string }>()
   const station = id ? decodeURIComponent(id) : ''
-  const [imgTab, setImgTab] = useState('hu_linearity')
-  const [chartTab, setChartTab] = useState('hu_linearity_chart')
+  const [imgSel, setImgSel] = useState('dicom')
 
   const { data: detail } = useQuery<Record<string, unknown>[]>({
     queryKey: ['ct', 'device', station], queryFn: () => api.ctDeviceDetail(station), enabled: !!station,
@@ -42,9 +43,6 @@ export default function CTDeviceDetails() {
   })
   const latest = detail?.[0] ?? null
   const instanceId = latest ? String(latest.instance ?? '') : ''
-
-  const imgUrl = instanceId ? api.ctAnalysisImageUrl(instanceId, imgTab) : null
-  const chartImgUrl = instanceId ? api.ctAnalysisImageUrl(instanceId, chartTab) : null
 
   // Config-vetoiset metriikat; verdiktiin vain toleranssilliset
   const metrics = buildMetrics('CT', latest, (chartData ?? []) as Record<string, unknown>[])
@@ -78,53 +76,30 @@ export default function CTDeviceDetails() {
             background: 'rgba(45,212,191,0.15)', color: '#5eead4', border: '1px solid rgba(45,212,191,0.3)' }}>CT</span>
         </div>
 
-        {/* Kuva + kaaviokuvat */}
+        {/* Kuva — yksi pudotusvalikko + kuvaikkuna (säästää tilaa vs. välilehdet) */}
         {instanceId && (
           <div style={{ flexShrink: 0, padding: '8px 10px', borderBottom: `1px solid ${C.border}` }}>
-            {/* Ensisijainen: interaktiivinen DICOM-leike (W/L + zoom + viipaleselailu) */}
-            <ImageViewer key={instanceId} instance={instanceId} />
-            <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '.04em', color: C.muted, margin: '12px 0 4px' }}>
-              Analyysikuvat
-            </div>
-            <div className="flex gap-0.5 mb-1.5 flex-wrap">
-              {IMAGE_TABS.map(t => (
-                <button key={t.key} onClick={() => setImgTab(t.key)}
-                  className="px-1.5 py-0.5 text-[9px] rounded transition"
-                  style={{
-                    background: imgTab === t.key ? C.surface2 : 'transparent',
-                    color: imgTab === t.key ? C.accent : C.muted,
-                    borderBottom: imgTab === t.key ? `2px solid ${C.accent}` : '2px solid transparent',
-                  }}>
-                  {t.label}
-                </button>
-              ))}
-            </div>
-            <div style={{ background: '#000', borderRadius: 6, aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-              {imgUrl ? (
-                <img src={imgUrl} alt={imgTab} style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                  onError={e => { (e.target as HTMLImageElement).src = ''; (e.target as HTMLImageElement).alt = 'Ei saatavilla' }} />
-              ) : <span className="text-[10px]" style={{ color: C.muted }}>Kuva ei saatavilla</span>}
-            </div>
+            <select value={imgSel} onChange={(e) => setImgSel(e.target.value)}
+              aria-label="Valitse kuva"
+              style={{
+                width: '100%', marginBottom: 8, fontSize: 12, padding: '5px 8px', borderRadius: 5,
+                background: C.surface2, color: C.neutral, border: `1px solid ${C.border}`,
+                fontFamily: 'var(--font-family)',
+              }}>
+              {IMAGE_OPTIONS.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
 
-            <div className="flex gap-0.5 mb-1.5 mt-2 flex-wrap">
-              {CHART_TABS.map(t => (
-                <button key={t.key} onClick={() => setChartTab(t.key)}
-                  className="px-1.5 py-0.5 text-[9px] rounded transition"
-                  style={{
-                    background: chartTab === t.key ? C.surface2 : 'transparent',
-                    color: chartTab === t.key ? C.warn : C.muted,
-                    borderBottom: chartTab === t.key ? `2px solid ${C.warn}` : '2px solid transparent',
-                  }}>
-                  {t.label}
-                </button>
-              ))}
-            </div>
-            <div style={{ background: '#000', borderRadius: 6, aspectRatio: '16/10', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-              {chartImgUrl ? (
-                <img src={chartImgUrl} alt={chartTab} style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                  onError={e => { (e.target as HTMLImageElement).src = ''; (e.target as HTMLImageElement).alt = 'Ei saatavilla' }} />
-              ) : <span className="text-[10px]" style={{ color: C.muted }}>Kaavio ei saatavilla</span>}
-            </div>
+            {imgSel === 'dicom' ? (
+              // Interaktiivinen DICOM-leike: W/L-liu'ut + viipaleselailu + zoom/pan
+              <ImageViewer key={instanceId} instance={instanceId} />
+            ) : (
+              // Esirenderöity analyysikuva — ei harmaasävysäätöä
+              <div style={{ background: '#000', borderRadius: 6, aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                <img src={api.ctAnalysisImageUrl(instanceId, imgSel)} alt={imgSel}
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                  onError={(e) => { (e.target as HTMLImageElement).src = ''; (e.target as HTMLImageElement).alt = 'Ei saatavilla' }} />
+              </div>
+            )}
           </div>
         )}
 
