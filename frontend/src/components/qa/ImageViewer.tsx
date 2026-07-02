@@ -60,7 +60,7 @@ export function ImageViewer({ instance }: { instance: string }) {
     }
     el.addEventListener('wheel', handler, { passive: false })
     return () => el.removeEventListener('wheel', handler)
-  }, [])
+  }, [meta]) // uudelleen kun kuvaikkuna renderöityy (meta latautuu)
 
   const onDown = (e: React.MouseEvent) => { drag.current = { x: e.clientX - pan.x, y: e.clientY - pan.y }; setDragging(true) }
   const onMove = (e: React.MouseEvent) => {
