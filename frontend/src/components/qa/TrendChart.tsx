@@ -104,7 +104,7 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
             {upperLimit != null && <ReferenceLine y={upperLimit} stroke="var(--limit-line)" />}
             {lowerLimit != null && <ReferenceLine y={lowerLimit} stroke="var(--limit-line)" />}
             <Tooltip content={<DateTooltip unit={unit} nominal={nominal} precision={precision} />} />
-            <Line type="monotone" dataKey="value" stroke="var(--series)" strokeWidth={1.8}
+            <Line type="linear" dataKey="value" stroke="var(--series)" strokeWidth={1.8}
               dot={<StatusDot status={status} lastIdx={lastIdx} activeIndex={activeIndex} />}
               activeDot={false} isAnimationActive={false} connectNulls />
           </LineChart>

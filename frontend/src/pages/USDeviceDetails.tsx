@@ -126,6 +126,11 @@ export default function USDeviceDetails() {
     ? `Ongelma laitteella ${latest.stationname ?? s} (US)\ns_depth: ${latest.s_depth ?? '?'} cm, u_cov: ${latest.u_cov ?? '?'} %, u_skew: ${latest.u_skew ?? '?'}`
     : `Ongelma US-laitteella: ${s}`
 
+  // Raportin/AI:n kuvaliite: US-näyttökuva data-URL:na (US:llä ei erillistä kuva-URLia)
+  const reportAttachments = imageData?.image
+    ? [{ key: 'us_image', label: 'US-kuva', url: `data:${imageData.mime ?? 'image/jpeg'};base64,${imageData.image}` }]
+    : []
+
   return (
     <div className="device-shell">
 
@@ -213,6 +218,7 @@ export default function USDeviceDetails() {
       <MainArea
         aiContext={aiCtx}
         reportDefault={reportDefault}
+        reportAttachments={reportAttachments}
         breadcrumb={
           <nav style={{ fontSize: 12, color: C.muted, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             <Link to="/" style={{ color: C.muted }}>Aloitus</Link><span>/</span>

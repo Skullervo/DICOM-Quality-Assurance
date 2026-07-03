@@ -33,7 +33,7 @@ export function ReportTab({ defaultText, attachments = [] }: { defaultText: stri
     setStatus('loading')
     const picked = attachments.filter((a) => selected.has(a.key) && !broken.has(a.key))
     const liitteet = picked.length
-      ? `\n\nLiitteet:\n${picked.map((a) => `• ${a.label}: ${absUrl(a.url)}`).join('\n')}`
+      ? `\n\nLiitteet:\n${picked.map((a) => a.url.startsWith('data:') ? `• ${a.label} (liitetty kuva)` : `• ${a.label}: ${absUrl(a.url)}`).join('\n')}`
       : ''
     try {
       const d = await api.reportIssue(`[Vakavuus: ${sev}]\n${text}${liitteet}`)
