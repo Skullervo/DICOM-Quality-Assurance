@@ -29,15 +29,27 @@ function DateTooltip(props: Record<string, unknown>) {
 }
 
 function StatusDot(props: Record<string, unknown>) {
-  const { cx, cy, index, payload, status, lastIdx, activeIndex } = props as {
+  const { cx, cy, index, payload, status, lastIdx, activeIndex, onSelect } = props as {
     cx?: number; cy?: number; index?: number; payload?: { idx?: number }
-    status: Status; lastIdx: number; activeIndex?: number
+    status: Status; lastIdx: number; activeIndex?: number; onSelect?: (i: number) => void
   }
   if (cx == null || cy == null) return null
-  const isActive = payload?.idx != null && payload.idx === activeIndex
-  if (isActive) return <circle cx={cx} cy={cy} r={6.5} fill="#fff" stroke={STATUS_COLOR[status]} strokeWidth={2.5} />
-  if (index === lastIdx) return <circle cx={cx} cy={cy} r={5} fill={STATUS_COLOR[status]} stroke="var(--surface)" strokeWidth={1.5} />
-  return <circle cx={cx} cy={cy} r={4} fill={STATUS_COLOR[status]} stroke="var(--surface)" strokeWidth={1} />
+  const clickIdx = payload?.idx
+  const onClick = onSelect && clickIdx != null ? () => onSelect(clickIdx) : undefined
+  const cursor = onSelect ? 'pointer' : undefined
+  const isActive = clickIdx != null && clickIdx === activeIndex
+  const r = isActive ? 6.5 : index === lastIdx ? 5 : 4
+  const fill = isActive ? '#fff' : STATUS_COLOR[status]
+  const stroke = isActive ? STATUS_COLOR[status] : 'var(--surface)'
+  const sw = isActive ? 2.5 : index === lastIdx ? 1.5 : 1
+  return (
+    <g>
+      {/* Näkymätön isompi klikkausalue -> pisteeseen helpompi osua */}
+      {onClick && <circle cx={cx} cy={cy} r={12} fill="transparent" onClick={onClick} style={{ cursor }} />}
+      <circle cx={cx} cy={cy} r={r} fill={fill} stroke={stroke} strokeWidth={sw}
+        onClick={onClick} style={{ cursor }} />
+    </g>
+  )
 }
 
 export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover, fill }: {
@@ -87,11 +99,10 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
             style={onSelect ? { cursor: 'pointer' } : undefined}
             onClick={(s) => {
               if (!onSelect) return
-              const i = s?.activeTooltipIndex
-              if (typeof i === 'number') {
-                const idx = history[i]?.idx
-                if (idx != null) onSelect(idx)
-              }
+              const st = s as { activeTooltipIndex?: number; activePayload?: { payload?: { idx?: number } }[] }
+              const idx = st.activePayload?.[0]?.payload?.idx
+                ?? (typeof st.activeTooltipIndex === 'number' ? history[st.activeTooltipIndex]?.idx : undefined)
+              if (idx != null) onSelect(idx)
             }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'var(--text-muted)', fontFamily: 'var(--mono)' }} interval="preserveStartEnd" tickFormatter={(d) => formatDate(String(d))} />
@@ -105,7 +116,7 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
             {lowerLimit != null && <ReferenceLine y={lowerLimit} stroke="var(--limit-line)" />}
             <Tooltip content={<DateTooltip unit={unit} nominal={nominal} precision={precision} />} />
             <Line type="linear" dataKey="value" stroke="var(--series)" strokeWidth={1.8}
-              dot={<StatusDot status={status} lastIdx={lastIdx} activeIndex={activeIndex} />}
+              dot={<StatusDot status={status} lastIdx={lastIdx} activeIndex={activeIndex} onSelect={onSelect} />}
               activeDot={false} isAnimationActive={false} connectNulls />
           </LineChart>
         </ResponsiveContainer>
