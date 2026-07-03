@@ -4,9 +4,9 @@ import { useQuery } from '@tanstack/react-query'
 import { api, type USDataPoint, type USImageResponse } from '../api/client'
 import { C } from '../components/DeviceShared'
 import { VerdictBar } from '../components/qa/VerdictBar'
-import { MetricsSection } from '../components/qa/MetricsSection'
 import { MainArea } from '../components/qa/MainArea'
 import { DeviceInfo } from '../components/qa/DeviceInfo'
+import { PagedTrendPanel } from '../components/qa/PagedTrendPanel'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
 import { hasTolerance, deriveVerdict } from '../lib/qa/status'
 
@@ -204,6 +204,9 @@ export default function USDeviceDetails() {
             />
           )}
         </div>
+
+        {/* Verdiktti — kompakti, vasemman paneelin alakulmassa */}
+        {(latest || selectedPoint) && <VerdictBar device={verdictDevice} metrics={verdictMetrics} compact />}
       </div>
 
       {/* PÄÄALUE — välilehdet (Analyysi / Kysy tekoälyltä / Raportoi ongelmasta) */}
@@ -219,10 +222,10 @@ export default function USDeviceDetails() {
           </nav>
         }
       >
-        {(latest || selectedPoint) && <VerdictBar device={verdictDevice} metrics={verdictMetrics} />}
-
-        {(latest || selectedPoint) && <MetricsSection metrics={metrics} activeIndex={selectedIdx ?? undefined} onSelect={handlePointClick} />}
-
+        {(latest || selectedPoint) && (
+          <PagedTrendPanel title="Mittaustrendit" metrics={metrics} perPage={3}
+            activeIndex={selectedIdx ?? undefined} onSelect={handlePointClick} />
+        )}
       </MainArea>
     </div>
   )

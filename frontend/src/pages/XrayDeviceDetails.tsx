@@ -4,27 +4,31 @@ import { useQuery } from '@tanstack/react-query'
 import { api, type ImageResponse } from '../api/client'
 import { C, formatDate } from '../components/DeviceShared'
 import { VerdictBar } from '../components/qa/VerdictBar'
-import { MetricsSection } from '../components/qa/MetricsSection'
 import { MainArea } from '../components/qa/MainArea'
 import { DeviceInfo } from '../components/qa/DeviceInfo'
+import { PngViewer } from '../components/qa/PngViewer'
+import { PagedTrendPanel } from '../components/qa/PagedTrendPanel'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
 import { hasTolerance, deriveVerdict } from '../lib/qa/status'
 
 const VERDICT_FI = { pass: 'Hyväksytty', warn: 'Varoitus', fail: 'Hylätty', nodata: 'Ei dataa' } as const
 const rnd = (v: unknown, p = 2) => (typeof v === 'number' ? v.toFixed(p) : '?')
 
-const IMAGE_TABS = [
-  { key: 'dicom', label: 'DICOM' },
+// Vasemman paneelin kuvavalinnat (yksi pudotusvalikko). 'dicom' = DICOM-kuva
+// (zoom/pan + harmaasävysäätö); muut = esirenderöidyt analyysikuvat.
+const IMAGE_OPTIONS = [
+  { key: 'dicom', label: 'DICOM-kuva' },
   { key: 'contrast_rois', label: 'ROI-kartta' },
   { key: 'mtf_lp', label: 'Viivapari' },
   { key: 'mtf_curve', label: 'MTF-käyrä' },
 ]
+const PLOT_KEYS = ['mtf_curve'] // kaaviokuvat -> ei harmaasävysäätöä
 
 export default function XrayDeviceDetails() {
   const { inst, unit } = useParams<{ inst: string; unit: string }>()
   const dInst = inst ? decodeURIComponent(inst) : ''
   const dUnit = unit ? decodeURIComponent(unit) : ''
-  const [imgTab, setImgTab] = useState('dicom')
+  const [imgSel, setImgSel] = useState('dicom')
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
 
   const { data: detail } = useQuery<Record<string, unknown>[]>({
@@ -47,10 +51,8 @@ export default function XrayDeviceDetails() {
   const { data: dicomImg } = useQuery<ImageResponse>({
     queryKey: ['xray', 'image', activeInstanceId],
     queryFn: () => api.xrayImage(activeInstanceId),
-    enabled: !!activeInstanceId && imgTab === 'dicom', retry: false,
+    enabled: !!activeInstanceId && imgSel === 'dicom', retry: false,
   })
-  const analysisUrl = activeInstanceId && imgTab !== 'dicom'
-    ? api.xrayAnalysisImageUrl(activeInstanceId, imgTab) : null
 
   const handlePointClick = useCallback((idx: number) => {
     setSelectedIdx(prev => prev === idx ? null : idx)
@@ -81,6 +83,13 @@ export default function XrayDeviceDetails() {
     ? `Ongelma laitteella ${latest.station_name ?? dUnit} (XR)\nkVp: ${latest.kvp ?? '?'}, mAs: ${latest.exposure_mAs ?? '?'}\nTasaisuus: ${rnd(chipUnif)} %`
     : `Ongelma XR-laitteella: ${dUnit}`
 
+  // Raportin kuvaliitteet: analyysikuvat (ei DICOM)
+  const reportAttachments = activeInstanceId
+    ? IMAGE_OPTIONS.filter((o) => o.key !== 'dicom').map((o) => ({
+        key: o.key, label: o.label, url: api.xrayAnalysisImageUrl(activeInstanceId, o.key),
+      }))
+    : []
+
   return (
     <div className="device-shell">
 
@@ -98,31 +107,29 @@ export default function XrayDeviceDetails() {
             background: 'rgba(96,165,250,0.15)', color: '#93c5fd', border: '1px solid rgba(96,165,250,0.3)' }}>XR</span>
         </div>
 
-        {/* Kuva + kuvavälilehdet */}
+        {/* Kuva — yksi pudotusvalikko + kuvaikkuna */}
         {activeInstanceId && (
           <div style={{ flexShrink: 0, padding: '16px 10px 10px', borderBottom: `1px solid ${C.border}` }}>
-            <div className="flex gap-0.5 mb-2">
-              {IMAGE_TABS.map(t => (
-                <button key={t.key} onClick={() => setImgTab(t.key)}
-                  className="px-1.5 py-0.5 text-[9px] rounded transition"
-                  style={{ background: imgTab === t.key ? C.surface2 : 'transparent',
-                    color: imgTab === t.key ? C.accent : C.muted,
-                    borderBottom: imgTab === t.key ? `2px solid ${C.accent}` : '2px solid transparent' }}>
-                  {t.label}
-                </button>
-              ))}
-            </div>
-            <div style={{ background: '#000', borderRadius: 6, aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-              {imgTab === 'dicom' ? (
-                dicomImg?.image
-                  ? <img src={`data:${dicomImg.mime ?? 'image/jpeg'};base64,${dicomImg.image}`} alt="DICOM"
-                      style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                  : <span className="text-[10px]" style={{ color: C.muted }}>Kuva ei saatavilla</span>
-              ) : analysisUrl ? (
-                <img src={analysisUrl} alt={imgTab} style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                  onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-              ) : null}
-            </div>
+            <select value={imgSel} onChange={(e) => setImgSel(e.target.value)}
+              aria-label="Valitse kuva"
+              style={{
+                width: '100%', marginBottom: 8, fontSize: 12, padding: '5px 8px', borderRadius: 5,
+                background: C.surface2, color: C.neutral, border: `1px solid ${C.border}`,
+                fontFamily: 'var(--font-family)',
+              }}>
+              {IMAGE_OPTIONS.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+
+            {imgSel === 'dicom' ? (
+              dicomImg?.image
+                ? <PngViewer key={activeInstanceId} src={`data:${dicomImg.mime ?? 'image/jpeg'};base64,${dicomImg.image}`} alt="DICOM" />
+                : <div style={{ background: '#000', borderRadius: 6, aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ color: C.muted, fontSize: 11 }}>Kuva ei saatavilla</span>
+                  </div>
+            ) : (
+              <PngViewer key={imgSel} src={api.xrayAnalysisImageUrl(activeInstanceId, imgSel)} alt={imgSel}
+                adjustable={!PLOT_KEYS.includes(imgSel)} />
+            )}
           </div>
         )}
 
@@ -146,12 +153,16 @@ export default function XrayDeviceDetails() {
             />
           )}
         </div>
+
+        {/* Verdiktti — kompakti, vasemman paneelin alakulmassa */}
+        {latest && <VerdictBar device={verdictDevice} metrics={verdictMetrics} compact />}
       </div>
 
       {/* PÄÄALUE — välilehdet (Analyysi / Kysy tekoälyltä / Raportoi ongelmasta) */}
       <MainArea
         aiContext={aiCtx}
         reportDefault={reportDefault}
+        reportAttachments={reportAttachments}
         breadcrumb={
           <nav className="text-[12px] flex gap-1 flex-wrap" style={{ color: C.muted }}>
             <Link to="/" className="hover:text-white">Aloitus</Link><span>/</span>
@@ -162,10 +173,10 @@ export default function XrayDeviceDetails() {
           </nav>
         }
       >
-        {latest && <VerdictBar device={verdictDevice} metrics={verdictMetrics} />}
-
-        {latest && <MetricsSection metrics={metrics} activeIndex={selectedIdx ?? undefined} onSelect={handlePointClick} />}
-
+        {latest && (
+          <PagedTrendPanel title="Mittaustrendit" metrics={metrics} perPage={3}
+            activeIndex={selectedIdx ?? undefined} onSelect={handlePointClick} />
+        )}
       </MainArea>
     </div>
   )
