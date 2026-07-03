@@ -35,9 +35,9 @@ function StatusDot(props: Record<string, unknown>) {
   }
   if (cx == null || cy == null) return null
   const isActive = payload?.idx != null && payload.idx === activeIndex
-  if (isActive) return <circle cx={cx} cy={cy} r={5} fill="#fff" stroke={STATUS_COLOR[status]} strokeWidth={2} />
-  if (index === lastIdx) return <circle cx={cx} cy={cy} r={3.5} fill={STATUS_COLOR[status]} stroke="var(--surface)" strokeWidth={1.5} />
-  return <circle cx={cx} cy={cy} r={2.5} fill={STATUS_COLOR[status]} />
+  if (isActive) return <circle cx={cx} cy={cy} r={6.5} fill="#fff" stroke={STATUS_COLOR[status]} strokeWidth={2.5} />
+  if (index === lastIdx) return <circle cx={cx} cy={cy} r={5} fill={STATUS_COLOR[status]} stroke="var(--surface)" strokeWidth={1.5} />
+  return <circle cx={cx} cy={cy} r={4} fill={STATUS_COLOR[status]} stroke="var(--surface)" strokeWidth={1} />
 }
 
 export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover, fill }: {

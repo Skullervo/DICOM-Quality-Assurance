@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
@@ -40,6 +40,7 @@ export default function CTDeviceDetails() {
   const station = id ? decodeURIComponent(id) : ''
   const [imgSel, setImgSel] = useState('dicom')
   const [hoverRoi, setHoverRoi] = useState<string | null>(null)
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
 
   const { data: detail } = useQuery<Record<string, unknown>[]>({
     queryKey: ['ct', 'device', station], queryFn: () => api.ctDeviceDetail(station), enabled: !!station,
@@ -47,8 +48,14 @@ export default function CTDeviceDetails() {
   const { data: chartData } = useQuery<Record<string, unknown>[]>({
     queryKey: ['ct', 'data', station], queryFn: () => api.ctData(station) as Promise<Record<string, unknown>[]>, enabled: !!station,
   })
-  const latest = detail?.[0] ?? null
+
+  // Valittu trendipiste -> vastaava mittaus (match study_date detail-riviin); muuten uusin
+  const selectedPoint = selectedIdx !== null ? (chartData?.[selectedIdx] ?? null) : null
+  const latest = selectedPoint
+    ? detail?.find((d) => String(d.study_date) === String(selectedPoint.study_date)) ?? detail?.[0] ?? null
+    : detail?.[0] ?? null
   const instanceId = latest ? String(latest.instance ?? '') : ''
+  const handlePointClick = useCallback((idx: number) => setSelectedIdx((prev) => (prev === idx ? null : idx)), [])
 
   // Config-vetoiset metriikat; verdiktiin vain toleranssilliset
   const metrics = buildMetrics('CT', latest, (chartData ?? []) as Record<string, unknown>[])
@@ -163,11 +170,14 @@ export default function CTDeviceDetails() {
             <Link to="/ct/institutions" className="hover:text-white">TT</Link><span>/</span>
             <Link to="/ct/units" className="hover:text-white">Laitteet</Link><span>/</span>
             <span style={{ color: C.neutral }}>{station}</span>
+            {selectedPoint && <span style={{ color: C.accent }}>· valittu mittaus {formatDay(selectedPoint.study_date as string) ?? ''}</span>}
           </nav>
         }
       >
         {latest && (
-          <PagedTrendPanel title="Mittaustrendit" metrics={metrics} perPage={3} highlightId={hoverRoi} onHover={setHoverRoi} />
+          <PagedTrendPanel title="Mittaustrendit" metrics={metrics} perPage={3}
+            activeIndex={selectedIdx ?? undefined} onSelect={handlePointClick}
+            highlightId={hoverRoi} onHover={setHoverRoi} />
         )}
       </MainArea>
     </div>
