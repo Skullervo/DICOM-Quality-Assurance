@@ -90,7 +90,7 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
         outline: `1px solid ${highlighted ? 'var(--info)' : 'transparent'}`,
         background: highlighted ? 'color-mix(in srgb, var(--info) 9%, transparent)' : 'transparent',
       }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', marginBottom: 2, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {label}{unit && <span style={{ color: 'var(--text-faint)', fontWeight: 400 }}> [{unit}]</span>}
       </div>
       <div style={fill ? { flex: 1, minHeight: 0 } : { height: 132 }}>
