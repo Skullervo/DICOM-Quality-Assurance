@@ -174,7 +174,7 @@ export default function XrayDeviceDetails() {
         }
       >
         {latest && (
-          <PagedTrendPanel title="Mittaustrendit" metrics={metrics} perPage={3}
+          <PagedTrendPanel title="Mittaustrendit" metrics={metrics} perPage={3} chromeless
             activeIndex={selectedIdx ?? undefined} onSelect={handlePointClick} />
         )}
       </MainArea>

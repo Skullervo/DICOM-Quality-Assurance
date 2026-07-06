@@ -31,10 +31,10 @@ export function PagedTrendPanel({ title, metrics, perPage = 3, activeIndex, onSe
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
       ...(chromeless ? {} : { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }) }}>
-      <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: chromeless ? 'flex-end' : 'space-between',
         padding: chromeless ? '0 2px 8px' : '6px 8px 6px 12px',
         ...(chromeless ? {} : { borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }) }}>
-        <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.5px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{title}</span>
+        {!chromeless && <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.5px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{title}</span>}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span className="tnum" style={{ fontSize: 11, color: 'var(--text-faint)' }}>{start + 1}–{start + shown.length} / {metrics.length}</span>
           <button onClick={() => go(-1)} disabled={page === 0} aria-label="Edelliset käyrät" style={pagerBtn(page === 0)}><ChevronLeft size={16} aria-hidden /></button>

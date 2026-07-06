@@ -175,7 +175,7 @@ export default function CTDeviceDetails() {
         }
       >
         {latest && (
-          <PagedTrendPanel title="Mittaustrendit" metrics={metrics} perPage={3}
+          <PagedTrendPanel title="Mittaustrendit" metrics={metrics} perPage={3} chromeless
             activeIndex={selectedIdx ?? undefined} onSelect={handlePointClick}
             highlightId={hoverRoi} onHover={setHoverRoi} />
         )}
