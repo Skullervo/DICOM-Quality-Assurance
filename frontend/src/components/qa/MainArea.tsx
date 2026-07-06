@@ -33,10 +33,10 @@ export function MainArea({ breadcrumb, aiContext, reportDefault, reportAttachmen
                 <button key={id} role="tab" aria-selected={active} onClick={() => setTab(id)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 7, background: 'none', border: 'none', cursor: 'pointer',
-                    color: active ? 'var(--text)' : 'var(--text-muted)', fontSize: 13.5, fontWeight: active ? 600 : 400,
+                    color: active ? 'var(--text)' : 'var(--text-muted)', fontSize: 12.5, fontWeight: active ? 600 : 400,
                     padding: '9px 12px', borderBottom: active ? '2px solid var(--info)' : '2px solid transparent', marginBottom: -1,
                   }}>
-                  <Icon size={16} aria-hidden />{label}
+                  <Icon size={15} aria-hidden />{label}
                 </button>
               )
             })}
