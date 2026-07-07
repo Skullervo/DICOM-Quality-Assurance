@@ -185,10 +185,12 @@ export default function USDeviceDetails() {
               gridTemplateRows: hasProfiles ? '250px 48px' : '250px',
               gap: 2,
             }}>
-              {/* Image: row 1, col 1 */}
+              {/* Image: row 1, col 1. objectFit: 'fill' (venytys soluun) niin että kuva
+                  kohdistuu profiilien kanssa — profiilit venyttävät (preserveAspectRatio none),
+                  joten cover-rajaus saisi pysty-/vaakaprofiilin karkaamaan kuvasta. */}
               <div style={{ gridRow: 1, gridColumn: 1, background: '#020608', borderRadius: 4, overflow: 'hidden' }}>
                 <img src={`data:${imageData.mime ?? 'image/jpeg'};base64,${imageData.image}`}
-                  alt="DICOM" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block' }} />
+                  alt="DICOM" style={{ width: '100%', height: '100%', objectFit: 'fill', display: 'block' }} />
               </div>
               {hasProfiles && (
                 <>
