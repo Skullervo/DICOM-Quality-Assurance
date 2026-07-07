@@ -130,11 +130,14 @@ export default function USDeviceDetails() {
       ? [
           { title: 'DICOM-tiedot', rows: [
             { label: 'Laite', value: String(latest.stationname ?? s) },
+            { label: 'Modaliteetti', value: 'US' },
             { label: 'Instituutio', value: String(latest.institutionname ?? '—') },
+            { label: 'Valmistaja', value: String(latest.manufacturer ?? '—') },
+            { label: 'Malli', value: String(latest.manufacturermodelname ?? '—') },
             { label: 'Anturi', value: String(latest.tranducertype ?? '—') },
             { label: 'Sarjanro', value: String(latest.deviceserialnumber ?? '—') },
-            { label: 'Malli', value: String(latest.manufacturermodelname ?? '—') },
-            { label: 'Päivämäärä', value: verdictDevice.measuredAt ?? '—' },
+            { label: 'Tutkimuspäivä', value: formatDay((latest.studydate ?? latest.contentdate) as string | undefined) ?? '—' },
+            { label: 'Instanssi', value: String(latest.instance ?? '—').slice(0, 12) },
           ] },
           { title: 'Analyysitulokset', rows: [
             { label: 's_depth', value: `${rnd(chipSDepth)} cm` },
