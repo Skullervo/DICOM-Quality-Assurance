@@ -127,6 +127,21 @@ export const api = {
     return res.json();
   },
 
+  // Laitteen metatietojen paivitys (UPDATE kaikille laitteen mittauksille)
+  updateDevice: async (
+    modality: 'us' | 'xray' | 'ct',
+    oldStation: string,
+    data: { station_name: string; institution_name: string; manufacturer: string; manufacturer_model: string },
+  ): Promise<{ updated: number; station_name: string }> => {
+    const res = await fetch(`${BASE}/${modality}/device-meta/${encodeURIComponent(oldStation)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(`API error ${res.status}: ${res.statusText}`);
+    return res.json();
+  },
+
   // Admin
   devices: () => fetchJSON<Record<string, unknown>[]>('/devices'),
   institutions: () => fetchJSON<Record<string, unknown>[]>('/institutions'),

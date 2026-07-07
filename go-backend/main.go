@@ -74,6 +74,11 @@ func main() {
 			r.Get("/ct/series-meta/{instance}", handlers.CTSeriesMeta)
 			r.Get("/ct/series-image/{instance}", handlers.CTSeriesImage)
 
+			// Laitteen metatietojen paivitys (UPDATE kaikille laitteen mittauksille)
+			r.Put("/us/device-meta/{station}", handlers.UpdateDevice(db, "ultrasound", "stationname", "institutionname", "manufacturer", "manufacturermodelname"))
+			r.Put("/xray/device-meta/{station}", handlers.UpdateDevice(db, "xray_analysis", "station_name", "institution_name", "manufacturer", "manufacturer_model_name"))
+			r.Put("/ct/device-meta/{station}", handlers.UpdateDevice(db, "ct_analysis", "station_name", "institution_name", "manufacturer", "manufacturer_model_name"))
+
 			// Admin
 			r.Get("/devices", handlers.ListDevices(db))
 			r.Get("/institutions", handlers.ListInstitutions(db))
