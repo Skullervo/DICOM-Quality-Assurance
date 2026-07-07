@@ -108,7 +108,7 @@ export function AiChat({ context, attachments = [] }: { context: string; attachm
                       border: `2px solid ${sel ? 'var(--info)' : 'var(--border)'}`,
                     }}>
                     <img src={a.url} alt={a.label} onError={() => markBroken(a.key)}
-                      style={{ width: '100%', height: 68, objectFit: 'cover', display: 'block', background: '#000' }} />
+                      style={{ width: '100%', height: 120, objectFit: 'cover', display: 'block', background: '#000' }} />
                     <div style={{ fontSize: 10, padding: '3px 5px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {a.label}
                     </div>
