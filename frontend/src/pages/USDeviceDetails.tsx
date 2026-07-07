@@ -126,14 +126,24 @@ export default function USDeviceDetails() {
     : `Ultraäänilaite: ${s}`
 
   const reportCtx: ReportContext = {
-    fields: latest
+    sections: latest
       ? [
-          { label: 'Laite', value: `${latest.stationname ?? s} (US)${latest.institutionname ? ' · ' + latest.institutionname : ''}` },
-          { label: 'Mittaus', value: verdictDevice.measuredAt ?? '—' },
-          { label: 'Verdiktti', value: `${VERDICT_FI[v.verdict]} (${v.pass}/${v.measured} rajoissa)` },
-          { label: 'Mittausarvot', value: `s_depth ${rnd(chipSDepth)} cm · u_cov ${rnd(chipUCov)} % · u_skew ${rnd(chipUSkew)}` },
+          { title: 'DICOM-tiedot', rows: [
+            { label: 'Laite', value: String(latest.stationname ?? s) },
+            { label: 'Instituutio', value: String(latest.institutionname ?? '—') },
+            { label: 'Anturi', value: String(latest.tranducertype ?? '—') },
+            { label: 'Sarjanro', value: String(latest.deviceserialnumber ?? '—') },
+            { label: 'Malli', value: String(latest.manufacturermodelname ?? '—') },
+            { label: 'Päivämäärä', value: verdictDevice.measuredAt ?? '—' },
+          ] },
+          { title: 'Analyysitulokset', rows: [
+            { label: 's_depth', value: `${rnd(chipSDepth)} cm` },
+            { label: 'u_cov', value: `${rnd(chipUCov)} %` },
+            { label: 'u_skew', value: rnd(chipUSkew) },
+            { label: 'Verdiktti', value: `${VERDICT_FI[v.verdict]} (${v.pass}/${v.measured})` },
+          ] },
         ]
-      : [{ label: 'Laite', value: `${s} (US)` }],
+      : [{ title: 'Laite', rows: [{ label: 'Laite', value: `${s} (US)` }] }],
     failing: failingSummary(verdictMetrics),
   }
 

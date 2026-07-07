@@ -6,8 +6,9 @@ import { Send, Check } from 'lucide-react'
 import { api } from '../../api/client'
 
 export type ReportAttachment = { key: string; label: string; url: string }
+export type ReportSection = { title: string; rows: { label: string; value: string }[] }
 export type ReportContext = {
-  fields: { label: string; value: string }[] // Laite, Mittaus, Verdiktti, Mittausarvot…
+  sections: ReportSection[] // esim. DICOM-tiedot, Analyysitulokset — tiiviinä taulukkoina
   failing?: string[] // rajojen ulkopuoliset mittarit
 }
 
@@ -30,7 +31,6 @@ const textareaStyle: CSSProperties = {
 }
 const ctxBox: CSSProperties = { background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', minWidth: 0 }
 const ctxLabel: CSSProperties = { fontSize: 9.5, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 2 }
-const ctxValue: CSSProperties = { fontSize: 13, color: 'var(--text)', wordBreak: 'break-word' }
 
 export function ReportTab({ context, attachments = [] }: { context: ReportContext; attachments?: ReportAttachment[] }) {
   const [sev, setSev] = useState('Kohtalainen')
@@ -64,8 +64,8 @@ export function ReportTab({ context, attachments = [] }: { context: ReportContex
       : ''
     const rep = (reporter.trim() || email.trim())
       ? `Raportoija: ${reporter.trim()}${email.trim() ? ` <${email.trim()}>` : ''}\n` : ''
-    const ctx = context.fields.map((f) => `${f.label}: ${f.value}`).join('\n')
-      + (failing.length ? `\nRajan ulkopuolella:\n${failing.map((x) => `  - ${x}`).join('\n')}` : '')
+    const ctx = context.sections.map((sec) => `${sec.title}:\n${sec.rows.map((r) => `  ${r.label}: ${r.value}`).join('\n')}`).join('\n\n')
+      + (failing.length ? `\n\nRajan ulkopuolella:\n${failing.map((x) => `  - ${x}`).join('\n')}` : '')
     const kuvausBlock = kuvaus.trim() ? `\n\nKuvaus:\n${kuvaus.trim()}` : ''
     const extraBlock = extra.trim() ? `\n\nLisätiedot:\n${extra.trim()}` : ''
     try {
@@ -122,26 +122,29 @@ export function ReportTab({ context, attachments = [] }: { context: ReportContex
             </div>
           </div>
 
-          {/* Automaattinen konteksti — omat read-only laatikot */}
-          <div>
-            <div style={labelStyle}>Mittauksen tiedot</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {context.fields.map((f) => (
-                <div key={f.label} style={ctxBox}>
-                  <div style={ctxLabel}>{f.label}</div>
-                  <div style={ctxValue}>{f.value}</div>
-                </div>
-              ))}
-              {failing.length > 0 && (
-                <div style={{ ...ctxBox, background: 'var(--warn-bg)', borderColor: 'color-mix(in srgb, var(--warn) 34%, transparent)' }}>
-                  <div style={{ ...ctxLabel, color: 'var(--warn)' }}>Rajan ulkopuolella</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12.5, color: 'var(--text)' }}>
-                    {failing.map((f) => <span key={f}>• {f}</span>)}
+          {/* Automaattinen konteksti — tiiviit taulukot (DICOM-tiedot, Analyysitulokset) */}
+          {context.sections.map((sec) => (
+            <div key={sec.title}>
+              <div style={labelStyle}>{sec.title}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 20 }}>
+                {sec.rows.map((r) => (
+                  <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'baseline', padding: '4px 0', borderBottom: '1px solid var(--border)', minWidth: 0 }}>
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{r.label}</span>
+                    <span className="num" title={r.value} style={{ fontSize: 12.5, color: 'var(--text)', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.value}</span>
                   </div>
-                </div>
-              )}
+                ))}
+              </div>
             </div>
-          </div>
+          ))}
+
+          {failing.length > 0 && (
+            <div style={{ ...ctxBox, background: 'var(--warn-bg)', borderColor: 'color-mix(in srgb, var(--warn) 34%, transparent)' }}>
+              <div style={{ ...ctxLabel, color: 'var(--warn)' }}>Rajan ulkopuolella</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12.5, color: 'var(--text)' }}>
+                {failing.map((f) => <span key={f}>• {f}</span>)}
+              </div>
+            </div>
+          )}
 
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 120 }}>
             <div style={labelStyle}>Kuvaus</div>

@@ -83,14 +83,25 @@ export default function XrayDeviceDetails() {
     : `Röntgenlaite: ${dUnit}`
 
   const reportCtx: ReportContext = {
-    fields: latest
+    sections: latest
       ? [
-          { label: 'Laite', value: `${latest.station_name ?? dUnit} (XR)${latest.institution_name ? ' · ' + latest.institution_name : ''}` },
-          { label: 'Mittaus', value: verdictDevice.measuredAt ?? '—' },
-          { label: 'Verdiktti', value: `${VERDICT_FI[v.verdict]} (${v.pass}/${v.measured} rajoissa)` },
-          { label: 'Mittausarvot', value: `kVp ${latest.kvp ?? '?'} · mAs ${latest.exposure_mAs ?? '?'} · Tasaisuus ${rnd(chipUnif)} % · MTF50 ${rnd(chipMtf)} lp/mm` },
+          { title: 'DICOM-tiedot', rows: [
+            { label: 'Laite', value: String(latest.station_name ?? dUnit) },
+            { label: 'Instituutio', value: String(latest.institution_name ?? '—') },
+            { label: 'Fantomi', value: String(latest.phantom_model ?? 'NORMI-13') },
+            { label: 'kVp', value: String(latest.kvp ?? '—') },
+            { label: 'mAs', value: String(latest.exposure_mAs ?? '—') },
+            { label: 'Malli', value: String(latest.manufacturer_model_name ?? '—') },
+            { label: 'Päivämäärä', value: verdictDevice.measuredAt ?? '—' },
+          ] },
+          { title: 'Analyysitulokset', rows: [
+            { label: 'Tasaisuus', value: `${rnd(chipUnif)} %` },
+            { label: 'MTF 50%', value: `${rnd(chipMtf)} lp/mm` },
+            { label: 'Mediaani CNR', value: rnd(chipCnr) },
+            { label: 'Verdiktti', value: `${VERDICT_FI[v.verdict]} (${v.pass}/${v.measured})` },
+          ] },
         ]
-      : [{ label: 'Laite', value: `${dUnit} (XR)` }],
+      : [{ title: 'Laite', rows: [{ label: 'Laite', value: `${dUnit} (XR)` }] }],
     failing: failingSummary(verdictMetrics),
   }
 
