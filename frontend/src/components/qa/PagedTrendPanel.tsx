@@ -45,8 +45,8 @@ export function PagedTrendPanel({ title, metrics, perPage = 3, activeIndex, onSe
             highlighted={highlightId === m.id} onHover={onHover} />
         ))}
       </div>
-      {/* Sivutusvalitsin — viimeisen käyrän alapuolella, oikeaan laitaan */}
-      <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6,
+      {/* Sivutusvalitsin — viimeisen käyrän alapuolella, keskitettynä */}
+      <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
         padding: chromeless ? '8px 2px 0' : '8px 12px', ...(chromeless ? {} : { borderTop: '1px solid var(--border)' }) }}>
         <span className="tnum" style={{ fontSize: 11, color: 'var(--text-faint)' }}>{start + 1}–{start + shown.length} / {metrics.length}</span>
         <button onClick={() => go(-1)} disabled={page === 0} aria-label="Edelliset käyrät" style={pagerBtn(page === 0)}><ChevronLeft size={16} aria-hidden /></button>
