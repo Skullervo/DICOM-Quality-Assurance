@@ -9,7 +9,7 @@ import { DeviceInfo } from '../components/qa/DeviceInfo'
 import { PngViewer } from '../components/qa/PngViewer'
 import { PagedTrendPanel } from '../components/qa/PagedTrendPanel'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
-import { hasTolerance, deriveVerdict } from '../lib/qa/status'
+import { hasTolerance, deriveVerdict, reportContext } from '../lib/qa/status'
 
 const VERDICT_FI = { pass: 'Hyväksytty', warn: 'Varoitus', fail: 'Hylätty', nodata: 'Ei dataa' } as const
 const rnd = (v: unknown, p = 2) => (typeof v === 'number' ? v.toFixed(p) : '?')
@@ -80,7 +80,7 @@ export default function XrayDeviceDetails() {
     : `Röntgenlaite: ${dUnit}`
 
   const reportDefault = latest
-    ? `Ongelma laitteella ${latest.station_name ?? dUnit} (XR)\nkVp: ${latest.kvp ?? '?'}, mAs: ${latest.exposure_mAs ?? '?'}\nTasaisuus: ${rnd(chipUnif)} %`
+    ? `Ongelma laitteella ${latest.station_name ?? dUnit} (XR)${latest.institution_name ? ' · ' + latest.institution_name : ''}\nMittaus: ${verdictDevice.measuredAt ?? '?'}\n${reportContext(verdictMetrics)}\n\nkVp ${latest.kvp ?? '?'} · mAs ${latest.exposure_mAs ?? '?'} · Tasaisuus ${rnd(chipUnif)} % · MTF50 ${rnd(chipMtf)} lp/mm`
     : `Ongelma XR-laitteella: ${dUnit}`
 
   // Raportin kuvaliitteet: analyysikuvat (ei DICOM)

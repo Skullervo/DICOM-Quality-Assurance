@@ -11,7 +11,7 @@ import { PngViewer } from '../components/qa/PngViewer'
 import { RoiOverlay, type Roi } from '../components/qa/RoiOverlay'
 import { PagedTrendPanel } from '../components/qa/PagedTrendPanel'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
-import { hasTolerance, deriveVerdict, deriveStatus } from '../lib/qa/status'
+import { hasTolerance, deriveVerdict, deriveStatus, reportContext } from '../lib/qa/status'
 import type { Status } from '../lib/qa/types'
 
 const VERDICT_FI = { pass: 'Hyväksytty', warn: 'Varoitus', fail: 'Hylätty', nodata: 'Ei dataa' } as const
@@ -77,7 +77,7 @@ export default function CTDeviceDetails() {
     : `CT-laite: ${station}`
 
   const reportDefault = latest
-    ? `Ongelma laitteella ${latest.station_name ?? station} (CT)\nPhantom: ${latest.phantom_model ?? '?'}\nHU Acrylic: ${rnd(latest.hu_acrylic, 0)} HU, Uniformity: ${rnd(latest.uniformity_index)} %\nOverall: ${latest.overall_pass === true ? 'PASS' : latest.overall_pass === false ? 'FAIL' : '?'}`
+    ? `Ongelma laitteella ${latest.station_name ?? station} (CT)${latest.institution_name ? ' · ' + latest.institution_name : ''}\nFantomi: ${latest.phantom_model ?? '?'} · Mittaus: ${formatDay(latest.content_date as string | undefined) ?? '?'}\n${reportContext(verdictMetrics)}\n\nHU Akryyli ${rnd(latest.hu_acrylic, 0)} HU · Uniformiteetti ${rnd(latest.uniformity_index)} %`
     : `Ongelma CT-laitteella: ${station}`
 
   // Raportin kuvaliitteet: analyysikuvat (ei interaktiivinen DICOM-leike)

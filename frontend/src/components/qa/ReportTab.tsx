@@ -1,7 +1,7 @@
-// Raportoi ongelmasta -välilehti (brief osio 6.8): vakavuus + esitäytetty kuvaus +
-// valittavat kuvaliitteet + lähetä. Kaksisarakkeinen (lomake | kuvavalinta) kun
-// liitteitä on; kuvaus venyy täyttämään korkeuden.
-import { useState } from 'react'
+// Raportoi ongelmasta -välilehti (brief osio 6.8): vakavuus + raportoija +
+// esitäytetty kuvaus + lisätiedot + valittavat kuvaliitteet + lähetä.
+// Kaksisarakkeinen (lomake | kuvavalinta) kun liitteitä on.
+import { useState, type CSSProperties } from 'react'
 import { Send, Check } from 'lucide-react'
 import { api } from '../../api/client'
 
@@ -13,12 +13,30 @@ const absUrl = (u: string) => {
   try { return new URL(u, window.location.origin).href } catch { return u }
 }
 
+const labelStyle: CSSProperties = { fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 6 }
+const fieldStyle: CSSProperties = {
+  flex: 1, minWidth: 0, background: 'var(--surface-2)', border: '1px solid var(--border)',
+  borderRadius: 8, padding: '8px 10px', color: 'var(--text)', fontSize: 13, outline: 'none',
+  boxSizing: 'border-box', fontFamily: 'var(--sans)',
+}
+const textareaStyle: CSSProperties = {
+  flex: 1, width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)',
+  borderRadius: 8, padding: 12, color: 'var(--text)', fontSize: 13.5, resize: 'none',
+  boxSizing: 'border-box', fontFamily: 'var(--sans)', lineHeight: 1.5,
+}
+
 export function ReportTab({ defaultText, attachments = [] }: { defaultText: string; attachments?: ReportAttachment[] }) {
   const [sev, setSev] = useState('Kohtalainen')
   const [text, setText] = useState(defaultText)
+  const [extra, setExtra] = useState('')
+  const [reporter, setReporter] = useState(() => localStorage.getItem('autoqad-reporter') || '')
+  const [email, setEmail] = useState(() => localStorage.getItem('autoqad-reporter-email') || '')
   const [status, setStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [broken, setBroken] = useState<Set<string>>(new Set())
+
+  const onReporter = (v: string) => { setReporter(v); localStorage.setItem('autoqad-reporter', v) }
+  const onEmail = (v: string) => { setEmail(v); localStorage.setItem('autoqad-reporter-email', v) }
 
   const toggle = (key: string) => setSelected((prev) => {
     const next = new Set(prev)
@@ -35,8 +53,12 @@ export function ReportTab({ defaultText, attachments = [] }: { defaultText: stri
     const liitteet = picked.length
       ? `\n\nLiitteet:\n${picked.map((a) => a.url.startsWith('data:') ? `• ${a.label} (liitetty kuva)` : `• ${a.label}: ${absUrl(a.url)}`).join('\n')}`
       : ''
+    const rep = (reporter.trim() || email.trim())
+      ? `Raportoija: ${reporter.trim()}${email.trim() ? ` <${email.trim()}>` : ''}\n\n`
+      : ''
+    const extraBlock = extra.trim() ? `\n\nLisätiedot:\n${extra.trim()}` : ''
     try {
-      const d = await api.reportIssue(`[Vakavuus: ${sev}]\n${text}${liitteet}`)
+      const d = await api.reportIssue(`[Vakavuus: ${sev}]\n${rep}${text}${extraBlock}${liitteet}`)
       setStatus(d.status === 'ok' ? 'ok' : 'error')
     } catch {
       setStatus('error')
@@ -68,7 +90,7 @@ export function ReportTab({ defaultText, attachments = [] }: { defaultText: stri
         {/* Vasen: lomake */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 0 }}>
           <div>
-            <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 6 }}>Vakavuus</div>
+            <div style={labelStyle}>Vakavuus</div>
             <div style={{ display: 'flex', gap: 8 }}>
               {SEVERITIES.map((x) => (
                 <button key={x} onClick={() => setSev(x)}
@@ -83,14 +105,23 @@ export function ReportTab({ defaultText, attachments = [] }: { defaultText: stri
             </div>
           </div>
 
-          <div style={{ flex: 1, minHeight: 120, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 6 }}>Kuvaus</div>
-            <textarea value={text} onChange={(e) => setText(e.target.value)}
-              style={{
-                flex: 1, width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)',
-                borderRadius: 8, padding: 12, color: 'var(--text)', fontSize: 13.5, resize: 'none',
-                boxSizing: 'border-box', fontFamily: 'var(--sans)', lineHeight: 1.5,
-              }} />
+          <div>
+            <div style={labelStyle}>Raportoija</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input value={reporter} onChange={(e) => onReporter(e.target.value)} placeholder="Nimi" aria-label="Raportoijan nimi" style={fieldStyle} />
+              <input value={email} onChange={(e) => onEmail(e.target.value)} type="email" placeholder="Sähköposti (valinnainen)" aria-label="Sähköposti" style={fieldStyle} />
+            </div>
+          </div>
+
+          <div style={{ flex: 1, minHeight: 90, display: 'flex', flexDirection: 'column' }}>
+            <div style={labelStyle}>Kuvaus</div>
+            <textarea value={text} onChange={(e) => setText(e.target.value)} style={textareaStyle} />
+          </div>
+
+          <div style={{ flex: 1, minHeight: 90, display: 'flex', flexDirection: 'column' }}>
+            <div style={labelStyle}>Lisätiedot</div>
+            <textarea value={extra} onChange={(e) => setExtra(e.target.value)}
+              placeholder="Omat huomiot, tehdyt toimenpiteet, havainnot…" style={textareaStyle} />
           </div>
         </div>
 
@@ -124,7 +155,7 @@ export function ReportTab({ defaultText, attachments = [] }: { defaultText: stri
                 )
               })}
             </div>
-            {/* Lähetä-nappi sarakkeen pohjalle -> alareuna kuvaus-tekstikentän tasolla */}
+            {/* Lähetä-nappi sarakkeen pohjalle -> alareuna lomakkeen alareunan tasolla */}
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>{sendBtn}</div>
           </div>
         )}

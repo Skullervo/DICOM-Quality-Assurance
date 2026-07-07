@@ -97,6 +97,29 @@ export function fmtDelta(d: number | null | undefined, precision: number): strin
   return sign + Math.abs(d).toFixed(precision)
 }
 
+// ===== Raportti-apurit =====
+const VERDICT_FI: Record<Status, string> = { pass: 'Hyväksytty', warn: 'Varoitus', fail: 'Hylätty', nodata: 'Ei dataa' }
+
+/** Rajojen ulkopuolella (warn/fail) olevat mittarit tekstiriveinä raporttiin. */
+export function failingSummary(metrics: Metric[]): string[] {
+  return metrics
+    .filter((m) => m.value != null && hasTolerance(m) && deriveStatus(m) !== 'pass')
+    .map((m) => {
+      const st = deriveStatus(m) === 'fail' ? 'HYLÄTTY' : 'VAROITUS'
+      const lim = limitText(m)
+      return `${m.label} ${fmt(m.value!, m.precision)}${m.unit ? ' ' + m.unit : ''} [${st}${lim !== '—' ? ', raja ' + lim : ''}]`
+    })
+}
+
+/** Verdiktti + luettelo rajojen ulkopuolisista mittareista (raportin esitäyttöön). */
+export function reportContext(metrics: Metric[]): string {
+  const v = deriveVerdict(metrics)
+  const failing = failingSummary(metrics)
+  let s = `Verdiktti: ${VERDICT_FI[v.verdict]} (${v.pass}/${v.measured} rajoissa)`
+  if (failing.length) s += `\nRajan ulkopuolella:\n${failing.map((f) => `  - ${f}`).join('\n')}`
+  return s
+}
+
 /** Rajan näyttömuoto: "±40", "1.5…10", "≤ 10", "≥ 1.5" tai "—". */
 export function limitText(m: Pick<Metric, 'lowerLimit' | 'upperLimit' | 'nominal' | 'precision'>): string {
   const p = m.precision

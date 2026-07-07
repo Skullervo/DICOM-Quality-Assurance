@@ -8,7 +8,7 @@ import { MainArea } from '../components/qa/MainArea'
 import { DeviceInfo } from '../components/qa/DeviceInfo'
 import { PagedTrendPanel } from '../components/qa/PagedTrendPanel'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
-import { hasTolerance, deriveVerdict } from '../lib/qa/status'
+import { hasTolerance, deriveVerdict, reportContext } from '../lib/qa/status'
 
 const VERDICT_FI = { pass: 'Hyväksytty', warn: 'Varoitus', fail: 'Hylätty', nodata: 'Ei dataa' } as const
 const rnd = (v: unknown, p = 2) => (typeof v === 'number' ? v.toFixed(p) : '?')
@@ -123,7 +123,7 @@ export default function USDeviceDetails() {
     : `Ultraäänilaite: ${s}`
 
   const reportDefault = latest
-    ? `Ongelma laitteella ${latest.stationname ?? s} (US)\ns_depth: ${latest.s_depth ?? '?'} cm, u_cov: ${latest.u_cov ?? '?'} %, u_skew: ${latest.u_skew ?? '?'}`
+    ? `Ongelma laitteella ${latest.stationname ?? s} (US)${latest.institutionname ? ' · ' + latest.institutionname : ''}\nMittaus: ${verdictDevice.measuredAt ?? '?'}\n${reportContext(verdictMetrics)}\n\ns_depth ${rnd(chipSDepth)} cm · u_cov ${rnd(chipUCov)} % · u_skew ${rnd(chipUSkew)}`
     : `Ongelma US-laitteella: ${s}`
 
   // Raportin/AI:n kuvaliite: US-näyttökuva data-URL:na (US:llä ei erillistä kuva-URLia)
