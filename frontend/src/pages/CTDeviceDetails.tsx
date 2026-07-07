@@ -93,7 +93,7 @@ export default function CTDeviceDetails() {
 
       {/* === VASEN PANEELI === */}
       <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden',
-        borderRight: `1px solid ${C.border}`, background: C.surface }}>
+        borderRight: `1px solid ${C.border}`, background: C.bg }}>
         <div className="shrink-0 flex items-center justify-between"
           style={{ height: 46, boxSizing: 'border-box', padding: '0 14px', borderBottom: `1px solid ${C.border}` }}>
           <span title={String(latest?.manufacturer_model_name ?? '')}
