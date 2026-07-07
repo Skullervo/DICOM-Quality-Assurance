@@ -1,7 +1,7 @@
 // Suurennettu trendikäyrä (yksi metriikka): akselit + toleranssikaista + nominaali +
 // rajaviivat, pisteet statusvärillä. Y-akseli ankkuroitu toleranssiin. Klikkaus valitsee
 // mittauksen (kuten sparkline).
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceArea, ReferenceLine } from 'recharts'
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } from 'recharts'
 import { deriveStatus, fmt, fmtDelta } from '../../lib/qa/status'
 import { formatDate } from '../DeviceShared'
 import type { Metric, Status } from '../../lib/qa/types'
@@ -108,9 +108,6 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
             <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--text-muted)', fontFamily: 'var(--mono)' }} interval="preserveStartEnd" tickFormatter={(d) => formatDate(String(d))} />
             <YAxis domain={[lo, hi]} ticks={yTicks} tickFormatter={(v) => fmt(Number(v), precision)}
               tick={{ fontSize: 11, fill: 'var(--text-muted)', fontFamily: 'var(--mono)' }} width={60} />
-            {(lowerLimit != null || upperLimit != null) && (
-              <ReferenceArea y1={lowerLimit ?? lo} y2={upperLimit ?? hi} fill="var(--tolerance-band)" strokeOpacity={0} />
-            )}
             {nominal != null && <ReferenceLine y={nominal} stroke="var(--nominal-line)" strokeDasharray="3 3" />}
             {upperLimit != null && <ReferenceLine y={upperLimit} stroke="var(--limit-line)" />}
             {lowerLimit != null && <ReferenceLine y={lowerLimit} stroke="var(--limit-line)" />}
