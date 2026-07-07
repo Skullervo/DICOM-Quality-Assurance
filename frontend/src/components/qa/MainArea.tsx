@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from 'react'
 import { BarChart3, Sparkles, Flag } from 'lucide-react'
 import { AiChat } from './AiChat'
-import { ReportTab, type ReportAttachment } from './ReportTab'
+import { ReportTab, type ReportAttachment, type ReportContext } from './ReportTab'
 
 type TabId = 'analyysi' | 'ai' | 'raportti'
 const TABS: { id: TabId; label: string; Icon: typeof BarChart3 }[] = [
@@ -12,10 +12,10 @@ const TABS: { id: TabId; label: string; Icon: typeof BarChart3 }[] = [
   { id: 'raportti', label: 'Raportoi ongelmasta', Icon: Flag },
 ]
 
-export function MainArea({ breadcrumb, aiContext, reportDefault, reportAttachments, children }: {
+export function MainArea({ breadcrumb, aiContext, reportContext, reportAttachments, children }: {
   breadcrumb: ReactNode
   aiContext: string
-  reportDefault: string
+  reportContext: ReportContext // raportin automaattinen konteksti (read-only laatikot)
   reportAttachments?: ReportAttachment[] // valittavat kuvaliitteet raporttiin
   children: ReactNode // Analyysi-välilehden sisältö (verdiktti + KPI + trendit)
 }) {
@@ -51,7 +51,7 @@ export function MainArea({ breadcrumb, aiContext, reportDefault, reportAttachmen
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         {tab === 'analyysi' && <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14, minHeight: '100%', boxSizing: 'border-box' }}>{children}</div>}
         {tab === 'ai' && <div style={{ height: '100%' }}><AiChat context={aiContext} attachments={reportAttachments} /></div>}
-        {tab === 'raportti' && <ReportTab defaultText={reportDefault} attachments={reportAttachments} />}
+        {tab === 'raportti' && <ReportTab context={reportContext} attachments={reportAttachments} />}
       </div>
     </main>
   )

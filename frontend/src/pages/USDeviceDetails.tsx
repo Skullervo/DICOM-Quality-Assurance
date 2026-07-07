@@ -8,7 +8,8 @@ import { MainArea } from '../components/qa/MainArea'
 import { DeviceInfo } from '../components/qa/DeviceInfo'
 import { PagedTrendPanel } from '../components/qa/PagedTrendPanel'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
-import { hasTolerance, deriveVerdict, reportContext } from '../lib/qa/status'
+import { hasTolerance, deriveVerdict, failingSummary } from '../lib/qa/status'
+import type { ReportContext } from '../components/qa/ReportTab'
 
 const VERDICT_FI = { pass: 'Hyväksytty', warn: 'Varoitus', fail: 'Hylätty', nodata: 'Ei dataa' } as const
 const rnd = (v: unknown, p = 2) => (typeof v === 'number' ? v.toFixed(p) : '?')
@@ -122,9 +123,17 @@ export default function USDeviceDetails() {
     ? `Ultraäänilaite: ${latest.stationname ?? s}\nHerkkyys: ${rnd(chipSDepth)} cm\nTasaisuus: ${rnd(chipUCov)} %\nEpäsymmetria: ${rnd(chipUSkew)}\nAnturityyppi: ${latest.tranducertype ?? '?'}\nVerdiktti: ${VERDICT_FI[v.verdict]} (${v.pass}/${v.measured})`
     : `Ultraäänilaite: ${s}`
 
-  const reportDefault = latest
-    ? `Ongelma laitteella ${latest.stationname ?? s} (US)${latest.institutionname ? ' · ' + latest.institutionname : ''}\nMittaus: ${verdictDevice.measuredAt ?? '?'}\n${reportContext(verdictMetrics)}\n\ns_depth ${rnd(chipSDepth)} cm · u_cov ${rnd(chipUCov)} % · u_skew ${rnd(chipUSkew)}`
-    : `Ongelma US-laitteella: ${s}`
+  const reportCtx: ReportContext = {
+    fields: latest
+      ? [
+          { label: 'Laite', value: `${latest.stationname ?? s} (US)${latest.institutionname ? ' · ' + latest.institutionname : ''}` },
+          { label: 'Mittaus', value: verdictDevice.measuredAt ?? '—' },
+          { label: 'Verdiktti', value: `${VERDICT_FI[v.verdict]} (${v.pass}/${v.measured} rajoissa)` },
+          { label: 'Mittausarvot', value: `s_depth ${rnd(chipSDepth)} cm · u_cov ${rnd(chipUCov)} % · u_skew ${rnd(chipUSkew)}` },
+        ]
+      : [{ label: 'Laite', value: `${s} (US)` }],
+    failing: failingSummary(verdictMetrics),
+  }
 
   // Raportin/AI:n kuvaliite: US-näyttökuva data-URL:na (US:llä ei erillistä kuva-URLia)
   const reportAttachments = imageData?.image
@@ -217,7 +226,7 @@ export default function USDeviceDetails() {
       {/* PÄÄALUE — välilehdet (Analyysi / Kysy tekoälyltä / Raportoi ongelmasta) */}
       <MainArea
         aiContext={aiCtx}
-        reportDefault={reportDefault}
+        reportContext={reportCtx}
         reportAttachments={reportAttachments}
         breadcrumb={
           <nav style={{ fontSize: 12, color: C.muted, display: 'flex', gap: 4, flexWrap: 'wrap' }}>

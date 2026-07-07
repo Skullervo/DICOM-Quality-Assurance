@@ -11,8 +11,9 @@ import { PngViewer } from '../components/qa/PngViewer'
 import { RoiOverlay, type Roi } from '../components/qa/RoiOverlay'
 import { PagedTrendPanel } from '../components/qa/PagedTrendPanel'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
-import { hasTolerance, deriveVerdict, deriveStatus, reportContext } from '../lib/qa/status'
+import { hasTolerance, deriveVerdict, deriveStatus, failingSummary } from '../lib/qa/status'
 import type { Status } from '../lib/qa/types'
+import type { ReportContext } from '../components/qa/ReportTab'
 
 const VERDICT_FI = { pass: 'Hyväksytty', warn: 'Varoitus', fail: 'Hylätty', nodata: 'Ei dataa' } as const
 const rnd = (v: unknown, p = 2) => (typeof v === 'number' ? v.toFixed(p) : '?')
@@ -76,9 +77,17 @@ export default function CTDeviceDetails() {
     ? `CT-laite: ${latest.station_name ?? station}\nFantomi: ${latest.phantom_model ?? '?'}\nkVp: ${latest.kvp ?? '?'}, mAs: ${latest.exposure_mAs ?? '?'}\nHU Ilma: ${rnd(latest.hu_air, 0)}, Akryyli: ${rnd(latest.hu_acrylic, 0)}, Teflon: ${rnd(latest.hu_teflon, 0)} HU\nUniformiteetti: ${rnd(latest.uniformity_index)} %, MTF 50%: ${rnd(latest.mtf_50_percent)} lp/cm\nVerdiktti: ${VERDICT_FI[v.verdict]} (${v.pass}/${v.measured})`
     : `CT-laite: ${station}`
 
-  const reportDefault = latest
-    ? `Ongelma laitteella ${latest.station_name ?? station} (CT)${latest.institution_name ? ' · ' + latest.institution_name : ''}\nFantomi: ${latest.phantom_model ?? '?'} · Mittaus: ${formatDay(latest.content_date as string | undefined) ?? '?'}\n${reportContext(verdictMetrics)}\n\nHU Akryyli ${rnd(latest.hu_acrylic, 0)} HU · Uniformiteetti ${rnd(latest.uniformity_index)} %`
-    : `Ongelma CT-laitteella: ${station}`
+  const reportCtx: ReportContext = {
+    fields: latest
+      ? [
+          { label: 'Laite', value: `${latest.station_name ?? station} (CT)${latest.institution_name ? ' · ' + latest.institution_name : ''}` },
+          { label: 'Fantomi · Mittaus', value: `${latest.phantom_model ?? '?'} · ${formatDay(latest.content_date as string | undefined) ?? '—'}` },
+          { label: 'Verdiktti', value: `${VERDICT_FI[v.verdict]} (${v.pass}/${v.measured} rajoissa)` },
+          { label: 'Mittausarvot', value: `HU Akryyli ${rnd(latest.hu_acrylic, 0)} HU · Uniformiteetti ${rnd(latest.uniformity_index)} %` },
+        ]
+      : [{ label: 'Laite', value: `${station} (CT)` }],
+    failing: failingSummary(verdictMetrics),
+  }
 
   // Raportin kuvaliitteet: analyysikuvat (ei interaktiivinen DICOM-leike)
   const reportAttachments = instanceId
@@ -162,7 +171,7 @@ export default function CTDeviceDetails() {
       {/* PÄÄALUE — välilehdet (Analyysi / Kysy tekoälyltä / Raportoi ongelmasta) */}
       <MainArea
         aiContext={aiCtx}
-        reportDefault={reportDefault}
+        reportContext={reportCtx}
         reportAttachments={reportAttachments}
         breadcrumb={
           <nav className="text-[12px] flex gap-1 flex-wrap" style={{ color: C.muted }}>

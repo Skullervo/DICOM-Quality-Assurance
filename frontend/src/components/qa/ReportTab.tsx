@@ -1,11 +1,15 @@
 // Raportoi ongelmasta -välilehti (brief osio 6.8): vakavuus + raportoija +
-// esitäytetty kuvaus + lisätiedot + valittavat kuvaliitteet + lähetä.
-// Kaksisarakkeinen (lomake | kuvavalinta) kun liitteitä on.
+// automaattinen konteksti (read-only laatikot) + vapaa kuvaus + lisätiedot +
+// kuvaliitteet + lähetä. Kaksisarakkeinen (lomake | kuvavalinta) kun liitteitä on.
 import { useState, type CSSProperties } from 'react'
 import { Send, Check } from 'lucide-react'
 import { api } from '../../api/client'
 
 export type ReportAttachment = { key: string; label: string; url: string }
+export type ReportContext = {
+  fields: { label: string; value: string }[] // Laite, Mittaus, Verdiktti, Mittausarvot…
+  failing?: string[] // rajojen ulkopuoliset mittarit
+}
 
 const SEVERITIES = ['Matala', 'Kohtalainen', 'Korkea']
 
@@ -20,15 +24,17 @@ const fieldStyle: CSSProperties = {
   boxSizing: 'border-box', fontFamily: 'var(--sans)',
 }
 const textareaStyle: CSSProperties = {
-  flex: 1, width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)',
+  width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)',
   borderRadius: 8, padding: 12, color: 'var(--text)', fontSize: 13.5, resize: 'none',
   boxSizing: 'border-box', fontFamily: 'var(--sans)', lineHeight: 1.5,
 }
+const ctxBox: CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', minWidth: 0 }
+const ctxLabel: CSSProperties = { fontSize: 9.5, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 2 }
+const ctxValue: CSSProperties = { fontSize: 13, color: 'var(--text)', wordBreak: 'break-word' }
 
-export function ReportTab({ defaultText, attachments = [] }: { defaultText: string; attachments?: ReportAttachment[] }) {
+export function ReportTab({ context, attachments = [] }: { context: ReportContext; attachments?: ReportAttachment[] }) {
   const [sev, setSev] = useState('Kohtalainen')
-  const [text, setText] = useState(defaultText)
-  const [edited, setEdited] = useState(false) // seuraa live-esitäyttöä kunnes käyttäjä muokkaa
+  const [kuvaus, setKuvaus] = useState('')
   const [extra, setExtra] = useState('')
   const [reporter, setReporter] = useState(() => localStorage.getItem('autoqad-reporter') || '')
   const [email, setEmail] = useState(() => localStorage.getItem('autoqad-reporter-email') || '')
@@ -47,8 +53,8 @@ export function ReportTab({ defaultText, attachments = [] }: { defaultText: stri
   const markBroken = (key: string) => setBroken((prev) => new Set(prev).add(key))
 
   const usable = attachments.filter((a) => !broken.has(a.key))
-  // Näytettävä kuvaus: live-esitäyttö kunnes muokattu -> päivittyy kun data latautuu
-  const description = edited ? text : defaultText
+  const hasAtt = usable.length > 0
+  const failing = context.failing ?? []
 
   async function send() {
     setStatus('loading')
@@ -57,26 +63,26 @@ export function ReportTab({ defaultText, attachments = [] }: { defaultText: stri
       ? `\n\nLiitteet:\n${picked.map((a) => a.url.startsWith('data:') ? `• ${a.label} (liitetty kuva)` : `• ${a.label}: ${absUrl(a.url)}`).join('\n')}`
       : ''
     const rep = (reporter.trim() || email.trim())
-      ? `Raportoija: ${reporter.trim()}${email.trim() ? ` <${email.trim()}>` : ''}\n\n`
-      : ''
+      ? `Raportoija: ${reporter.trim()}${email.trim() ? ` <${email.trim()}>` : ''}\n` : ''
+    const ctx = context.fields.map((f) => `${f.label}: ${f.value}`).join('\n')
+      + (failing.length ? `\nRajan ulkopuolella:\n${failing.map((x) => `  - ${x}`).join('\n')}` : '')
+    const kuvausBlock = kuvaus.trim() ? `\n\nKuvaus:\n${kuvaus.trim()}` : ''
     const extraBlock = extra.trim() ? `\n\nLisätiedot:\n${extra.trim()}` : ''
     try {
-      const d = await api.reportIssue(`[Vakavuus: ${sev}]\n${rep}${description}${extraBlock}${liitteet}`)
+      const d = await api.reportIssue(`[Vakavuus: ${sev}]\n${rep}${ctx}${kuvausBlock}${extraBlock}${liitteet}`)
       setStatus(d.status === 'ok' ? 'ok' : 'error')
     } catch {
       setStatus('error')
     }
   }
 
-  const hasAtt = usable.length > 0
-
   const sendBtn = (
-    <button onClick={send} disabled={status === 'loading' || !description.trim()}
+    <button onClick={send} disabled={status === 'loading'}
       style={{
         display: 'flex', alignItems: 'center', gap: 7,
         background: '#5b5bd6', border: 'none', color: '#fff', borderRadius: 8,
         padding: '10px 18px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
-        opacity: status === 'loading' || !description.trim() ? 0.6 : 1,
+        opacity: status === 'loading' ? 0.6 : 1,
       }}>
       <Send size={15} aria-hidden />
       {status === 'loading' ? 'Lähetetään…' : 'Lähetä raportti'}
@@ -90,8 +96,8 @@ export function ReportTab({ defaultText, attachments = [] }: { defaultText: stri
         gridTemplateColumns: hasAtt ? 'minmax(0, 1fr) 300px' : 'minmax(0, 720px)',
         gridTemplateRows: 'minmax(0, 1fr)',
       }}>
-        {/* Vasen: lomake */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 0 }}>
+        {/* Vasen: lomake (vierii tarvittaessa) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
           <div>
             <div style={labelStyle}>Vakavuus</div>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -116,15 +122,37 @@ export function ReportTab({ defaultText, attachments = [] }: { defaultText: stri
             </div>
           </div>
 
-          <div style={{ flex: 1, minHeight: 90, display: 'flex', flexDirection: 'column' }}>
-            <div style={labelStyle}>Kuvaus</div>
-            <textarea value={description} onChange={(e) => { setText(e.target.value); setEdited(true) }} style={textareaStyle} />
+          {/* Automaattinen konteksti — omat read-only laatikot */}
+          <div>
+            <div style={labelStyle}>Mittauksen tiedot</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {context.fields.map((f) => (
+                <div key={f.label} style={ctxBox}>
+                  <div style={ctxLabel}>{f.label}</div>
+                  <div style={ctxValue}>{f.value}</div>
+                </div>
+              ))}
+              {failing.length > 0 && (
+                <div style={{ ...ctxBox, background: 'var(--warn-bg)', borderColor: 'color-mix(in srgb, var(--warn) 34%, transparent)' }}>
+                  <div style={{ ...ctxLabel, color: 'var(--warn)' }}>Rajan ulkopuolella</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12.5, color: 'var(--text)' }}>
+                    {failing.map((f) => <span key={f}>• {f}</span>)}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-          <div style={{ flex: 1, minHeight: 90, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 120 }}>
+            <div style={labelStyle}>Kuvaus</div>
+            <textarea value={kuvaus} onChange={(e) => setKuvaus(e.target.value)}
+              placeholder="Kuvaile ongelma omin sanoin…" style={{ ...textareaStyle, flex: 1, minHeight: 0 }} />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 100 }}>
             <div style={labelStyle}>Lisätiedot</div>
             <textarea value={extra} onChange={(e) => setExtra(e.target.value)}
-              placeholder="Omat huomiot, tehdyt toimenpiteet, havainnot…" style={textareaStyle} />
+              placeholder="Tehdyt toimenpiteet, muut havainnot…" style={{ ...textareaStyle, flex: 1, minHeight: 0 }} />
           </div>
         </div>
 
@@ -158,7 +186,6 @@ export function ReportTab({ defaultText, attachments = [] }: { defaultText: stri
                 )
               })}
             </div>
-            {/* Lähetä-nappi sarakkeen pohjalle -> alareuna lomakkeen alareunan tasolla */}
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>{sendBtn}</div>
           </div>
         )}
