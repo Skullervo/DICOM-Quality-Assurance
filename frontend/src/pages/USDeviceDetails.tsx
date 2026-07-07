@@ -229,7 +229,7 @@ export default function USDeviceDetails() {
         }
       >
         {(latest || selectedPoint) && (
-          <PagedTrendPanel title="Mittaustrendit" metrics={metrics} perPage={3} chromeless
+          <PagedTrendPanel title="Mittaustrendit" metrics={metrics} perPage={3} chromeless dimTitle
             activeIndex={selectedIdx ?? undefined} onSelect={handlePointClick} />
         )}
       </MainArea>

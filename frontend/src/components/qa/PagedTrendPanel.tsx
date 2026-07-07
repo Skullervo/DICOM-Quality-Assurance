@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Metric } from '../../lib/qa/types'
 import { TrendChart } from './TrendChart'
 
-export function PagedTrendPanel({ title, metrics, perPage = 3, activeIndex, onSelect, highlightId, onHover, chromeless = false }: {
+export function PagedTrendPanel({ title, metrics, perPage = 3, activeIndex, onSelect, highlightId, onHover, chromeless = false, dimTitle = false }: {
   title: string
   metrics: Metric[]
   perPage?: number
@@ -16,6 +16,7 @@ export function PagedTrendPanel({ title, metrics, perPage = 3, activeIndex, onSe
   highlightId?: string | null
   onHover?: (id: string | null) => void
   chromeless?: boolean // riisu kortti-kehys (tausta/reunus/otsikkopalkki) — jätä käyrät + otsikko + sivutus
+  dimTitle?: boolean // himmennä käyräotsikot
 }) {
   const [manualPage, setManualPage] = useState(0)
   if (metrics.length === 0) return null
@@ -44,7 +45,7 @@ export function PagedTrendPanel({ title, metrics, perPage = 3, activeIndex, onSe
       <div style={{ flex: 1, minHeight: 0, padding: chromeless ? '0' : 12, display: 'grid',
         gridTemplateRows: `repeat(${shown.length}, minmax(0, 1fr))`, gap: 12 }}>
         {shown.map((m) => (
-          <TrendChart key={m.id} metric={m} fill activeIndex={activeIndex} onSelect={onSelect}
+          <TrendChart key={m.id} metric={m} fill dimTitle={dimTitle} activeIndex={activeIndex} onSelect={onSelect}
             highlighted={highlightId === m.id} onHover={onHover} />
         ))}
       </div>

@@ -52,13 +52,14 @@ function StatusDot(props: Record<string, unknown>) {
   )
 }
 
-export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover, fill }: {
+export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover, fill, dimTitle }: {
   metric: Metric
   activeIndex?: number
   onSelect?: (index: number) => void
   highlighted?: boolean
   onHover?: (id: string | null) => void
   fill?: boolean // täyttää vanhemman korkeuden (sivutettu näkymä) kiinteän 132px sijaan
+  dimTitle?: boolean // himmennä otsikkofontti (ei täysvalkoinen)
 }) {
   const { history, nominal, lowerLimit, upperLimit, unit, precision, label } = metric
   const status = deriveStatus(metric)
@@ -90,7 +91,7 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
         outline: `1px solid ${highlighted ? 'var(--info)' : 'transparent'}`,
         background: highlighted ? 'color-mix(in srgb, var(--info) 9%, transparent)' : 'transparent',
       }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', marginBottom: 2, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: dimTitle ? 'color-mix(in srgb, var(--text) 72%, transparent)' : 'var(--text)', marginBottom: 2, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {label}{unit && <span style={{ color: 'var(--text-faint)', fontWeight: 400 }}> [{unit}]</span>}
       </div>
       <div style={fill ? { flex: 1, minHeight: 0 } : { height: 132 }}>
