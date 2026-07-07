@@ -28,6 +28,7 @@ const textareaStyle: CSSProperties = {
 export function ReportTab({ defaultText, attachments = [] }: { defaultText: string; attachments?: ReportAttachment[] }) {
   const [sev, setSev] = useState('Kohtalainen')
   const [text, setText] = useState(defaultText)
+  const [edited, setEdited] = useState(false) // seuraa live-esitäyttöä kunnes käyttäjä muokkaa
   const [extra, setExtra] = useState('')
   const [reporter, setReporter] = useState(() => localStorage.getItem('autoqad-reporter') || '')
   const [email, setEmail] = useState(() => localStorage.getItem('autoqad-reporter-email') || '')
@@ -46,6 +47,8 @@ export function ReportTab({ defaultText, attachments = [] }: { defaultText: stri
   const markBroken = (key: string) => setBroken((prev) => new Set(prev).add(key))
 
   const usable = attachments.filter((a) => !broken.has(a.key))
+  // Näytettävä kuvaus: live-esitäyttö kunnes muokattu -> päivittyy kun data latautuu
+  const description = edited ? text : defaultText
 
   async function send() {
     setStatus('loading')
@@ -58,7 +61,7 @@ export function ReportTab({ defaultText, attachments = [] }: { defaultText: stri
       : ''
     const extraBlock = extra.trim() ? `\n\nLisätiedot:\n${extra.trim()}` : ''
     try {
-      const d = await api.reportIssue(`[Vakavuus: ${sev}]\n${rep}${text}${extraBlock}${liitteet}`)
+      const d = await api.reportIssue(`[Vakavuus: ${sev}]\n${rep}${description}${extraBlock}${liitteet}`)
       setStatus(d.status === 'ok' ? 'ok' : 'error')
     } catch {
       setStatus('error')
@@ -68,12 +71,12 @@ export function ReportTab({ defaultText, attachments = [] }: { defaultText: stri
   const hasAtt = usable.length > 0
 
   const sendBtn = (
-    <button onClick={send} disabled={status === 'loading' || !text.trim()}
+    <button onClick={send} disabled={status === 'loading' || !description.trim()}
       style={{
         display: 'flex', alignItems: 'center', gap: 7,
         background: '#5b5bd6', border: 'none', color: '#fff', borderRadius: 8,
         padding: '10px 18px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
-        opacity: status === 'loading' || !text.trim() ? 0.6 : 1,
+        opacity: status === 'loading' || !description.trim() ? 0.6 : 1,
       }}>
       <Send size={15} aria-hidden />
       {status === 'loading' ? 'Lähetetään…' : 'Lähetä raportti'}
@@ -115,7 +118,7 @@ export function ReportTab({ defaultText, attachments = [] }: { defaultText: stri
 
           <div style={{ flex: 1, minHeight: 90, display: 'flex', flexDirection: 'column' }}>
             <div style={labelStyle}>Kuvaus</div>
-            <textarea value={text} onChange={(e) => setText(e.target.value)} style={textareaStyle} />
+            <textarea value={description} onChange={(e) => { setText(e.target.value); setEdited(true) }} style={textareaStyle} />
           </div>
 
           <div style={{ flex: 1, minHeight: 90, display: 'flex', flexDirection: 'column' }}>
