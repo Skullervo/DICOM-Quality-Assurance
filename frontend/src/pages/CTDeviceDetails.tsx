@@ -58,6 +58,9 @@ export default function CTDeviceDetails() {
     ? detail?.find((d) => String(d.study_date) === String(selectedPoint.study_date)) ?? detail?.[0] ?? null
     : detail?.[0] ?? null
   const instanceId = latest ? String(latest.instance ?? '') : ''
+  // Oletuksena korosta kuvaikkunan mittaus (uusin, kun ei valittu erikseen)
+  const defaultActiveIdx = latest ? (chartData?.findIndex((p) => String(p.study_date) === String(latest.study_date)) ?? -1) : -1
+  const activeIdx = selectedIdx ?? (defaultActiveIdx >= 0 ? defaultActiveIdx : undefined)
   const handlePointClick = useCallback((idx: number) => setSelectedIdx((prev) => (prev === idx ? null : idx)), [])
 
   // Config-vetoiset metriikat; verdiktiin vain toleranssilliset
@@ -200,7 +203,7 @@ export default function CTDeviceDetails() {
       >
         {latest && (
           <PagedTrendPanel title="Mittaustrendit" metrics={metrics} perPage={3} chromeless dimTitle
-            activeIndex={selectedIdx ?? undefined} onSelect={handlePointClick}
+            activeIndex={activeIdx} onSelect={handlePointClick}
             highlightId={hoverRoi} onHover={setHoverRoi} />
         )}
       </MainArea>

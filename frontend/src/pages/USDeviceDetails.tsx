@@ -93,6 +93,10 @@ export default function USDeviceDetails() {
     ? detail?.find(d => String(d.instance) === activeInstanceId) ?? detail?.[0] ?? null
     : detail?.[0] ?? null
 
+  // Oletuksena korosta kuvaikkunan mittaus (uusin, kun ei valittu erikseen)
+  const defaultActiveIdx = chartData?.findIndex((p) => String(p.instance) === activeInstanceId) ?? -1
+  const activeIdx = selectedIdx ?? (defaultActiveIdx >= 0 ? defaultActiveIdx : undefined)
+
   const { data: imageData } = useQuery<USImageResponse>({
     queryKey: ['us', 'image', activeInstanceId],
     queryFn: () => api.usImage(activeInstanceId),
@@ -255,7 +259,7 @@ export default function USDeviceDetails() {
       >
         {(latest || selectedPoint) && (
           <PagedTrendPanel title="Mittaustrendit" metrics={metrics} perPage={3} chromeless dimTitle
-            activeIndex={selectedIdx ?? undefined} onSelect={handlePointClick} />
+            activeIndex={activeIdx} onSelect={handlePointClick} />
         )}
       </MainArea>
     </div>

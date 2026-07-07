@@ -51,6 +51,10 @@ export default function XrayDeviceDetails() {
     ? detail?.find(d => String(d.instance) === activeInstanceId) ?? detail?.[0] ?? null
     : detail?.[0] ?? null
 
+  // Oletuksena korosta kuvaikkunan mittaus (uusin, kun ei valittu erikseen)
+  const defaultActiveIdx = chartData?.findIndex((p) => String(p.instance) === activeInstanceId) ?? -1
+  const activeIdx = selectedIdx ?? (defaultActiveIdx >= 0 ? defaultActiveIdx : undefined)
+
   const { data: dicomImg } = useQuery<ImageResponse>({
     queryKey: ['xray', 'image', activeInstanceId],
     queryFn: () => api.xrayImage(activeInstanceId),
@@ -196,7 +200,7 @@ export default function XrayDeviceDetails() {
       >
         {latest && (
           <PagedTrendPanel title="Mittaustrendit" metrics={metrics} perPage={3} chromeless dimTitle
-            activeIndex={selectedIdx ?? undefined} onSelect={handlePointClick} />
+            activeIndex={activeIdx} onSelect={handlePointClick} />
         )}
       </MainArea>
     </div>
