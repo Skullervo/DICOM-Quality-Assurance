@@ -211,7 +211,7 @@ export default function USDeviceDetails() {
         </div>
 
         {/* Verdiktti — kompakti, vasemman paneelin alakulmassa */}
-        {(latest || selectedPoint) && <VerdictBar device={verdictDevice} metrics={verdictMetrics} compact />}
+        {(latest || selectedPoint) && <VerdictBar device={verdictDevice} metrics={verdictMetrics} compact card />}
       </div>
 
       {/* PÄÄALUE — välilehdet (Analyysi / Kysy tekoälyltä / Raportoi ongelmasta) */}

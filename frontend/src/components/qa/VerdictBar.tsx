@@ -18,7 +18,7 @@ export interface VerdictDevice {
   previousAt?: string
 }
 
-export function VerdictBar({ device, metrics, compact = false }: { device: VerdictDevice; metrics: Metric[]; compact?: boolean }) {
+export function VerdictBar({ device, metrics, compact = false, card = false }: { device: VerdictDevice; metrics: Metric[]; compact?: boolean; card?: boolean }) {
   const { verdict, measured, pass, warn, fail, nodata } = deriveVerdict(metrics)
   const s = STATUS[verdict]
   const Icon = s.Icon
@@ -30,15 +30,18 @@ export function VerdictBar({ device, metrics, compact = false }: { device: Verdi
 
   const meta = [device.phantom, device.measuredAt].filter(Boolean).join(' · ')
 
-  // Kompakti muoto — vasemman paneelin alakulmaan (laitetiedot jo näkyvissä paneelissa)
+  // Kompakti muoto — vasemman paneelin alakulmaan (laitetiedot jo näkyvissä paneelissa).
+  // card=true -> reunallinen kortti marginaaleilla; muuten täysleveä palkki yläreunuksella.
   if (compact) {
+    const frame: React.CSSProperties = card
+      ? { margin: 10, borderRadius: 8, border: `1px solid color-mix(in srgb, ${s.color} 34%, transparent)`, padding: '10px 12px' }
+      : { borderTop: `1px solid color-mix(in srgb, ${s.color} 34%, transparent)`, padding: '9px 14px' }
     return (
       <div
         role="status"
         style={{
           flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 3,
-          background: s.bg, borderTop: `1px solid color-mix(in srgb, ${s.color} 34%, transparent)`,
-          padding: '9px 14px',
+          background: s.bg, ...frame,
         }}
       >
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, color: s.color }}>
