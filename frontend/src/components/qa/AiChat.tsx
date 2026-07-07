@@ -46,6 +46,18 @@ export function AiChat({ context, attachments = [] }: { context: ReportContext; 
 
   const hasAtt = usable.length > 0
 
+  const sendBtn = (
+    <button onClick={send} disabled={loading || !input.trim()} aria-label="Lähetä kysymys"
+      style={{
+        display: 'flex', alignItems: 'center', gap: 7,
+        background: '#5b5bd6', border: 'none', color: '#fff', borderRadius: 8,
+        padding: '10px 18px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+        opacity: loading || !input.trim() ? 0.6 : 1,
+      }}>
+      <Send size={15} aria-hidden />{loading ? 'Lähetetään…' : 'Lähetä'}
+    </button>
+  )
+
   return (
     <div style={{ padding: 16, height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{
@@ -86,28 +98,17 @@ export function AiChat({ context, attachments = [] }: { context: ReportContext; 
             )}
           </div>
 
-          {/* Syöte + lähetä — vasemmassa sarakkeessa (sama leveys kuin konteksti) */}
+          {/* Syöte — vasemmassa sarakkeessa (sama leveys kuin konteksti) */}
           <div>
             <div style={label}>Kysymys</div>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-              <textarea value={input} onChange={(e) => setInput(e.target.value)} rows={2}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-                style={{
-                  flex: 1, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8,
-                  padding: 12, color: 'var(--text)', fontSize: 13.5, resize: 'none', outline: 'none',
-                  boxSizing: 'border-box', fontFamily: 'var(--sans)', lineHeight: 1.5,
-                }}
-                placeholder="Kirjoita kysymys…" />
-              <button onClick={send} disabled={loading || !input.trim()} aria-label="Lähetä kysymys"
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 7,
-                  background: '#5b5bd6', border: 'none', color: '#fff', borderRadius: 8,
-                  padding: '10px 18px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
-                  opacity: loading || !input.trim() ? 0.6 : 1,
-                }}>
-                <Send size={15} aria-hidden />{loading ? 'Lähetetään…' : 'Lähetä'}
-              </button>
-            </div>
+            <textarea value={input} onChange={(e) => setInput(e.target.value)} rows={2}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+              style={{
+                width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8,
+                padding: 12, color: 'var(--text)', fontSize: 13.5, resize: 'none', outline: 'none',
+                boxSizing: 'border-box', fontFamily: 'var(--sans)', lineHeight: 1.5,
+              }}
+              placeholder="Kirjoita kysymys…" />
           </div>
         </div>
 
@@ -117,7 +118,7 @@ export function AiChat({ context, attachments = [] }: { context: ReportContext; 
             <div style={label}>
               Liitä kuvia {selected.size > 0 && <span style={{ color: 'var(--info)' }}>({selected.size} valittu)</span>}
             </div>
-            <div style={{ overflowY: 'auto', display: 'grid', gridTemplateColumns: usable.length <= 1 ? '1fr' : '1fr 1fr', gap: 8, alignContent: 'start' }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'grid', gridTemplateColumns: usable.length <= 1 ? '1fr' : '1fr 1fr', gap: 8, alignContent: 'start' }}>
               {usable.map((a) => {
                 const sel = selected.has(a.key)
                 return (
@@ -141,9 +142,18 @@ export function AiChat({ context, attachments = [] }: { context: ReportContext; 
                 )
               })}
             </div>
+            {/* Lähetä-nappi sarakkeen pohjalle (kuten raporttivälilehdellä) */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>{sendBtn}</div>
           </div>
         )}
       </div>
+
+      {/* Ilman liitteitä: lähetä alapalkissa */}
+      {!hasAtt && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+          {sendBtn}
+        </div>
+      )}
     </div>
   )
 }
