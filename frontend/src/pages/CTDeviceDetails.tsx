@@ -11,7 +11,7 @@ import { PngViewer } from '../components/qa/PngViewer'
 import { RoiOverlay, type Roi } from '../components/qa/RoiOverlay'
 import { PagedTrendPanel } from '../components/qa/PagedTrendPanel'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
-import { hasTolerance, deriveVerdict, deriveStatus, failingSummary } from '../lib/qa/status'
+import { hasTolerance, deriveVerdict, deriveStatus, failingDetails } from '../lib/qa/status'
 import type { Status } from '../lib/qa/types'
 import type { ReportContext } from '../components/qa/ReportTab'
 
@@ -102,7 +102,7 @@ export default function CTDeviceDetails() {
           ] },
         ]
       : [{ title: 'Laite', rows: [{ label: 'Laite', value: `${station} (CT)` }] }],
-    failing: failingSummary(verdictMetrics),
+    failing: failingDetails(verdictMetrics),
   }
 
   // Raportin kuvaliitteet: analyysikuvat (ei interaktiivinen DICOM-leike)

@@ -9,7 +9,7 @@ import { DeviceInfo } from '../components/qa/DeviceInfo'
 import { PngViewer } from '../components/qa/PngViewer'
 import { PagedTrendPanel } from '../components/qa/PagedTrendPanel'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
-import { hasTolerance, deriveVerdict, failingSummary } from '../lib/qa/status'
+import { hasTolerance, deriveVerdict, failingDetails } from '../lib/qa/status'
 import type { ReportContext } from '../components/qa/ReportTab'
 
 const VERDICT_FI = { pass: 'Hyväksytty', warn: 'Varoitus', fail: 'Hylätty', nodata: 'Ei dataa' } as const
@@ -102,7 +102,7 @@ export default function XrayDeviceDetails() {
           ] },
         ]
       : [{ title: 'Laite', rows: [{ label: 'Laite', value: `${dUnit} (XR)` }] }],
-    failing: failingSummary(verdictMetrics),
+    failing: failingDetails(verdictMetrics),
   }
 
   // Raportin kuvaliitteet: analyysikuvat (ei DICOM)

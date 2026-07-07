@@ -8,7 +8,7 @@ import { MainArea, type TabId } from '../components/qa/MainArea'
 import { DeviceInfo } from '../components/qa/DeviceInfo'
 import { PagedTrendPanel } from '../components/qa/PagedTrendPanel'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
-import { hasTolerance, deriveVerdict, failingSummary } from '../lib/qa/status'
+import { hasTolerance, deriveVerdict, failingDetails } from '../lib/qa/status'
 import type { ReportContext } from '../components/qa/ReportTab'
 
 const VERDICT_FI = { pass: 'Hyväksytty', warn: 'Varoitus', fail: 'Hylätty', nodata: 'Ei dataa' } as const
@@ -147,7 +147,7 @@ export default function USDeviceDetails() {
           ] },
         ]
       : [{ title: 'Laite', rows: [{ label: 'Laite', value: `${s} (US)` }] }],
-    failing: failingSummary(verdictMetrics),
+    failing: failingDetails(verdictMetrics),
   }
 
   // Raportin/AI:n kuvaliite: US-näyttökuva data-URL:na (US:llä ei erillistä kuva-URLia)

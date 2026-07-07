@@ -97,15 +97,18 @@ export function fmtDelta(d: number | null | undefined, precision: number): strin
   return sign + Math.abs(d).toFixed(precision)
 }
 
-/** Rajojen ulkopuolella (warn/fail) olevat mittarit tekstiriveinä raporttiin. */
-export function failingSummary(metrics: Metric[]): string[] {
+export type FailingItem = { label: string; value: string; status: 'warn' | 'fail'; limit: string }
+
+/** Rajojen ulkopuolella (warn/fail) olevat mittarit rakenteisesti raporttiin. */
+export function failingDetails(metrics: Metric[]): FailingItem[] {
   return metrics
     .filter((m) => m.value != null && hasTolerance(m) && deriveStatus(m) !== 'pass')
-    .map((m) => {
-      const st = deriveStatus(m) === 'fail' ? 'HYLÄTTY' : 'VAROITUS'
-      const lim = limitText(m)
-      return `${m.label} ${fmt(m.value!, m.precision)}${m.unit ? ' ' + m.unit : ''} [${st}${lim !== '—' ? ', raja ' + lim : ''}]`
-    })
+    .map((m) => ({
+      label: m.label,
+      value: `${fmt(m.value!, m.precision)}${m.unit ? ' ' + m.unit : ''}`,
+      status: deriveStatus(m) === 'fail' ? 'fail' : 'warn',
+      limit: limitText(m),
+    }))
 }
 
 /** Rajan näyttömuoto: "±40", "1.5…10", "≤ 10", "≥ 1.5" tai "—". */

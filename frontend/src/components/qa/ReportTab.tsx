@@ -5,12 +5,21 @@ import { useState, type CSSProperties } from 'react'
 import { Send, Check } from 'lucide-react'
 import { api } from '../../api/client'
 
+import type { FailingItem } from '../../lib/qa/status'
+
 export type ReportAttachment = { key: string; label: string; url: string }
 export type ReportSection = { title: string; rows: { label: string; value: string }[] }
 export type ReportContext = {
   sections: ReportSection[] // esim. DICOM-tiedot, Analyysitulokset — tiiviinä taulukkoina
-  failing?: string[] // rajojen ulkopuoliset mittarit
+  failing?: FailingItem[] // rajojen ulkopuoliset mittarit (rakenteisesti)
 }
+
+const failPill = (status: 'warn' | 'fail'): CSSProperties => ({
+  fontSize: 9.5, fontWeight: 700, letterSpacing: '.03em', textTransform: 'uppercase',
+  padding: '2px 7px', borderRadius: 10, whiteSpace: 'nowrap', flexShrink: 0,
+  color: `var(--${status})`, background: `var(--${status}-bg)`,
+  border: `1px solid color-mix(in srgb, var(--${status}) 40%, transparent)`,
+})
 
 const SEVERITIES = ['Matala', 'Kohtalainen', 'Korkea']
 
@@ -29,8 +38,6 @@ const textareaStyle: CSSProperties = {
   borderRadius: 8, padding: 12, color: 'var(--text)', fontSize: 13.5, resize: 'none',
   boxSizing: 'border-box', fontFamily: 'var(--sans)', lineHeight: 1.5,
 }
-const ctxBox: CSSProperties = { background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', minWidth: 0 }
-const ctxLabel: CSSProperties = { fontSize: 9.5, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 2 }
 
 export function ReportTab({ context, attachments = [] }: { context: ReportContext; attachments?: ReportAttachment[] }) {
   const [sev, setSev] = useState('Kohtalainen')
@@ -65,7 +72,7 @@ export function ReportTab({ context, attachments = [] }: { context: ReportContex
     const rep = (reporter.trim() || email.trim())
       ? `Raportoija: ${reporter.trim()}${email.trim() ? ` <${email.trim()}>` : ''}\n` : ''
     const ctx = context.sections.map((sec) => `${sec.title}:\n${sec.rows.map((r) => `  ${r.label}: ${r.value}`).join('\n')}`).join('\n\n')
-      + (failing.length ? `\n\nRajan ulkopuolella:\n${failing.map((x) => `  - ${x}`).join('\n')}` : '')
+      + (failing.length ? `\n\nRajan ulkopuolella:\n${failing.map((x) => `  - ${x.label} ${x.value} [${x.status === 'fail' ? 'HYLÄTTY' : 'VAROITUS'}${x.limit !== '—' ? ', raja ' + x.limit : ''}]`).join('\n')}` : '')
     const kuvausBlock = kuvaus.trim() ? `\n\nKuvaus:\n${kuvaus.trim()}` : ''
     const extraBlock = extra.trim() ? `\n\nLisätiedot:\n${extra.trim()}` : ''
     try {
@@ -138,10 +145,17 @@ export function ReportTab({ context, attachments = [] }: { context: ReportContex
           ))}
 
           {failing.length > 0 && (
-            <div style={{ ...ctxBox, background: 'var(--warn-bg)', borderColor: 'color-mix(in srgb, var(--warn) 34%, transparent)' }}>
-              <div style={{ ...ctxLabel, color: 'var(--warn)' }}>Rajan ulkopuolella</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12.5, color: 'var(--text)' }}>
-                {failing.map((f) => <span key={f}>• {f}</span>)}
+            <div>
+              <div style={{ ...labelStyle, color: 'var(--warn)' }}>Rajan ulkopuolella</div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {failing.map((f) => (
+                  <div key={f.label} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0', borderBottom: '1px solid var(--border)' }}>
+                    <span style={failPill(f.status)}>{f.status === 'fail' ? 'Hylätty' : 'Varoitus'}</span>
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.label}</span>
+                    <span className="num" style={{ fontSize: 12.5, color: 'var(--text)', whiteSpace: 'nowrap' }}>{f.value}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>raja {f.limit}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}
