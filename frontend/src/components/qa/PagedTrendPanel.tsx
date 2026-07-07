@@ -32,22 +32,25 @@ export function PagedTrendPanel({ title, metrics, perPage = 3, activeIndex, onSe
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
       ...(chromeless ? {} : { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }) }}>
-      <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: chromeless ? 'flex-end' : 'space-between',
-        padding: chromeless ? '0 2px 8px' : '6px 8px 6px 12px',
-        ...(chromeless ? {} : { borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }) }}>
-        {!chromeless && <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.5px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{title}</span>}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span className="tnum" style={{ fontSize: 11, color: 'var(--text-faint)' }}>{start + 1}–{start + shown.length} / {metrics.length}</span>
-          <button onClick={() => go(-1)} disabled={page === 0} aria-label="Edelliset käyrät" style={pagerBtn(page === 0)}><ChevronLeft size={16} aria-hidden /></button>
-          <button onClick={() => go(1)} disabled={page >= pages - 1} aria-label="Seuraavat käyrät" style={pagerBtn(page >= pages - 1)}><ChevronRight size={16} aria-hidden /></button>
-        </div>
-      </div>
+      {/* Otsikko (vain kehyksellinen tila) ylhäällä */}
+      {!chromeless && (
+        <div style={{ flexShrink: 0, padding: '6px 12px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)',
+          fontSize: 10, fontWeight: 600, letterSpacing: '.5px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{title}</div>
+      )}
+      {/* Käyrät */}
       <div style={{ flex: 1, minHeight: 0, padding: chromeless ? '0' : 12, display: 'grid',
         gridTemplateRows: `repeat(${shown.length}, minmax(0, 1fr))`, gap: 12 }}>
         {shown.map((m) => (
           <TrendChart key={m.id} metric={m} fill dimTitle={dimTitle} activeIndex={activeIndex} onSelect={onSelect}
             highlighted={highlightId === m.id} onHover={onHover} />
         ))}
+      </div>
+      {/* Sivutusvalitsin — viimeisen käyrän alapuolella, oikeaan laitaan */}
+      <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6,
+        padding: chromeless ? '8px 2px 0' : '8px 12px', ...(chromeless ? {} : { borderTop: '1px solid var(--border)' }) }}>
+        <span className="tnum" style={{ fontSize: 11, color: 'var(--text-faint)' }}>{start + 1}–{start + shown.length} / {metrics.length}</span>
+        <button onClick={() => go(-1)} disabled={page === 0} aria-label="Edelliset käyrät" style={pagerBtn(page === 0)}><ChevronLeft size={16} aria-hidden /></button>
+        <button onClick={() => go(1)} disabled={page >= pages - 1} aria-label="Seuraavat käyrät" style={pagerBtn(page >= pages - 1)}><ChevronRight size={16} aria-hidden /></button>
       </div>
     </div>
   )
