@@ -19,16 +19,16 @@ const absUrl = (u: string) => {
 
 const labelStyle: CSSProperties = { fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 6 }
 const fieldStyle: CSSProperties = {
-  flex: 1, minWidth: 0, background: 'var(--surface-2)', border: '1px solid var(--border)',
+  flex: 1, minWidth: 0, background: 'transparent', border: '1px solid var(--border)',
   borderRadius: 8, padding: '8px 10px', color: 'var(--text)', fontSize: 13, outline: 'none',
   boxSizing: 'border-box', fontFamily: 'var(--sans)',
 }
 const textareaStyle: CSSProperties = {
-  width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)',
+  width: '100%', background: 'transparent', border: '1px solid var(--border)',
   borderRadius: 8, padding: 12, color: 'var(--text)', fontSize: 13.5, resize: 'none',
   boxSizing: 'border-box', fontFamily: 'var(--sans)', lineHeight: 1.5,
 }
-const ctxBox: CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', minWidth: 0 }
+const ctxBox: CSSProperties = { background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', minWidth: 0 }
 const ctxLabel: CSSProperties = { fontSize: 9.5, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 2 }
 const ctxValue: CSSProperties = { fontSize: 13, color: 'var(--text)', wordBreak: 'break-word' }
 
@@ -104,9 +104,9 @@ export function ReportTab({ context, attachments = [] }: { context: ReportContex
               {SEVERITIES.map((x) => (
                 <button key={x} onClick={() => setSev(x)}
                   style={{
-                    flex: 1, background: sev === x ? 'var(--surface-2)' : 'var(--surface)',
+                    flex: 1, background: 'transparent',
                     border: `1px solid ${sev === x ? 'var(--info)' : 'var(--border)'}`,
-                    color: 'var(--text)', borderRadius: 8, padding: '9px 0', fontSize: 13, cursor: 'pointer',
+                    color: sev === x ? 'var(--info)' : 'var(--text)', borderRadius: 8, padding: '9px 0', fontSize: 13, cursor: 'pointer',
                   }}>
                   {x}
                 </button>
