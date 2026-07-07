@@ -1,6 +1,7 @@
 // Adapteri: Go-backendin raakarivit -> config-vetoinen Metric[].
 // Metriikan id === DB-kentän nimi (esim. 'hu_air', 'uniformity_deviation', 's_depth').
 import type { Metric, Modality } from './types'
+import type { Tolerance } from '../../api/client'
 import { MODALITY_METRICS, configToMetric } from './config'
 
 type Row = Record<string, unknown>
@@ -37,8 +38,20 @@ export function formatDay(raw: string | number | null | undefined): string | und
  * Rakenna modaliteetin Metric[]-lista: staattinen konfiguraatio + uusimman rivin
  * arvo + historia trenddatasta. Historia suodattaa pois pisteet joilta arvo puuttuu.
  */
-export function buildMetrics(modality: Modality, latest: Row | null, history: Row[] = []): Metric[] {
-  return MODALITY_METRICS[modality].map((cfg) => {
+export function buildMetrics(modality: Modality, latest: Row | null, history: Row[] = [], tolerances?: Tolerance[]): Metric[] {
+  // DB-toleranssit metriikka-id:llä (vain tämän modaliteetin) — yliajaa config-oletukset
+  const tolMap: Record<string, Tolerance> = {}
+  if (tolerances) for (const t of tolerances) if (t.modality === modality) tolMap[t.metric_id] = t
+
+  return MODALITY_METRICS[modality].map((cfgBase) => {
+    const t = tolMap[cfgBase.id]
+    const cfg = t
+      ? {
+          ...cfgBase,
+          nominal: t.nominal, lowerLimit: t.lower_limit, upperLimit: t.upper_limit,
+          actionLimit: t.action_limit ?? undefined, lowerWarn: t.lower_warn ?? undefined, upperWarn: t.upper_warn ?? undefined,
+        }
+      : cfgBase
     const value = latest ? numOrNull(latest[cfg.id]) : null
     // Säilytä alkuperäinen indeksi (idx) — mittauksen valinta sparklinesta
     const hist: Metric['history'] = history

@@ -8,6 +8,7 @@ import { MainArea, type TabId } from '../components/qa/MainArea'
 import { DeviceInfo } from '../components/qa/DeviceInfo'
 import { PagedTrendPanel } from '../components/qa/PagedTrendPanel'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
+import { useTolerances } from '../lib/qa/useTolerances'
 import { hasTolerance, deriveVerdict, failingDetails } from '../lib/qa/status'
 import type { ReportContext } from '../components/qa/ReportTab'
 
@@ -115,8 +116,9 @@ export default function USDeviceDetails() {
   const chipUCov = selectedPoint?.u_cov ?? (latest?.u_cov as number | null)
   const chipUSkew = selectedPoint?.u_skew ?? (latest?.u_skew as number | null)
 
-  // Config-vetoiset metriikat; verdiktiin vain toleranssilliset
-  const metrics = buildMetrics('US', latest, (chartData ?? []) as unknown as Record<string, unknown>[])
+  // Config-vetoiset metriikat + DB-toleranssit; verdiktiin vain toleranssilliset
+  const { data: tolerances } = useTolerances()
+  const metrics = buildMetrics('US', latest, (chartData ?? []) as unknown as Record<string, unknown>[], tolerances)
   const verdictMetrics = metrics.filter(hasTolerance)
   const v = deriveVerdict(verdictMetrics)
   const verdictDevice = {

@@ -11,6 +11,7 @@ import { PngViewer } from '../components/qa/PngViewer'
 import { RoiOverlay, type Roi } from '../components/qa/RoiOverlay'
 import { PagedTrendPanel } from '../components/qa/PagedTrendPanel'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
+import { useTolerances } from '../lib/qa/useTolerances'
 import { hasTolerance, deriveVerdict, deriveStatus, failingDetails } from '../lib/qa/status'
 import type { Status } from '../lib/qa/types'
 import type { ReportContext } from '../components/qa/ReportTab'
@@ -63,8 +64,9 @@ export default function CTDeviceDetails() {
   const activeIdx = selectedIdx ?? (defaultActiveIdx >= 0 ? defaultActiveIdx : undefined)
   const handlePointClick = useCallback((idx: number) => setSelectedIdx((prev) => (prev === idx ? null : idx)), [])
 
-  // Config-vetoiset metriikat; verdiktiin vain toleranssilliset
-  const metrics = buildMetrics('CT', latest, (chartData ?? []) as Record<string, unknown>[])
+  // Config-vetoiset metriikat + DB-toleranssit; verdiktiin vain toleranssilliset
+  const { data: tolerances } = useTolerances()
+  const metrics = buildMetrics('CT', latest, (chartData ?? []) as Record<string, unknown>[], tolerances)
   const verdictMetrics = metrics.filter(hasTolerance)
   const rois = (latest?.hu_roi_map as Roi[] | undefined) ?? []
   const roiStatus: Record<string, Status> = Object.fromEntries(

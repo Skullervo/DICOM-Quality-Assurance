@@ -9,6 +9,7 @@ import { DeviceInfo } from '../components/qa/DeviceInfo'
 import { PngViewer } from '../components/qa/PngViewer'
 import { PagedTrendPanel } from '../components/qa/PagedTrendPanel'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
+import { useTolerances } from '../lib/qa/useTolerances'
 import { hasTolerance, deriveVerdict, failingDetails } from '../lib/qa/status'
 import type { ReportContext } from '../components/qa/ReportTab'
 
@@ -71,8 +72,9 @@ export default function XrayDeviceDetails() {
   const chipMtf = num(selectedPoint?.mtf_50_percent ?? latest?.mtf_50_percent)
   const chipCnr = num(selectedPoint?.median_cnr ?? latest?.median_cnr)
 
-  // Config-vetoiset metriikat; verdiktiin vain toleranssilliset
-  const metrics = buildMetrics('XR', latest, (chartData ?? []) as Record<string, unknown>[])
+  // Config-vetoiset metriikat + DB-toleranssit; verdiktiin vain toleranssilliset
+  const { data: tolerances } = useTolerances()
+  const metrics = buildMetrics('XR', latest, (chartData ?? []) as Record<string, unknown>[], tolerances)
   const verdictMetrics = metrics.filter(hasTolerance)
   const v = deriveVerdict(verdictMetrics)
   const verdictDevice = {

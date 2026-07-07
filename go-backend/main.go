@@ -26,6 +26,11 @@ func main() {
 	}
 	defer db.Close()
 
+	// Toleranssitaulu + siemenarvot (idempotentti)
+	if err := handlers.EnsureTolerances(db); err != nil {
+		log.Printf("warning: tolerance seed failed: %v", err)
+	}
+
 	r := chi.NewRouter()
 
 	// Middleware
@@ -73,6 +78,10 @@ func main() {
 			r.Get("/ct/analysis-image/{instance}/{type}", handlers.CTAnalysisImage(db))
 			r.Get("/ct/series-meta/{instance}", handlers.CTSeriesMeta)
 			r.Get("/ct/series-image/{instance}", handlers.CTSeriesImage)
+
+			// Toleranssit (hyvaksyttavyysrajat) — GET kaikki + PUT yksi metriikka
+			r.Get("/tolerances", handlers.GetTolerances(db))
+			r.Put("/tolerances/{modality}/{metric}", handlers.UpdateTolerance(db))
 
 			// Laitteen metatietojen paivitys (UPDATE kaikille laitteen mittauksille)
 			r.Put("/us/device-meta/{station}", handlers.UpdateDevice(db, "ultrasound", "stationname", "institutionname", "manufacturer", "manufacturermodelname"))

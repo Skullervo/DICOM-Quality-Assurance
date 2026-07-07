@@ -4,6 +4,7 @@ import Home from './pages/Home'
 import Modaliteetit from './pages/Modaliteetit'
 import Laitteet from './pages/Laitteet'
 import LaitteetModaliteetti from './pages/LaitteetModaliteetti'
+import Rajat from './pages/Rajat'
 import Tietoa from './pages/Tietoa'
 import USInstitutions from './pages/USInstitutions'
 import USUnits from './pages/USUnits'
@@ -37,6 +38,9 @@ export default function App() {
           <Route path="laitteet/us" element={<LaitteetModaliteetti modality="us" />} />
           <Route path="laitteet/xray" element={<LaitteetModaliteetti modality="xray" />} />
           <Route path="laitteet/ct" element={<LaitteetModaliteetti modality="ct" />} />
+
+          {/* Hyväksyttävyysrajat */}
+          <Route path="rajat" element={<Rajat />} />
 
           {/* Ultraääni */}
           <Route path="us" element={<USOverview />} />

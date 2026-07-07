@@ -38,6 +38,19 @@ export interface USDataPoint {
   instance: string;
 }
 
+// Toleranssi (hyväksyttävyysrajat) per modaliteetti + metriikka
+export interface Tolerance {
+  modality: string;
+  metric_id: string;
+  nominal: number | null;
+  lower_limit: number | null;
+  upper_limit: number | null;
+  action_limit: number | null;
+  lower_warn: number | null;
+  upper_warn: number | null;
+}
+export type ToleranceUpdate = Omit<Tolerance, 'modality' | 'metric_id'>;
+
 // Yhteinen laite/unit-rakenne (US, XR, CT)
 export interface DeviceUnit {
   station_name: string;
@@ -124,6 +137,18 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text }),
     });
+    return res.json();
+  },
+
+  // Toleranssit (hyväksyttävyysrajat)
+  tolerances: () => fetchJSON<Tolerance[]>('/tolerances'),
+  updateTolerance: async (modality: string, metric: string, data: ToleranceUpdate): Promise<{ status?: string }> => {
+    const res = await fetch(`${BASE}/tolerances/${encodeURIComponent(modality)}/${encodeURIComponent(metric)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(`API error ${res.status}: ${res.statusText}`);
     return res.json();
   },
 
