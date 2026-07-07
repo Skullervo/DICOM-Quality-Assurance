@@ -95,7 +95,7 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
       </div>
       <div style={fill ? { flex: 1, minHeight: 0 } : { height: 132 }}>
         <ResponsiveContainer>
-          <LineChart data={history} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+          <LineChart data={history} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}
             style={onSelect ? { cursor: 'pointer' } : undefined}
             onClick={(s) => {
               if (!onSelect) return
