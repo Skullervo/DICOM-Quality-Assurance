@@ -5,6 +5,7 @@ import { Menu } from 'lucide-react'
 const navItems = [
   { path: '/', label: 'Aloitus', exact: true },
   { path: '/modaliteetit', label: 'Modaliteetit', match: ['/modaliteetit', '/us', '/xray', '/ct'] },
+  { path: '/laitteet', label: 'Laitteet', match: ['/laitteet'] },
   { path: '/tietoa', label: 'Tietoa', exact: true },
 ]
 

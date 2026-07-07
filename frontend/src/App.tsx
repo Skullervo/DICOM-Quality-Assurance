@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
 import Home from './pages/Home'
 import Modaliteetit from './pages/Modaliteetit'
+import Laitteet from './pages/Laitteet'
+import LaitteetModaliteetti from './pages/LaitteetModaliteetti'
 import Tietoa from './pages/Tietoa'
 import USInstitutions from './pages/USInstitutions'
 import USUnits from './pages/USUnits'
@@ -29,6 +31,12 @@ export default function App() {
           <Route index element={<Home />} />
           <Route path="modaliteetit" element={<Modaliteetit />} />
           <Route path="tietoa" element={<Tietoa />} />
+
+          {/* Laitteet — modaliteettikohtaiset laitetaulukot */}
+          <Route path="laitteet" element={<Laitteet />} />
+          <Route path="laitteet/us" element={<LaitteetModaliteetti modality="us" />} />
+          <Route path="laitteet/xray" element={<LaitteetModaliteetti modality="xray" />} />
+          <Route path="laitteet/ct" element={<LaitteetModaliteetti modality="ct" />} />
 
           {/* Ultraääni */}
           <Route path="us" element={<USOverview />} />
