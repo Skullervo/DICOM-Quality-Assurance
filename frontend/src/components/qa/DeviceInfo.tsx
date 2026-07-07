@@ -5,7 +5,7 @@ export type InfoField = { label: string; value: string }
 
 function Chip({ field }: { field: InfoField }) {
   return (
-    <div style={{ background: 'var(--surface-2)', borderRadius: 6, padding: '5px 8px', minWidth: 0 }}>
+    <div style={{ background: 'var(--surface)', borderRadius: 6, padding: '5px 8px', minWidth: 0 }}>
       <div style={{ fontSize: 9, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '.04em' }}>{field.label}</div>
       <div className="num" title={field.value || undefined}
         style={{ fontSize: 12.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
