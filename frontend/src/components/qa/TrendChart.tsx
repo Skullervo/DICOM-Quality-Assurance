@@ -95,7 +95,7 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
       </div>
       <div style={fill ? { flex: 1, minHeight: 0 } : { height: 132 }}>
         <ResponsiveContainer>
-          <LineChart data={history} margin={{ top: 4, right: 8, left: -6, bottom: 0 }}
+          <LineChart data={history} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
             style={onSelect ? { cursor: 'pointer' } : undefined}
             onClick={(s) => {
               if (!onSelect) return
@@ -105,9 +105,9 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
               if (idx != null) onSelect(idx)
             }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-            <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'var(--text-muted)', fontFamily: 'var(--mono)' }} interval="preserveStartEnd" tickFormatter={(d) => formatDate(String(d))} />
+            <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--text-muted)', fontFamily: 'var(--mono)' }} interval="preserveStartEnd" tickFormatter={(d) => formatDate(String(d))} />
             <YAxis domain={[lo, hi]} ticks={yTicks} tickFormatter={(v) => fmt(Number(v), precision)}
-              tick={{ fontSize: 9, fill: 'var(--text-muted)', fontFamily: 'var(--mono)' }} width={52} />
+              tick={{ fontSize: 11, fill: 'var(--text-muted)', fontFamily: 'var(--mono)' }} width={60} />
             {(lowerLimit != null || upperLimit != null) && (
               <ReferenceArea y1={lowerLimit ?? lo} y2={upperLimit ?? hi} fill="var(--tolerance-band)" strokeOpacity={0} />
             )}
