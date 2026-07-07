@@ -78,9 +78,6 @@ export default function XrayDeviceDetails() {
     previousAt: formatDay(detail?.[1]?.content_date as string | undefined),
   }
 
-  const aiCtx = latest
-    ? `Röntgenlaite: ${latest.station_name ?? dUnit}\nkVp: ${latest.kvp ?? '?'}, mAs: ${latest.exposure_mAs ?? '?'}\nTasaisuus: ${rnd(chipUnif)} %\nMTF 50%: ${rnd(chipMtf)} lp/mm\nMediaani CNR: ${rnd(chipCnr)}\nVerdiktti: ${VERDICT_FI[v.verdict]} (${v.pass}/${v.measured})`
-    : `Röntgenlaite: ${dUnit}`
 
   const reportCtx: ReportContext = {
     sections: latest
@@ -185,7 +182,6 @@ export default function XrayDeviceDetails() {
       {/* PÄÄALUE — välilehdet (Analyysi / Kysy tekoälyltä / Raportoi ongelmasta) */}
       <MainArea
         onTabChange={setActiveTab}
-        aiContext={aiCtx}
         reportContext={reportCtx}
         reportAttachments={reportAttachments}
         breadcrumb={

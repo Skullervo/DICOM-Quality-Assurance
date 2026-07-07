@@ -5,11 +5,13 @@
 import { useState } from 'react'
 import { Check, Send } from 'lucide-react'
 import { api } from '../../api/client'
-import type { ReportAttachment } from './ReportTab'
+import { ContextView } from './ContextView'
+import { contextToText } from './contextText'
+import type { ReportAttachment, ReportContext } from './ReportTab'
 
 const label: React.CSSProperties = { fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 6 }
 
-export function AiChat({ context, attachments = [] }: { context: string; attachments?: ReportAttachment[] }) {
+export function AiChat({ context, attachments = [] }: { context: ReportContext; attachments?: ReportAttachment[] }) {
   const [messages, setMessages] = useState<{ role: 'user' | 'ai'; text: string; imgs?: string[] }[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -34,7 +36,8 @@ export function AiChat({ context, attachments = [] }: { context: string; attachm
     setSelected(new Set())
     setLoading(true)
     try {
-      const d = await api.askAI(q + refText)
+      // Liitä laitteen konteksti kysymykseen, jotta AI tuntee mittauksen
+      const d = await api.askAI(`Laitteen konteksti:\n${contextToText(context)}\n\nKysymys: ${q}${refText}`)
       setMessages(prev => [...prev, { role: 'ai', text: d.answer ?? d.error ?? 'Virhe' }])
     } catch {
       setMessages(prev => [...prev, { role: 'ai', text: 'Pyyntö epäonnistui' }])
@@ -53,14 +56,7 @@ export function AiChat({ context, attachments = [] }: { context: string; attachm
         {/* Vasen: keskustelu + syöte */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 0 }}>
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div>
-              <div style={label}>Konteksti</div>
-              <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
-                <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'var(--sans)', fontSize: 13, lineHeight: 1.55, color: 'var(--text)', margin: 0 }}>
-                  {context}
-                </pre>
-              </div>
-            </div>
+            <ContextView context={context} />
 
             {messages.map((m, i) => (
               <div key={i} style={{
@@ -88,6 +84,30 @@ export function AiChat({ context, attachments = [] }: { context: string; attachm
                 Ladataan vastausta…
               </div>
             )}
+          </div>
+
+          {/* Syöte + lähetä — vasemmassa sarakkeessa (sama leveys kuin konteksti) */}
+          <div>
+            <div style={label}>Kysymys</div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+              <textarea value={input} onChange={(e) => setInput(e.target.value)} rows={2}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+                style={{
+                  flex: 1, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8,
+                  padding: 12, color: 'var(--text)', fontSize: 13.5, resize: 'none', outline: 'none',
+                  boxSizing: 'border-box', fontFamily: 'var(--sans)', lineHeight: 1.5,
+                }}
+                placeholder="Kirjoita kysymys…" />
+              <button onClick={send} disabled={loading || !input.trim()} aria-label="Lähetä kysymys"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 7,
+                  background: '#5b5bd6', border: 'none', color: '#fff', borderRadius: 8,
+                  padding: '10px 18px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+                  opacity: loading || !input.trim() ? 0.6 : 1,
+                }}>
+                <Send size={15} aria-hidden />{loading ? 'Lähetetään…' : 'Lähetä'}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -123,30 +143,6 @@ export function AiChat({ context, attachments = [] }: { context: string; attachm
             </div>
           </div>
         )}
-      </div>
-
-      {/* Syöte + lähetä samalla rivillä — tekstikentän ja napin alareunat linjassa */}
-      <div>
-        <div style={label}>Kysymys</div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-          <textarea value={input} onChange={(e) => setInput(e.target.value)} rows={2}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-            style={{
-              flex: 1, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8,
-              padding: 12, color: 'var(--text)', fontSize: 13.5, resize: 'none', outline: 'none',
-              boxSizing: 'border-box', fontFamily: 'var(--sans)', lineHeight: 1.5,
-            }}
-            placeholder="Kirjoita kysymys…" />
-          <button onClick={send} disabled={loading || !input.trim()} aria-label="Lähetä kysymys"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 7,
-              background: '#5b5bd6', border: 'none', color: '#fff', borderRadius: 8,
-              padding: '10px 18px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
-              opacity: loading || !input.trim() ? 0.6 : 1,
-            }}>
-            <Send size={15} aria-hidden />{loading ? 'Lähetetään…' : 'Lähetä'}
-          </button>
-        </div>
       </div>
     </div>
   )

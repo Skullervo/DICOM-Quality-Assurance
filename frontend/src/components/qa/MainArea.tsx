@@ -12,10 +12,9 @@ const TABS: { id: TabId; label: string; Icon: typeof BarChart3 }[] = [
   { id: 'raportti', label: 'Raportoi ongelmasta', Icon: Flag },
 ]
 
-export function MainArea({ breadcrumb, aiContext, reportContext, reportAttachments, children, onTabChange }: {
+export function MainArea({ breadcrumb, reportContext, reportAttachments, children, onTabChange }: {
   breadcrumb: ReactNode
-  aiContext: string
-  reportContext: ReportContext // raportin automaattinen konteksti (read-only laatikot)
+  reportContext: ReportContext // automaattinen konteksti (raportti + AI, ContextView)
   reportAttachments?: ReportAttachment[] // valittavat kuvaliitteet raporttiin
   children: ReactNode // Analyysi-välilehden sisältö (verdiktti + KPI + trendit)
   onTabChange?: (t: TabId) => void // ilmoita aktiivinen välilehti sivulle (esim. paneelin piilotus)
@@ -52,7 +51,7 @@ export function MainArea({ breadcrumb, aiContext, reportContext, reportAttachmen
 
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         {tab === 'analyysi' && <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14, minHeight: '100%', boxSizing: 'border-box' }}>{children}</div>}
-        {tab === 'ai' && <div style={{ height: '100%' }}><AiChat context={aiContext} attachments={reportAttachments} /></div>}
+        {tab === 'ai' && <div style={{ height: '100%' }}><AiChat context={reportContext} attachments={reportAttachments} /></div>}
         {tab === 'raportti' && <ReportTab context={reportContext} attachments={reportAttachments} />}
       </div>
     </main>

@@ -75,9 +75,6 @@ export default function CTDeviceDetails() {
   }
 
   const v = deriveVerdict(verdictMetrics)
-  const aiCtx = latest
-    ? `CT-laite: ${latest.station_name ?? station}\nFantomi: ${latest.phantom_model ?? '?'}\nkVp: ${latest.kvp ?? '?'}, mAs: ${latest.exposure_mAs ?? '?'}\nHU Ilma: ${rnd(latest.hu_air, 0)}, Akryyli: ${rnd(latest.hu_acrylic, 0)}, Teflon: ${rnd(latest.hu_teflon, 0)} HU\nUniformiteetti: ${rnd(latest.uniformity_index)} %, MTF 50%: ${rnd(latest.mtf_50_percent)} lp/cm\nVerdiktti: ${VERDICT_FI[v.verdict]} (${v.pass}/${v.measured})`
-    : `CT-laite: ${station}`
 
   const reportCtx: ReportContext = {
     sections: latest
@@ -189,7 +186,6 @@ export default function CTDeviceDetails() {
       {/* PÄÄALUE — välilehdet (Analyysi / Kysy tekoälyltä / Raportoi ongelmasta) */}
       <MainArea
         onTabChange={setActiveTab}
-        aiContext={aiCtx}
         reportContext={reportCtx}
         reportAttachments={reportAttachments}
         breadcrumb={

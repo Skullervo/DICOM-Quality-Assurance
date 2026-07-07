@@ -121,9 +121,6 @@ export default function USDeviceDetails() {
     previousAt: formatDay((detail?.[1]?.studydate ?? detail?.[1]?.contentdate) as string | undefined),
   }
 
-  const aiCtx = latest
-    ? `Ultraäänilaite: ${latest.stationname ?? s}\nHerkkyys: ${rnd(chipSDepth)} cm\nTasaisuus: ${rnd(chipUCov)} %\nEpäsymmetria: ${rnd(chipUSkew)}\nAnturityyppi: ${latest.tranducertype ?? '?'}\nVerdiktti: ${VERDICT_FI[v.verdict]} (${v.pass}/${v.measured})`
-    : `Ultraäänilaite: ${s}`
 
   const reportCtx: ReportContext = {
     sections: latest
@@ -243,7 +240,6 @@ export default function USDeviceDetails() {
       {/* PÄÄALUE — välilehdet (Analyysi / Kysy tekoälyltä / Raportoi ongelmasta) */}
       <MainArea
         onTabChange={setActiveTab}
-        aiContext={aiCtx}
         reportContext={reportCtx}
         reportAttachments={reportAttachments}
         breadcrumb={

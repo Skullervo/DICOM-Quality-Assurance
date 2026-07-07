@@ -4,6 +4,8 @@
 import { useState, type CSSProperties } from 'react'
 import { Send, Check } from 'lucide-react'
 import { api } from '../../api/client'
+import { ContextView } from './ContextView'
+import { contextToText } from './contextText'
 
 import type { FailingItem } from '../../lib/qa/status'
 
@@ -13,13 +15,6 @@ export type ReportContext = {
   sections: ReportSection[] // esim. DICOM-tiedot, Analyysitulokset — tiiviinä taulukkoina
   failing?: FailingItem[] // rajojen ulkopuoliset mittarit (rakenteisesti)
 }
-
-const failPill = (status: 'warn' | 'fail'): CSSProperties => ({
-  fontSize: 9.5, fontWeight: 700, letterSpacing: '.03em', textTransform: 'uppercase',
-  padding: '2px 7px', borderRadius: 10, whiteSpace: 'nowrap', flexShrink: 0,
-  color: `var(--${status})`, background: `var(--${status}-bg)`,
-  border: `1px solid color-mix(in srgb, var(--${status}) 40%, transparent)`,
-})
 
 const SEVERITIES = ['Matala', 'Kohtalainen', 'Korkea']
 
@@ -61,7 +56,6 @@ export function ReportTab({ context, attachments = [] }: { context: ReportContex
 
   const usable = attachments.filter((a) => !broken.has(a.key))
   const hasAtt = usable.length > 0
-  const failing = context.failing ?? []
 
   async function send() {
     setStatus('loading')
@@ -71,8 +65,7 @@ export function ReportTab({ context, attachments = [] }: { context: ReportContex
       : ''
     const rep = (reporter.trim() || email.trim())
       ? `Raportoija: ${reporter.trim()}${email.trim() ? ` <${email.trim()}>` : ''}\n` : ''
-    const ctx = context.sections.map((sec) => `${sec.title}:\n${sec.rows.map((r) => `  ${r.label}: ${r.value}`).join('\n')}`).join('\n\n')
-      + (failing.length ? `\n\nRajan ulkopuolella:\n${failing.map((x) => `  - ${x.label} ${x.value} [${x.status === 'fail' ? 'HYLÄTTY' : 'VAROITUS'}${x.limit !== '—' ? ', raja ' + x.limit : ''}]`).join('\n')}` : '')
+    const ctx = contextToText(context)
     const kuvausBlock = kuvaus.trim() ? `\n\nKuvaus:\n${kuvaus.trim()}` : ''
     const extraBlock = extra.trim() ? `\n\nLisätiedot:\n${extra.trim()}` : ''
     try {
@@ -129,36 +122,8 @@ export function ReportTab({ context, attachments = [] }: { context: ReportContex
             </div>
           </div>
 
-          {/* Automaattinen konteksti — tiiviit taulukot (DICOM-tiedot, Analyysitulokset) */}
-          {context.sections.map((sec) => (
-            <div key={sec.title}>
-              <div style={labelStyle}>{sec.title}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 20 }}>
-                {sec.rows.map((r) => (
-                  <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'baseline', padding: '4px 0', borderBottom: '1px solid var(--border)', minWidth: 0 }}>
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{r.label}</span>
-                    <span className="num" title={r.value} style={{ fontSize: 12.5, color: 'var(--text)', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-
-          {failing.length > 0 && (
-            <div>
-              <div style={{ ...labelStyle, color: 'var(--warn)' }}>Rajan ulkopuolella</div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {failing.map((f) => (
-                  <div key={f.label} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0', borderBottom: '1px solid var(--border)' }}>
-                    <span style={failPill(f.status)}>{f.status === 'fail' ? 'Hylätty' : 'Varoitus'}</span>
-                    <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.label}</span>
-                    <span className="num" style={{ fontSize: 12.5, color: 'var(--text)', whiteSpace: 'nowrap' }}>{f.value}</span>
-                    <span style={{ fontSize: 11, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>raja {f.limit}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Automaattinen konteksti — tiiviit taulukot + Rajan ulkopuolella (jaettu ContextView) */}
+          <ContextView context={context} />
 
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 120 }}>
             <div style={labelStyle}>Kuvaus</div>
