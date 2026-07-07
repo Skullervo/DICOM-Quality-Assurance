@@ -5,21 +5,23 @@ import { BarChart3, Sparkles, Flag } from 'lucide-react'
 import { AiChat } from './AiChat'
 import { ReportTab, type ReportAttachment, type ReportContext } from './ReportTab'
 
-type TabId = 'analyysi' | 'ai' | 'raportti'
+export type TabId = 'analyysi' | 'ai' | 'raportti'
 const TABS: { id: TabId; label: string; Icon: typeof BarChart3 }[] = [
   { id: 'analyysi', label: 'Analyysi', Icon: BarChart3 },
   { id: 'ai', label: 'Kysy tekoälyltä', Icon: Sparkles },
   { id: 'raportti', label: 'Raportoi ongelmasta', Icon: Flag },
 ]
 
-export function MainArea({ breadcrumb, aiContext, reportContext, reportAttachments, children }: {
+export function MainArea({ breadcrumb, aiContext, reportContext, reportAttachments, children, onTabChange }: {
   breadcrumb: ReactNode
   aiContext: string
   reportContext: ReportContext // raportin automaattinen konteksti (read-only laatikot)
   reportAttachments?: ReportAttachment[] // valittavat kuvaliitteet raporttiin
   children: ReactNode // Analyysi-välilehden sisältö (verdiktti + KPI + trendit)
+  onTabChange?: (t: TabId) => void // ilmoita aktiivinen välilehti sivulle (esim. paneelin piilotus)
 }) {
   const [tab, setTab] = useState<TabId>('analyysi')
+  const selectTab = (id: TabId) => { setTab(id); onTabChange?.(id) }
   return (
     <main style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
       {/* Kiinteä 46px korkeus -> ylin jakoviiva kohdistuu vasemman paneelin otsikkoriviin */}
@@ -30,7 +32,7 @@ export function MainArea({ breadcrumb, aiContext, reportContext, reportAttachmen
             {TABS.map(({ id, label, Icon }) => {
               const active = tab === id
               return (
-                <button key={id} role="tab" aria-selected={active} onClick={() => setTab(id)}
+                <button key={id} role="tab" aria-selected={active} onClick={() => selectTab(id)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 7, background: 'none', border: 'none', cursor: 'pointer',
                     color: active ? 'var(--text)' : 'var(--text-muted)', fontSize: 12.5, fontWeight: active ? 600 : 400,

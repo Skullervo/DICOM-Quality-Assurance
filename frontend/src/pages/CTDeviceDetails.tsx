@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { C } from '../components/DeviceShared'
 import { VerdictBar } from '../components/qa/VerdictBar'
-import { MainArea } from '../components/qa/MainArea'
+import { MainArea, type TabId } from '../components/qa/MainArea'
 import { DeviceInfo } from '../components/qa/DeviceInfo'
 import { ImageViewer } from '../components/qa/ImageViewer'
 import { PngViewer } from '../components/qa/PngViewer'
@@ -42,6 +42,8 @@ export default function CTDeviceDetails() {
   const [imgSel, setImgSel] = useState('dicom')
   const [hoverRoi, setHoverRoi] = useState<string | null>(null)
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
+  const [activeTab, setActiveTab] = useState<TabId>('analyysi')
+  const panelHidden = activeTab !== 'analyysi' // piilota vasen paneeli AI-/raporttivälilehdillä
 
   const { data: detail } = useQuery<Record<string, unknown>[]>({
     queryKey: ['ct', 'device', station], queryFn: () => api.ctDeviceDetail(station), enabled: !!station,
@@ -98,9 +100,10 @@ export default function CTDeviceDetails() {
     : []
 
   return (
-    <div className="device-shell">
+    <div className="device-shell" style={panelHidden ? { gridTemplateColumns: '1fr', gridTemplateRows: '1fr' } : undefined}>
 
-      {/* === VASEN PANEELI === */}
+      {/* === VASEN PANEELI (piilotettu AI-/raporttivälilehdillä) === */}
+      {!panelHidden && (
       <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden',
         borderRight: `1px solid ${C.border}`, background: C.bg }}>
         <div className="shrink-0 flex items-center justify-between"
@@ -167,9 +170,11 @@ export default function CTDeviceDetails() {
         {/* Verdiktti — kompakti, vasemman paneelin alakulmassa */}
         {latest && <VerdictBar device={verdictDevice} metrics={verdictMetrics} compact card />}
       </div>
+      )}
 
       {/* PÄÄALUE — välilehdet (Analyysi / Kysy tekoälyltä / Raportoi ongelmasta) */}
       <MainArea
+        onTabChange={setActiveTab}
         aiContext={aiCtx}
         reportContext={reportCtx}
         reportAttachments={reportAttachments}

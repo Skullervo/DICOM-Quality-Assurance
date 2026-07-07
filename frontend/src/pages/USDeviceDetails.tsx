@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api, type USDataPoint, type USImageResponse } from '../api/client'
 import { C } from '../components/DeviceShared'
 import { VerdictBar } from '../components/qa/VerdictBar'
-import { MainArea } from '../components/qa/MainArea'
+import { MainArea, type TabId } from '../components/qa/MainArea'
 import { DeviceInfo } from '../components/qa/DeviceInfo'
 import { PagedTrendPanel } from '../components/qa/PagedTrendPanel'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
@@ -73,6 +73,8 @@ export default function USDeviceDetails() {
   const { station } = useParams<{ station: string }>()
   const s = station ? decodeURIComponent(station) : ''
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
+  const [activeTab, setActiveTab] = useState<TabId>('analyysi')
+  const panelHidden = activeTab !== 'analyysi' // piilota vasen paneeli AI-/raporttivälilehdillä
 
   const { data: detail } = useQuery<Record<string, unknown>[]>({
     queryKey: ['us', 'device', s], queryFn: () => api.usDeviceDetail(s), enabled: !!s,
@@ -141,9 +143,10 @@ export default function USDeviceDetails() {
     : []
 
   return (
-    <div className="device-shell">
+    <div className="device-shell" style={panelHidden ? { gridTemplateColumns: '1fr', gridTemplateRows: '1fr' } : undefined}>
 
-      {/* === VASEN PANEELI === */}
+      {/* === VASEN PANEELI (piilotettu AI-/raporttivälilehdillä) === */}
+      {!panelHidden && (
       <div style={{
         display: 'flex', flexDirection: 'column', overflow: 'hidden',
         borderRight: `1px solid ${C.border}`, background: C.bg,
@@ -222,9 +225,11 @@ export default function USDeviceDetails() {
         {/* Verdiktti — kompakti, vasemman paneelin alakulmassa */}
         {(latest || selectedPoint) && <VerdictBar device={verdictDevice} metrics={verdictMetrics} compact card />}
       </div>
+      )}
 
       {/* PÄÄALUE — välilehdet (Analyysi / Kysy tekoälyltä / Raportoi ongelmasta) */}
       <MainArea
+        onTabChange={setActiveTab}
         aiContext={aiCtx}
         reportContext={reportCtx}
         reportAttachments={reportAttachments}
