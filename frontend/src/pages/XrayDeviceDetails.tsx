@@ -155,7 +155,7 @@ export default function XrayDeviceDetails() {
         </div>
 
         {/* Verdiktti — kompakti, vasemman paneelin alakulmassa */}
-        {latest && <VerdictBar device={verdictDevice} metrics={verdictMetrics} compact />}
+        {latest && <VerdictBar device={verdictDevice} metrics={verdictMetrics} compact card />}
       </div>
 
       {/* PÄÄALUE — välilehdet (Analyysi / Kysy tekoälyltä / Raportoi ongelmasta) */}
