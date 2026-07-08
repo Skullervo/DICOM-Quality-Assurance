@@ -83,6 +83,7 @@ func main() {
 			r.Get("/us/measurements", handlers.Measurements(db, "ultrasound", "instance", "Instance", []string{"US"}, ""))
 			r.Get("/xray/measurements", handlers.Measurements(db, "xray_analysis", "series_id", "Series", []string{"CR", "DX"}, ""))
 			r.Get("/ct/measurements", handlers.Measurements(db, "ct_analysis", "instance", "Series", []string{"CT"}, "_0"))
+			r.Get("/measurement-image/{id}", handlers.MeasurementImage) // esikatselu orthanc-id:llä (US instanssi / CT-XR sarja)
 
 			// Toleranssit (hyvaksyttavyysrajat) — GET kaikki + PUT yksi metriikka
 			r.Get("/tolerances", handlers.GetTolerances(db))

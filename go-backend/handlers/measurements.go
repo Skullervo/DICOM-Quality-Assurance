@@ -7,7 +7,30 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+
+	"github.com/go-chi/chi/v5"
 )
+
+// MeasurementImage palauttaa mittauksen esikatselukuvan (PNG) orthanc-id:llä.
+// id voi olla instanssi (US) tai sarja (CT/XR): kokeillaan ensin instanssi-
+// esikatselua, muuten haetaan sarjan keskimmäinen instanssi ja esikatsellaan se.
+func MeasurementImage(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	data, _, err := fetchOrthancPreviewRaw(id) // instanssi?
+	if err != nil {
+		if ids, e2 := seriesOrderedInstances(id); e2 == nil && len(ids) > 0 { // sarja -> keskileike
+			data, _, err = fetchOrthancPreviewRaw(ids[len(ids)/2])
+		}
+	}
+	if err != nil {
+		http.Error(w, "preview not available", http.StatusBadGateway)
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	w.Write(data) //nolint:errcheck
+}
 
 // Mittaukset: listaa modaliteetin KAIKKI Orthanc-mittaukset ja merkitsee onko
 // niille tehty analyysi (rivi analyysitaulussa) vai epäonnistui/kesken (ei riviä).

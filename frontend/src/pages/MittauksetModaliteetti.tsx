@@ -1,7 +1,7 @@
 // Modaliteettikohtainen mittaustaulukko: listaa KAIKKI Orthanc-mittaukset ja
 // merkitsee analyysin tilan (Analysoitu / Epäonnistui). Epäonnistuneet eivät
 // ole DB:ssä — ne tulevat Orthancista ja tila ristiinviitataan analyysitauluun.
-import { useState, type CSSProperties } from 'react'
+import { useState, useEffect, type CSSProperties } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api, type Measurement } from '../api/client'
@@ -37,6 +37,15 @@ type Filter = 'all' | 'analyzed' | 'failed'
 export default function MittauksetModaliteetti({ modality }: { modality: MittausModaliteetti }) {
   const cfg = CONFIG[modality]
   const [filter, setFilter] = useState<Filter>('all')
+  const [zoom, setZoom] = useState<Measurement | null>(null)
+  const [broken, setBroken] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    if (!zoom) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setZoom(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [zoom])
 
   const { data, isLoading, error } = useQuery<Measurement[]>({
     queryKey: ['mittaukset', modality],
@@ -85,6 +94,7 @@ export default function MittauksetModaliteetti({ modality }: { modality: Mittaus
         <table className="modern-table">
           <thead>
             <tr>
+              <th>Kuva</th>
               <th>Laite</th>
               <th>Instituutio</th>
               <th className="hide-mobile">Pvm</th>
@@ -98,6 +108,16 @@ export default function MittauksetModaliteetti({ modality }: { modality: Mittaus
             {rows.length > 0 ? (
               rows.map((m) => (
                 <tr key={m.orthanc_id}>
+                  <td>
+                    {broken.has(m.orthanc_id) ? (
+                      <span style={{ color: 'var(--text-faint)', fontSize: '0.8rem' }}>—</span>
+                    ) : (
+                      <img src={api.measurementImageUrl(m.orthanc_id)} alt="" loading="lazy"
+                        onError={() => setBroken((s) => new Set(s).add(m.orthanc_id))}
+                        onClick={() => setZoom(m)}
+                        style={{ height: 40, width: 56, objectFit: 'cover', borderRadius: 4, background: '#000', cursor: 'zoom-in', display: 'block' }} />
+                    )}
+                  </td>
                   <td>
                     {m.status === 'analyzed'
                       ? <Link to={cfg.deviceLink(m)}>{m.station_name || '—'}</Link>
@@ -118,11 +138,29 @@ export default function MittauksetModaliteetti({ modality }: { modality: Mittaus
                 </tr>
               ))
             ) : (
-              <tr><td colSpan={7}>Ei mittauksia.</td></tr>
+              <tr><td colSpan={8}>Ei mittauksia.</td></tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {/* Suurennuslightbox — klikkaus pikkukuvasta */}
+      {zoom && (
+        <div onClick={() => setZoom(null)} role="dialog" aria-label="Suurennettu kuva"
+          style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(0,0,0,.85)', cursor: 'zoom-out',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 }}>
+          <img src={api.measurementImageUrl(zoom.orthanc_id)} alt=""
+            style={{ maxWidth: '92vw', maxHeight: '80vh', objectFit: 'contain', borderRadius: 6, background: '#000' }} />
+          <div onClick={(e) => e.stopPropagation()} style={{ cursor: 'default', textAlign: 'center', color: 'var(--text)',
+            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 14px', maxWidth: '90vw' }}>
+            <div style={{ fontWeight: 600, fontSize: 13 }}>{zoom.station_name || '—'} · {zoom.institution_name} · {fmtDate(zoom.study_date)}</div>
+            <div style={{ marginTop: 6 }}>
+              <span style={pill(zoom.status === 'analyzed')}>{zoom.status === 'analyzed' ? 'Analysoitu' : 'Epäonnistui'}</span>
+              {zoom.status === 'failed' && zoom.reason ? <span style={{ color: 'var(--text-muted)', marginLeft: 8, fontSize: '0.85rem' }}>{zoom.reason}</span> : null}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

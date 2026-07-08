@@ -156,6 +156,7 @@ export const api = {
 
   // Mittaukset (kaikki Orthanc-mittaukset + analyysin tila)
   measurements: (modality: 'us' | 'xray' | 'ct') => fetchJSON<Measurement[]>(`/${modality}/measurements`),
+  measurementImageUrl: (orthancId: string) => `${BASE}/measurement-image/${encodeURIComponent(orthancId)}`,
 
   // Toleranssit (hyväksyttävyysrajat)
   tolerances: () => fetchJSON<Tolerance[]>('/tolerances'),
