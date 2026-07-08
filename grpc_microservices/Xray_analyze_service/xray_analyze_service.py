@@ -8,8 +8,7 @@ import xray_analyze_service_pb2
 import xray_analyze_service_pb2_grpc
 import fetch_service_pb2
 import fetch_service_pb2_grpc
-import psycopg2
-import psycopg2.extras
+import pymssql
 import numpy as np
 import io
 import json
@@ -20,6 +19,8 @@ import pydicom
 from pydicom.errors import InvalidDicomError
 from time import time as timer
 import requests
+import threading
+import time
 import logging
 
 import matplotlib
@@ -180,17 +181,20 @@ except ImportError:
 
 # Orthanc ja Fetch Service -osoitteet
 ORTHANC_URL = os.getenv("ORTHANC_URL", "http://localhost:8042")
+ORTHANC_USER = os.getenv("ORTHANC_USERNAME", "admin")
+ORTHANC_PASS = os.getenv("ORTHANC_PASSWORD", "")
 FETCH_SERVICE_ADDRESS = os.getenv("FETCH_SERVICE_HOST", "localhost:50051")
 
 # Natiiviröntgenin modaliteetit (CR = Computed Radiography, DX = Digital X-ray)
 XRAY_MODALITIES = ("CR", "DX")
 
+# MS SQL Server (pymssql). Skeema luodaan scripts/schema_mssql.sql:ssä.
 DB_CONFIG = {
-    "dbname": os.getenv("DATABASE_NAME", "QA-results"),
-    "user": os.getenv("DATABASE_USER", "postgres"),
+    "database": os.getenv("DATABASE_NAME", "QA-results"),
+    "user": os.getenv("DATABASE_USER", "sa"),
     "password": os.getenv("DATABASE_PASSWORD", ""),
-    "host": os.getenv("DATABASE_HOST", "localhost"),
-    "port": os.getenv("DATABASE_PORT", "5432"),
+    "server": os.getenv("DATABASE_HOST", "autoqad-mssql"),
+    "port": os.getenv("DATABASE_PORT", "1433"),
 }
 
 logger = logging.getLogger(__name__)
@@ -198,101 +202,41 @@ logger = logging.getLogger(__name__)
 
 def connect_db():
     """Luo tietokantayhteys ja varmista, että xray_analysis-taulu on olemassa."""
-    conn = psycopg2.connect(**DB_CONFIG)
-    cur = conn.cursor()
+    return pymssql.connect(**DB_CONFIG)
+
+
+def _ensure_failures_table(cur):
     cur.execute("""
-        CREATE TABLE IF NOT EXISTS xray_analysis (
-            id SERIAL PRIMARY KEY,
-            instance TEXT UNIQUE,
-            series_id TEXT,
-            processed_at TIMESTAMP DEFAULT NOW(),
-
-            -- DICOM metadata
-            content_date TEXT,
-            content_time TEXT,
-            device_serial_number TEXT,
-            instance_number TEXT,
-            institution_name TEXT,
-            institutional_department_name TEXT,
-            manufacturer TEXT,
-            manufacturer_model_name TEXT,
-            modality TEXT,
-            patient_id TEXT,
-            patient_name TEXT,
-            station_name TEXT,
-            series_date TEXT,
-            study_date TEXT,
-
-            -- X-ray kuvausparametrit
-            kvp TEXT,
-            exposure_time TEXT,
-            tube_current TEXT,
-            filter_type TEXT,
-            grid_info TEXT,
-            distance_source_to_detector TEXT,
-            focal_spot TEXT,
-            protocol_name TEXT,
-            exposure_mAs TEXT,
-
-            -- Uniformity
-            uniformity_center FLOAT,
-            uniformity_deviation FLOAT,
-            bg_mean FLOAT,
-
-            -- High contrast (Cu-kiila, 7 paksuutta, mean + std)
-            cu_000_mean FLOAT,
-            cu_030_mean FLOAT,
-            cu_065_mean FLOAT,
-            cu_100_mean FLOAT,
-            cu_140_mean FLOAT,
-            cu_185_mean FLOAT,
-            cu_230_mean FLOAT,
-            cu_000_std FLOAT,
-            cu_030_std FLOAT,
-            cu_065_std FLOAT,
-            cu_100_std FLOAT,
-            cu_140_std FLOAT,
-            cu_185_std FLOAT,
-            cu_230_std FLOAT,
-
-            -- Low contrast (6 tasoa)
-            lc_08_contrast FLOAT,
-            lc_12_contrast FLOAT,
-            lc_20_contrast FLOAT,
-            lc_28_contrast FLOAT,
-            lc_40_contrast FLOAT,
-            lc_56_contrast FLOAT,
-            low_contrast_details JSONB,
-
-            -- Laatumetriikat
-            median_contrast FLOAT,
-            median_cnr FLOAT,
-            mtf_50_percent FLOAT,
-            num_contrast_rois_seen INTEGER,
-
-            -- Phantom-geometria
-            phantom_angle FLOAT,
-            phantom_center_x FLOAT,
-            phantom_center_y FLOAT,
-            phantom_area FLOAT,
-            side_length FLOAT,
-
-            -- MTF-data (JSON)
-            mtf_data JSONB,
-
-            -- Analyysin metatiedot
-            analysis_type TEXT,
-            analysis_version TEXT,
-            processing_time FLOAT,
-
-            -- Analyysikuvat
-            contrast_rois_image BYTEA,
-            mtf_curve_image BYTEA
+        IF OBJECT_ID('dbo.analysis_failures','U') IS NULL
+        CREATE TABLE dbo.analysis_failures (
+            modality NVARCHAR(8) NOT NULL,
+            orthanc_id NVARCHAR(128) NOT NULL,
+            station_name NVARCHAR(256) NULL,
+            reason NVARCHAR(1000) NULL,
+            failed_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+            CONSTRAINT pk_analysis_failures PRIMARY KEY (modality, orthanc_id)
         )
     """)
-    conn.commit()
-    cur.close()
-    return conn
+
+
+def record_failure(cur, orthanc_id, station, reason):
+    """Tallenna epäonnistuneen analyysin syy (upsert). orthanc_id = XR:llä series_id."""
+    try:
+        _ensure_failures_table(cur)
+        cur.execute("DELETE FROM analysis_failures WHERE modality=%s AND orthanc_id=%s", ("XR", orthanc_id))
+        cur.execute(
+            "INSERT INTO analysis_failures (modality, orthanc_id, station_name, reason) VALUES (%s, %s, %s, %s)",
+            ("XR", orthanc_id, (station or "")[:256], (reason or "")[:1000]))
+    except Exception as e:  # noqa: BLE001
+        logger.error("record_failure error: %s", e)
+
+
+def clear_failure(cur, orthanc_id):
+    """Poista mahdollinen epäonnistumismerkintä (sarja onnistui myöhemmin)."""
+    try:
+        cur.execute("DELETE FROM analysis_failures WHERE modality=%s AND orthanc_id=%s", ("XR", orthanc_id))
+    except Exception as e:  # noqa: BLE001
+        logger.error("clear_failure error: %s", e)
 
 
 def get_fetch_stub():
@@ -454,7 +398,7 @@ def insert_xray_analysis(cur, instance_id, series_id, metadata, analysis,
             manufacturer, manufacturer_model_name, modality, patient_id, patient_name,
             station_name, series_date, study_date,
             kvp, exposure_time, tube_current, filter_type, grid_info,
-            distance_source_to_detector, focal_spot, protocol_name, "exposure_mAs",
+            distance_source_to_detector, focal_spot, protocol_name, exposure_mas,
             uniformity_center, uniformity_deviation, bg_mean,
             cu_000_mean, cu_030_mean, cu_065_mean, cu_100_mean,
             cu_140_mean, cu_185_mean, cu_230_mean,
@@ -519,9 +463,9 @@ def insert_xray_analysis(cur, instance_id, series_id, metadata, analysis,
         analysis.get("analysis_type", "Normi13"),
         analysis.get("analysis_version", "0.1"),
         processing_time,
-        psycopg2.Binary(contrast_rois_bytes) if contrast_rois_bytes else None,
-        psycopg2.Binary(mtf_lp_bytes) if mtf_lp_bytes else None,
-        psycopg2.Binary(mtf_curve_bytes) if mtf_curve_bytes else None,
+        contrast_rois_bytes,
+        mtf_lp_bytes,
+        mtf_curve_bytes,
     ))
 
 
@@ -530,7 +474,8 @@ class XrayAnalyzeService(xray_analyze_service_pb2_grpc.XrayAnalyzeServiceService
         logger.info("Received request to analyze all X-ray series in Orthanc")
 
         # Haetaan kaikki sarjat Orthancista
-        response = requests.get(f"{ORTHANC_URL}/series")
+        auth = (ORTHANC_USER, ORTHANC_PASS) if ORTHANC_PASS else None
+        response = requests.get(f"{ORTHANC_URL}/series", auth=auth)
         if response.status_code != 200:
             logger.error("Error: Could not fetch series from Orthanc")
             context.set_code(grpc.StatusCode.NOT_FOUND)
@@ -555,7 +500,7 @@ class XrayAnalyzeService(xray_analyze_service_pb2_grpc.XrayAnalyzeServiceService
             logger.info("Processing series ID: %s", series_id)
 
             # Haetaan sarjan instanssit Orthancista
-            instance_response = requests.get(f"{ORTHANC_URL}/series/{series_id}/instances")
+            instance_response = requests.get(f"{ORTHANC_URL}/series/{series_id}/instances", auth=auth)
             if instance_response.status_code != 200:
                 logger.error("Could not fetch instances for series %s", series_id)
                 continue
@@ -638,6 +583,8 @@ class XrayAnalyzeService(xray_analyze_service_pb2_grpc.XrayAnalyzeServiceService
 
                 except Exception as e:
                     logger.error("Analysis failed for instance %s: %s", instance_id, e)
+                    record_failure(cur, series_id, str(ds.get("StationName", "")), str(e))
+                    conn.commit()
                     continue
                 finally:
                     if tmp_path and os.path.exists(tmp_path):
@@ -650,16 +597,17 @@ class XrayAnalyzeService(xray_analyze_service_pb2_grpc.XrayAnalyzeServiceService
                 analysis = extract_analysis_results(results, IQ)
 
                 # Tallennetaan tietokantaan
-                try:
-                    insert_xray_analysis(
-                        cur, instance_id, series_id, metadata, analysis,
-                        processing_time, contrast_rois_bytes, mtf_lp_bytes, mtf_curve_bytes
-                    )
-                    analyzed_count += 1
-                except psycopg2.IntegrityError:
-                    conn.rollback()
+                # Duplikaattitarkistus (MSSQL:ssä ei UNIQUE-rajoitetta NVARCHAR(MAX):lle)
+                cur.execute("SELECT 1 FROM xray_analysis WHERE instance = %s", (instance_id,))
+                if cur.fetchone():
                     logger.info("Instance %s already in database, skipping.", instance_id)
                     continue
+                insert_xray_analysis(
+                    cur, instance_id, series_id, metadata, analysis,
+                    processing_time, contrast_rois_bytes, mtf_lp_bytes, mtf_curve_bytes
+                )
+                clear_failure(cur, series_id)  # sarja onnistui -> poista mahdollinen epäonnistumismerkintä
+                analyzed_count += 1
 
         conn.commit()
         cur.close()
@@ -676,6 +624,30 @@ class XrayAnalyzeService(xray_analyze_service_pb2_grpc.XrayAnalyzeServiceService
         )
 
 
+def start_analyze_scheduler(interval_seconds=3600):
+    """Käynnistä taustapollaaja joka ajaa XR-analyysin säännöllisesti."""
+    service = XrayAnalyzeService()
+
+    class DummyContext:
+        def set_code(self, code):
+            pass
+
+    def loop():
+        logger.info("XR scheduler started (interval: %ss). Odotetaan ensimmäinen ajo...", interval_seconds)
+        time.sleep(30)  # Odota Orthancin ja Fetchin käynnistyvän
+        while True:
+            try:
+                logger.info("Scheduled X-ray analysis starting...")
+                service.AnalyzeAllDicomData(None, DummyContext())
+            except Exception as e:
+                logger.error("Scheduled X-ray analysis failed: %s", e)
+            logger.info("Odotetaan %s sekuntia seuraavaan ajoon...", interval_seconds)
+            time.sleep(interval_seconds)
+
+    t = threading.Thread(target=loop, daemon=True)
+    t.start()
+
+
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     xray_analyze_service_pb2_grpc.add_XrayAnalyzeServiceServicer_to_server(
@@ -689,4 +661,5 @@ def serve():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
+    start_analyze_scheduler(3600)  # Ajastettu analyysi kerran tunnissa
     serve()

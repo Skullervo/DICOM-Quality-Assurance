@@ -91,6 +91,7 @@ export default function MittauksetModaliteetti({ modality }: { modality: Mittaus
               <th className="hide-mobile">Valmistaja</th>
               <th className="hide-mobile">Malli</th>
               <th>Tila</th>
+              <th>Syy (jos epäonnistui)</th>
             </tr>
           </thead>
           <tbody>
@@ -111,10 +112,13 @@ export default function MittauksetModaliteetti({ modality }: { modality: Mittaus
                       {m.status === 'analyzed' ? 'Analysoitu' : 'Epäonnistui'}
                     </span>
                   </td>
+                  <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem', maxWidth: 360 }}>
+                    {m.status === 'failed' ? (m.reason ? <span title={m.reason}>{m.reason}</span> : '—') : ''}
+                  </td>
                 </tr>
               ))
             ) : (
-              <tr><td colSpan={6}>Ei mittauksia.</td></tr>
+              <tr><td colSpan={7}>Ei mittauksia.</td></tr>
             )}
           </tbody>
         </table>

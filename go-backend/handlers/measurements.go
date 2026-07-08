@@ -56,6 +56,26 @@ type measurement struct {
 	ManufacturerModel string `json:"manufacturer_model"`
 	Modality          string `json:"modality"`
 	Status            string `json:"status"` // "analyzed" | "failed"
+	Reason            string `json:"reason"` // epäonnistumisen syy (vain failed)
+}
+
+// failureReasons lataa analysis_failures-taulusta orthanc_id -> syy. Jos taulua ei
+// ole vielä (yhtään epäonnistumista tallennettu), palautetaan tyhjä kartta.
+func failureReasons(db *sql.DB) map[string]string {
+	m := map[string]string{}
+	rows, err := db.QueryContext(context.Background(), "SELECT orthanc_id, reason FROM analysis_failures")
+	if err != nil {
+		return m
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		var reason sql.NullString
+		if err := rows.Scan(&id, &reason); err == nil {
+			m[id] = reason.String
+		}
+	}
+	return m
 }
 
 // Measurements — cfg: analyysitaulu, instanssisarake, Orthanc-taso (Series/Instance),
@@ -77,6 +97,8 @@ func Measurements(db *sql.DB, table, instCol, level string, modalities []string,
 		}
 		rows.Close()
 
+		reasons := failureReasons(db)
+
 		out := []measurement{}
 		for _, mod := range modalities {
 			res, err := orthancFind(level, mod)
@@ -88,8 +110,11 @@ func Measurements(db *sql.DB, table, instCol, level string, modalities []string,
 				dbKey := s.ID + suffix
 				t := s.RequestedTags
 				status := "failed"
+				reason := ""
 				if analyzed[dbKey] {
 					status = "analyzed"
+				} else {
+					reason = reasons[s.ID]
 				}
 				out = append(out, measurement{
 					Instance:          dbKey,
@@ -101,6 +126,7 @@ func Measurements(db *sql.DB, table, instCol, level string, modalities []string,
 					ManufacturerModel: t["ManufacturerModelName"],
 					Modality:          t["Modality"],
 					Status:            status,
+					Reason:            reason,
 				})
 			}
 		}

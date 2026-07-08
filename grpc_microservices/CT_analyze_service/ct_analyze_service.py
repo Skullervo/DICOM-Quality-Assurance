@@ -61,6 +61,40 @@ def connect_db():
     return pymssql.connect(**DB_CONFIG)
 
 
+def _ensure_failures_table(cur):
+    cur.execute("""
+        IF OBJECT_ID('dbo.analysis_failures','U') IS NULL
+        CREATE TABLE dbo.analysis_failures (
+            modality NVARCHAR(8) NOT NULL,
+            orthanc_id NVARCHAR(128) NOT NULL,
+            station_name NVARCHAR(256) NULL,
+            reason NVARCHAR(1000) NULL,
+            failed_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+            CONSTRAINT pk_analysis_failures PRIMARY KEY (modality, orthanc_id)
+        )
+    """)
+
+
+def record_failure(cur, orthanc_id, station, reason):
+    """Tallenna epäonnistuneen analyysin syy (upsert). orthanc_id = CT:llä series_id."""
+    try:
+        _ensure_failures_table(cur)
+        cur.execute("DELETE FROM analysis_failures WHERE modality=%s AND orthanc_id=%s", ("CT", orthanc_id))
+        cur.execute(
+            "INSERT INTO analysis_failures (modality, orthanc_id, station_name, reason) VALUES (%s, %s, %s, %s)",
+            ("CT", orthanc_id, (station or "")[:256], (reason or "")[:1000]))
+    except Exception as e:  # noqa: BLE001
+        logger.error("record_failure error: %s", e)
+
+
+def clear_failure(cur, orthanc_id):
+    """Poista mahdollinen epäonnistumismerkintä (sarja onnistui myöhemmin)."""
+    try:
+        cur.execute("DELETE FROM analysis_failures WHERE modality=%s AND orthanc_id=%s", ("CT", orthanc_id))
+    except Exception as e:  # noqa: BLE001
+        logger.error("clear_failure error: %s", e)
+
+
 def get_fetch_stub():
     """Yhdistetään Fetch Serviceen."""
     options = [
@@ -440,10 +474,16 @@ class CTAnalyzeService(ct_analyze_service_pb2_grpc.CTAnalyzeServiceServicer):
                 cur, instance_key, series_id, metadata, analysis,
                 processing_time, images
             )
+            clear_failure(cur, series_id)  # sarja onnistui -> poista mahdollinen epäonnistumismerkintä
             return True
 
         except Exception as e:
             logger.error("Analysis failed for series %s: %s", series_id, e)
+            try:
+                record_failure(cur, series_id, str(check_ds.get("StationName", "")), str(e))
+                conn.commit()
+            except Exception:  # noqa: BLE001
+                pass
             raise
         finally:
             # Siivoa temp-kansio

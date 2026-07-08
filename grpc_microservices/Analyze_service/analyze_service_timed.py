@@ -3,13 +3,14 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Fetch_service')))
 # ...existing imports...
 
+import json
 import grpc
 from concurrent import futures
 import analyze_service_timed_pb2
 import analyze_service_timed_pb2_grpc
 import fetch_service_pb2
 import fetch_service_pb2_grpc
-import psycopg2
+import pymssql
 import numpy as np
 import io
 import pydicom
@@ -23,44 +24,58 @@ import logging
 
 # 🔹 Orthanc ja Fetch Service osoitteet
 ORTHANC_URL = os.getenv("ORTHANC_URL", "http://orthanc:8042")
-ORTHANC_USER = os.getenv("ORTHANC_USERNAME", "admin")
-ORTHANC_PASS = os.getenv("ORTHANC_PASSWORD", "")
+ORTHANC_USERNAME = os.getenv("ORTHANC_USERNAME", "admin")
+ORTHANC_PASSWORD = os.getenv("ORTHANC_PASSWORD", "")
+ORTHANC_AUTH = (ORTHANC_USERNAME, ORTHANC_PASSWORD) if ORTHANC_USERNAME else None
 FETCH_SERVICE_ADDRESS = os.getenv("FETCH_SERVICE_HOST", "fetch-service:50051")
 
+# MS SQL Server (pymssql). Skeema luodaan scripts/schema_mssql.sql:ssä.
 DB_CONFIG = {
-    "dbname": os.getenv("DATABASE_NAME", "QA-results"),
-    "user": os.getenv("DATABASE_USER", "postgres"),
+    "database": os.getenv("DATABASE_NAME", "QA-results"),
+    "user": os.getenv("DATABASE_USER", "sa"),
     "password": os.getenv("DATABASE_PASSWORD", ""),
-    "host": os.getenv("DATABASE_HOST", "postgres-db-distributedQA"),
-    "port": os.getenv("DATABASE_PORT", "5432"),
+    "server": os.getenv("DATABASE_HOST", "autoqad-mssql"),
+    "port": os.getenv("DATABASE_PORT", "1433"),
 }
 
 logger = logging.getLogger(__name__)
 
-# 🔹 Luo tietokantayhteys ja varmista, että taulu on olemassa
+# 🔹 Luo tietokantayhteys (taulu on jo olemassa, ks. schema_mssql.sql)
 def connect_db():
-    conn = psycopg2.connect(**DB_CONFIG)
-    cur = conn.cursor()
+    return pymssql.connect(**DB_CONFIG)
+
+
+def _ensure_failures_table(cur):
     cur.execute("""
-        CREATE TABLE IF NOT EXISTS ultrasound (
-            id SERIAL PRIMARY KEY,
-            institutionname TEXT,
-            institutionaldepartmentname TEXT,
-            manufacturer TEXT,
-            modality TEXT,
-            stationname TEXT,
-            seriesdate TEXT,
-            instance TEXT,
-            serie TEXT,
-            S_depth FLOAT,
-            U_cov FLOAT,
-            U_skew FLOAT,
-            U_low FLOAT[]
+        IF OBJECT_ID('dbo.analysis_failures','U') IS NULL
+        CREATE TABLE dbo.analysis_failures (
+            modality NVARCHAR(8) NOT NULL,
+            orthanc_id NVARCHAR(128) NOT NULL,
+            station_name NVARCHAR(256) NULL,
+            reason NVARCHAR(1000) NULL,
+            failed_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+            CONSTRAINT pk_analysis_failures PRIMARY KEY (modality, orthanc_id)
         )
     """)
-    conn.commit()
-    cur.close()
-    return conn
+
+
+def record_failure(cur, orthanc_id, station, reason):
+    """Tallenna epäonnistuneen analyysin syy (upsert). orthanc_id = US:llä instanssi-id."""
+    try:
+        _ensure_failures_table(cur)
+        cur.execute("DELETE FROM analysis_failures WHERE modality=%s AND orthanc_id=%s", ("US", orthanc_id))
+        cur.execute(
+            "INSERT INTO analysis_failures (modality, orthanc_id, station_name, reason) VALUES (%s, %s, %s, %s)",
+            ("US", orthanc_id, (station or "")[:256], (reason or "")[:1000]))
+    except Exception as e:  # noqa: BLE001
+        logger.error("record_failure error: %s", e)
+
+
+def clear_failure(cur, orthanc_id):
+    try:
+        cur.execute("DELETE FROM analysis_failures WHERE modality=%s AND orthanc_id=%s", ("US", orthanc_id))
+    except Exception as e:  # noqa: BLE001
+        logger.error("clear_failure error: %s", e)
 
 # 🔹 Tarkista onko instanssi jo analysoitu
 def is_instance_analyzed(cur, instance_id):
@@ -80,9 +95,8 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
     def AnalyzeAllDicomData(self, request, context):
         logger.info("📡 Received request to analyze all series in Orthanc")
 
-        auth = (ORTHANC_USER, ORTHANC_PASS) if ORTHANC_PASS else None
         # 🔍 Haetaan kaikki sarjat Orthancista
-        response = requests.get(f"{ORTHANC_URL}/series", auth=auth)
+        response = requests.get(f"{ORTHANC_URL}/series", auth=ORTHANC_AUTH)
         if response.status_code != 200:
             logger.error("❌ Error: Could not fetch series from Orthanc")
             if context:
@@ -104,7 +118,7 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
             logger.info("📡 Processing series ID: %s", series_id)
 
             # 🔍 Haetaan sarjan instanssit Orthancista
-            instance_response = requests.get(f"{ORTHANC_URL}/series/{series_id}/instances", auth=auth)
+            instance_response = requests.get(f"{ORTHANC_URL}/series/{series_id}/instances", auth=ORTHANC_AUTH)
             if instance_response.status_code != 200:
                 logger.error("❌ Could not fetch instances for series %s", series_id)
                 continue  # Ohitetaan tämä sarja
@@ -144,9 +158,14 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
                     "InstitutionName": dicom_dataset.get("InstitutionName", "Unknown"),
                     "InstitutionalDepartmentName": dicom_dataset.get("InstitutionalDepartmentName", "Unknown"),
                     "Manufacturer": dicom_dataset.get("Manufacturer", "Unknown"),
+                    "ManufacturerModelName": dicom_dataset.get("ManufacturerModelName", ""),
                     "Modality": dicom_dataset.get("Modality", "Unknown"),
                     "StationName": dicom_dataset.get("StationName", "Unknown"),
-                    "SeriesDate": dicom_dataset.get("SeriesDate", "Unknown")
+                    "SeriesDate": dicom_dataset.get("SeriesDate", "Unknown"),
+                    "StudyDate": dicom_dataset.get("StudyDate", ""),
+                    "ContentDate": dicom_dataset.get("ContentDate", ""),
+                    "DeviceSerialNumber": dicom_dataset.get("DeviceSerialNumber", ""),
+                    "ContentTime": dicom_dataset.get("ContentTime", ""),
                 }
 
                 if metadata["Modality"] != "US":
@@ -156,7 +175,14 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
                 # 📊 Analysoidaan kuva
                 image_array = dicom_dataset.pixel_array
                 analysis = imageQualityUS(dicom_dataset, dicom_bytes, image_array, "probe-LUT.xls")
-                result = analysis.MAIN_US_analysis()
+
+                try:
+                    result = analysis.MAIN_US_analysis()
+                except Exception as e:
+                    logger.error("❌ Analysis failed for instance %s: %s", instance_id, e)
+                    record_failure(cur, instance_id, str(metadata.get("StationName", "")), str(e))
+                    conn.commit()
+                    continue
 
                 # 🔹 Muunnetaan tulokset JSON-muotoon
                 json_result = {
@@ -165,13 +191,29 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
                     else value for key, value in result.items()
                 }
 
+                # 🔍 Validoi konveksi-analyysi — epärealistiset arvot viittaavat epäonnistuneeseen suoristukseen
+                u_cov_val = float(json_result['U_cov'])
+                u_skew_val = abs(float(json_result['U_skew']))
+                if u_cov_val > 50 or u_skew_val > 5:
+                    logger.warning("⚠️ Instance %s: u_cov=%.1f, |u_skew|=%.1f — likely failed convex correction, skipping",
+                                   instance_id, u_cov_val, u_skew_val)
+                    record_failure(cur, instance_id, str(metadata.get("StationName", "")),
+                                   f"Konveksin suoristus todennäköisesti epäonnistui (u_cov={u_cov_val:.1f}, |u_skew|={u_skew_val:.1f})")
+                    conn.commit()
+                    continue
+
                 # 📂 Tallennetaan analyysitulokset tietokantaan
+                transducer_name = json_result.get('transducer_name', '')
+                horiz_prof = json.dumps(json_result.get('horiz_profile', []))
+                vert_prof = json.dumps(json_result.get('vert_profiles', []))
                 cur.execute("""
                     INSERT INTO ultrasound (
-                        institutionname, institutionaldepartmentname, manufacturer, modality, 
-                        stationname, seriesdate, instance, serie, S_depth, U_cov, U_skew, U_low
-                    ) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        institutionname, institutionaldepartmentname, manufacturer, modality,
+                        stationname, seriesdate, instance, serie, S_depth, U_cov, U_skew, U_low,
+                        horiz_prof, vert_prof, tranducertype,
+                        manufacturermodelname, studydate, contentdate, deviceserialnumber, contenttime
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
                     metadata["InstitutionName"],
                     metadata["InstitutionalDepartmentName"],
@@ -182,10 +224,19 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
                     instance_id,
                     series_id,
                     float(json_result['S_depth']),
-                    float(json_result['U_cov']),
+                    u_cov_val,
                     float(json_result['U_skew']),
-                    [float(val) for val in json_result['U_low']]
+                    json.dumps([float(val) for val in json_result['U_low']]),
+                    horiz_prof,
+                    vert_prof,
+                    transducer_name,
+                    metadata["ManufacturerModelName"],
+                    metadata["StudyDate"],
+                    metadata["ContentDate"],
+                    metadata["DeviceSerialNumber"],
+                    metadata["ContentTime"],
                 ))
+                clear_failure(cur, instance_id)  # onnistui -> poista mahdollinen epäonnistumismerkintä
 
         conn.commit()
         cur.close()
