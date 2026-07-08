@@ -79,23 +79,26 @@ type measurement struct {
 	ManufacturerModel string `json:"manufacturer_model"`
 	Modality          string `json:"modality"`
 	Status            string `json:"status"` // "analyzed" | "failed"
-	Reason            string `json:"reason"` // epäonnistumisen syy (vain failed)
+	Reason            string `json:"reason"` // epäonnistumisen lyhyt syy (vain failed)
+	Detail            string `json:"detail"` // traceback / tarkka kaatumiskohta (vain failed)
 }
 
-// failureReasons lataa analysis_failures-taulusta orthanc_id -> syy. Jos taulua ei
-// ole vielä (yhtään epäonnistumista tallennettu), palautetaan tyhjä kartta.
-func failureReasons(db *sql.DB) map[string]string {
-	m := map[string]string{}
-	rows, err := db.QueryContext(context.Background(), "SELECT orthanc_id, reason FROM analysis_failures")
+type failInfo struct{ reason, detail string }
+
+// failureReasons lataa analysis_failures-taulusta orthanc_id -> {syy, traceback}.
+// Jos taulua/saraketta ei ole vielä, palautetaan tyhjä kartta.
+func failureReasons(db *sql.DB) map[string]failInfo {
+	m := map[string]failInfo{}
+	rows, err := db.QueryContext(context.Background(), "SELECT orthanc_id, reason, detail FROM analysis_failures")
 	if err != nil {
 		return m
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var id string
-		var reason sql.NullString
-		if err := rows.Scan(&id, &reason); err == nil {
-			m[id] = reason.String
+		var reason, detail sql.NullString
+		if err := rows.Scan(&id, &reason, &detail); err == nil {
+			m[id] = failInfo{reason: reason.String, detail: detail.String}
 		}
 	}
 	return m
@@ -133,11 +136,11 @@ func Measurements(db *sql.DB, table, instCol, level string, modalities []string,
 				dbKey := s.ID + suffix
 				t := s.RequestedTags
 				status := "failed"
-				reason := ""
+				reason, detail := "", ""
 				if analyzed[dbKey] {
 					status = "analyzed"
-				} else {
-					reason = reasons[s.ID]
+				} else if fi, ok := reasons[s.ID]; ok {
+					reason, detail = fi.reason, fi.detail
 				}
 				out = append(out, measurement{
 					Instance:          dbKey,
@@ -150,6 +153,7 @@ func Measurements(db *sql.DB, table, instCol, level string, modalities []string,
 					Modality:          t["Modality"],
 					Status:            status,
 					Reason:            reason,
+					Detail:            detail,
 				})
 			}
 		}

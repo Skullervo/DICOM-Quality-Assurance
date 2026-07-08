@@ -12,6 +12,7 @@ import pymssql
 import numpy as np
 import io
 import json
+import traceback
 import glob as globmod
 import tempfile
 from pathlib import Path
@@ -213,20 +214,25 @@ def _ensure_failures_table(cur):
             orthanc_id NVARCHAR(128) NOT NULL,
             station_name NVARCHAR(256) NULL,
             reason NVARCHAR(1000) NULL,
+            detail NVARCHAR(MAX) NULL,
             failed_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
             CONSTRAINT pk_analysis_failures PRIMARY KEY (modality, orthanc_id)
         )
     """)
+    cur.execute("""
+        IF COL_LENGTH('dbo.analysis_failures','detail') IS NULL
+            ALTER TABLE dbo.analysis_failures ADD detail NVARCHAR(MAX) NULL
+    """)
 
 
-def record_failure(cur, orthanc_id, station, reason):
-    """Tallenna epäonnistuneen analyysin syy (upsert). orthanc_id = XR:llä series_id."""
+def record_failure(cur, orthanc_id, station, reason, detail=""):
+    """Tallenna epäonnistuneen analyysin syy + traceback (upsert). orthanc_id = XR:llä series_id."""
     try:
         _ensure_failures_table(cur)
         cur.execute("DELETE FROM analysis_failures WHERE modality=%s AND orthanc_id=%s", ("XR", orthanc_id))
         cur.execute(
-            "INSERT INTO analysis_failures (modality, orthanc_id, station_name, reason) VALUES (%s, %s, %s, %s)",
-            ("XR", orthanc_id, (station or "")[:256], (reason or "")[:1000]))
+            "INSERT INTO analysis_failures (modality, orthanc_id, station_name, reason, detail) VALUES (%s, %s, %s, %s, %s)",
+            ("XR", orthanc_id, (station or "")[:256], (reason or "")[:1000], (detail or "")[:8000]))
     except Exception as e:  # noqa: BLE001
         logger.error("record_failure error: %s", e)
 
@@ -583,7 +589,7 @@ class XrayAnalyzeService(xray_analyze_service_pb2_grpc.XrayAnalyzeServiceService
 
                 except Exception as e:
                     logger.error("Analysis failed for instance %s: %s", instance_id, e)
-                    record_failure(cur, series_id, str(ds.get("StationName", "")), str(e))
+                    record_failure(cur, series_id, str(ds.get("StationName", "")), str(e), traceback.format_exc())
                     conn.commit()
                     continue
                 finally:

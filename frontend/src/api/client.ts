@@ -50,6 +50,7 @@ export interface Measurement {
   modality: string;
   status: 'analyzed' | 'failed';
   reason: string;
+  detail: string;
 }
 
 // Toleranssi (hyväksyttävyysrajat) per modaliteetti + metriikka

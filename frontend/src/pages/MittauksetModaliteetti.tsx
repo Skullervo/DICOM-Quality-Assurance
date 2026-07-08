@@ -158,6 +158,14 @@ export default function MittauksetModaliteetti({ modality }: { modality: Mittaus
               <span style={pill(zoom.status === 'analyzed')}>{zoom.status === 'analyzed' ? 'Analysoitu' : 'Epäonnistui'}</span>
               {zoom.status === 'failed' && zoom.reason ? <span style={{ color: 'var(--text-muted)', marginLeft: 8, fontSize: '0.85rem' }}>{zoom.reason}</span> : null}
             </div>
+            {zoom.status === 'failed' && zoom.detail ? (
+              <details style={{ marginTop: 8, textAlign: 'left' }}>
+                <summary style={{ cursor: 'pointer', color: 'var(--text-muted)', fontSize: '0.8rem' }}>Tekninen jälki (traceback)</summary>
+                <pre style={{ marginTop: 6, maxHeight: 220, overflow: 'auto', fontSize: 11, lineHeight: 1.4,
+                  color: 'var(--text-muted)', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6,
+                  padding: 10, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{zoom.detail}</pre>
+              </details>
+            ) : null}
           </div>
         </div>
       )}
