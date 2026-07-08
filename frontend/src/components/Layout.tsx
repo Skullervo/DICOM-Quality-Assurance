@@ -6,6 +6,7 @@ const navItems = [
   { path: '/', label: 'Aloitus', exact: true },
   { path: '/modaliteetit', label: 'Modaliteetit', match: ['/modaliteetit', '/us', '/xray', '/ct'] },
   { path: '/laitteet', label: 'Laitteet', match: ['/laitteet'] },
+  { path: '/mittaukset', label: 'Mittaukset', match: ['/mittaukset'] },
   { path: '/rajat', label: 'Hyväksyttävyysrajat', match: ['/rajat'] },
   { path: '/tietoa', label: 'Tietoa', exact: true },
 ]

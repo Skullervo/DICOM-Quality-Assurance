@@ -79,6 +79,11 @@ func main() {
 			r.Get("/ct/series-meta/{instance}", handlers.CTSeriesMeta)
 			r.Get("/ct/series-image/{instance}", handlers.CTSeriesImage)
 
+			// Mittaukset — kaikki Orthanc-mittaukset + analyysin tila (onnistui/epaonnistui)
+			r.Get("/us/measurements", handlers.Measurements(db, "ultrasound", "instance", "Instance", []string{"US"}, ""))
+			r.Get("/xray/measurements", handlers.Measurements(db, "xray_analysis", "series_id", "Series", []string{"CR", "DX"}, ""))
+			r.Get("/ct/measurements", handlers.Measurements(db, "ct_analysis", "instance", "Series", []string{"CT"}, "_0"))
+
 			// Toleranssit (hyvaksyttavyysrajat) — GET kaikki + PUT yksi metriikka
 			r.Get("/tolerances", handlers.GetTolerances(db))
 			r.Put("/tolerances/{modality}/{metric}", handlers.UpdateTolerance(db))

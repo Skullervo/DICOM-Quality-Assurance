@@ -38,6 +38,19 @@ export interface USDataPoint {
   instance: string;
 }
 
+// Mittaus (Orthanc-lähde + analyysin tila)
+export interface Measurement {
+  instance: string;
+  orthanc_id: string;
+  station_name: string;
+  institution_name: string;
+  study_date: string;
+  manufacturer: string;
+  manufacturer_model: string;
+  modality: string;
+  status: 'analyzed' | 'failed';
+}
+
 // Toleranssi (hyväksyttävyysrajat) per modaliteetti + metriikka
 export interface Tolerance {
   modality: string;
@@ -139,6 +152,9 @@ export const api = {
     });
     return res.json();
   },
+
+  // Mittaukset (kaikki Orthanc-mittaukset + analyysin tila)
+  measurements: (modality: 'us' | 'xray' | 'ct') => fetchJSON<Measurement[]>(`/${modality}/measurements`),
 
   // Toleranssit (hyväksyttävyysrajat)
   tolerances: () => fetchJSON<Tolerance[]>('/tolerances'),

@@ -5,6 +5,8 @@ import Modaliteetit from './pages/Modaliteetit'
 import Laitteet from './pages/Laitteet'
 import LaitteetModaliteetti from './pages/LaitteetModaliteetti'
 import Rajat from './pages/Rajat'
+import Mittaukset from './pages/Mittaukset'
+import MittauksetModaliteetti from './pages/MittauksetModaliteetti'
 import Tietoa from './pages/Tietoa'
 import USInstitutions from './pages/USInstitutions'
 import USUnits from './pages/USUnits'
@@ -38,6 +40,12 @@ export default function App() {
           <Route path="laitteet/us" element={<LaitteetModaliteetti modality="us" />} />
           <Route path="laitteet/xray" element={<LaitteetModaliteetti modality="xray" />} />
           <Route path="laitteet/ct" element={<LaitteetModaliteetti modality="ct" />} />
+
+          {/* Mittaukset — kaikki mittaukset (myös epäonnistuneet analyysit) */}
+          <Route path="mittaukset" element={<Mittaukset />} />
+          <Route path="mittaukset/us" element={<MittauksetModaliteetti modality="us" />} />
+          <Route path="mittaukset/xray" element={<MittauksetModaliteetti modality="xray" />} />
+          <Route path="mittaukset/ct" element={<MittauksetModaliteetti modality="ct" />} />
 
           {/* Hyväksyttävyysrajat */}
           <Route path="rajat" element={<Rajat />} />
