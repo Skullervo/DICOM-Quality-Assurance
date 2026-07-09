@@ -530,7 +530,14 @@ class imageQualityUS:
             
         x = np.round(im_crop.shape[0]*1)
         im_crop2 = im_crop[ 0:x.astype(int) , :]*BW
-        
+
+        # Validoi geometria-arvio: negatiivinen offset / epäkelpo säde tarkoittaa
+        # että konveksin suoristus epäonnistui (esim. sektorianturi väärässä
+        # haarassa). Nostetaan kuvaava virhe -> jäljittyy tracebackilla.
+        if offset < 0 or h <= 0 or not np.isfinite(r):
+            raise ValueError(
+                "Convex straightening failed: degenerate transducer geometry "
+                "(offset=%d, r=%.1f, h=%d, x_length=%.1f)" % (offset, r, int(h), float(x_length)))
         temp = np.zeros((im_crop2.shape[0]+offset, im_crop2.shape[1]))    
         temp[offset:,:] = im_crop2
 
@@ -563,7 +570,105 @@ class imageQualityUS:
         return polar_image
 
 
-    #%%  
+    #%%
+    # --- Sektorin / phased-array-anturin suoristus (best-effort) ---
+
+    def _largest_cc(self, mask):
+        '''Palauta binäärimaskin suurin yhtenäinen komponentti.'''
+        lab, n = ndimage.label(mask)
+        if n == 0:
+            return mask
+        sizes = ndimage.sum(mask, lab, range(1, n + 1))
+        return lab == (np.argmax(sizes) + 1)
+
+    def _drop_border_components(self, mask):
+        '''Poista komponentit jotka koskettavat ylä-/vasen-/oikea-reunaa
+        (kuvan otsikkopalkki koskettaa yläreunaa, sivupalkki oikeaa reunaa).'''
+        lab, n = ndimage.label(mask)
+        if n == 0:
+            return mask
+        W = mask.shape[1]
+        border = set(np.unique(lab[0, :]))
+        border |= set(np.unique(lab[:, 0]))
+        border |= set(np.unique(lab[:, W - 1]))
+        border.discard(0)
+        return np.isin(lab, list(border), invert=True) & (lab > 0)
+
+    def transform_sector_image2linear(self, im):
+        '''Suorista sektori-/phased-array-kuva lineaariseksi napamuunnoksella
+        viuhkan apexin ympäri. Best-effort: nostaa ValueError-poikkeuksen jos
+        viuhkan geometriaa ei saada palautettua. Palauttaa rajatun kaikuvyön
+        (rivit = syvyys anturin pinnalta, sarakkeet = lateraalisuunta).'''
+        g = im.astype(np.float64)
+        if g.ndim == 3:
+            g = self.rgb2gray(g)
+        H, W = g.shape
+        # 0) nollaa marginaalit -> pois otsikkopalkki (ylä), harmaasävypalkit (sivut), UI
+        mt, mb, mw = int(0.12 * H), int(0.02 * H), int(0.04 * W)
+        g[:mt, :] = 0; g[H - mb:, :] = 0; g[:, :mw] = 0; g[:, W - mw:] = 0
+        # 1) viuhkan siluetti (mikä tahansa signaali), UI (reunaa koskevat) pois
+        fan = g > 0.05 * np.max(g)
+        fan = self._drop_border_components(fan)
+        fan = ndimage.binary_fill_holes(self._largest_cc(fan))
+        fy, fx = np.nonzero(fan)
+        if fy.size < 500:
+            raise ValueError("Sector straightening failed: fan region not found")
+        # 2) apex = viuhkan kahden suoran sivureunan leikkauspiste (ylempi osa)
+        ymin, ymax = fy.min(), fy.max(); rng = ymax - ymin
+        y0 = int(ymin + 0.06 * rng); y1 = int(ymin + 0.55 * rng)
+        ly, lx, ry, rx = [], [], [], []
+        for y in range(y0, y1 + 1):
+            xs = np.nonzero(fan[y])[0]
+            if xs.size < 6:
+                continue
+            ly.append(y); lx.append(xs.min()); ry.append(y); rx.append(xs.max())
+        if len(ly) < 10:
+            raise ValueError("Sector straightening failed: could not trace fan side edges")
+        ml, bl = np.polyfit(ly, lx, 1)     # vasen reuna  x = ml*y + bl  (odotus ml<0)
+        mr, br = np.polyfit(ry, rx, 1)     # oikea reuna  x = mr*y + br  (odotus mr>0)
+        if ml >= mr or abs(ml - mr) < 1e-3:
+            raise ValueError("Sector straightening failed: fan side edges do not converge to an apex")
+        cy0 = (br - bl) / (ml - mr)
+        cx = ml * cy0 + bl
+        src = g.astype(np.float32)
+
+        def _warp(cyc):
+            maxR = float(np.percentile(np.sqrt((fx - cx) ** 2 + (fy - cyc) ** 2), 99.5))
+            polar = cv2.warpPolar(src, (int(maxR), 1440), (cx, cyc), maxR,
+                                  cv2.WARP_POLAR_LINEAR + cv2.WARP_FILL_OUTLIERS)
+            return np.transpose(polar)   # rivit = säde (syvyys), sarakkeet = kulma
+
+        def _band_cov(polar):
+            colmax = polar.max(axis=0)
+            cols = np.nonzero(colmax > 0.15 * polar.max())[0]
+            if cols.size < 20:
+                return 1e9
+            sub = polar[:, cols.min():cols.max() + 1]
+            rowmax = sub.max(axis=1)
+            rows = np.nonzero(rowmax > 0.30 * sub.max())[0]
+            if rows.size < 5:
+                return 1e9
+            band = sub[rows.min():rows.min() + max(8, rows.size // 3), :]
+            prof = band.mean(axis=0)
+            return float(np.std(prof) / (np.mean(prof) + 1e-6))
+
+        # 3) itsekalibroi apex_y: valitse cy joka litistää kaikuvyön (min lateraali-CoV)
+        cands = np.linspace(cy0 - 60, cy0 + 260, 25)
+        cy = min(cands, key=lambda c: _band_cov(_warp(c)))
+        polar = _warp(cy)
+        # 4) rajaa sektorin kulma-alueeseen + kaikuvyön syvyyteen
+        colmax = polar.max(axis=0)
+        cols = np.nonzero(colmax > 0.15 * polar.max())[0]
+        sub = polar[:, cols.min():cols.max() + 1]
+        rowmax = sub.max(axis=1)
+        rows = np.nonzero(rowmax > 0.10 * sub.max())[0]
+        crop = sub[rows.min():rows.max() + 1, :]
+        if crop.shape[0] < 20 or crop.shape[1] < 20:
+            raise ValueError("Sector straightening failed: straightened band too small")
+        return crop
+
+
+    #%%
     #Old Transform_Convex is only run, if the new one fails
 
     def transform_convex_image2linear_old(self, im):
@@ -1003,22 +1108,29 @@ class imageQualityUS:
         if im.ndim == 3: #if image is not grayscale  transform to grayscale
             im = self.rgb2gray(im)
 
-        if TransducerType == 'CURVED LINEAR': #convex
-            #try:
-            # im_t =  self.transform_convex_image2linear(im)  #transforms convex transducer to linear
-            im_crop =  self.transform_convex_image2linear(im)  #transforms convex transducer to linear
-            #except:
-                #print('Old code used')
-                #im_t =  transform_convex_image2linear_old(im)
-                
-            # im_crop = self.crop_US_im(im_t, crop2half = False)
-            im_crop = self.crop_US_im(im_crop, crop2half = False)
-            im_crop = im_crop[:, 3:] #remove manually few pixels from the edge
-            reverb_lines = 5 #number of reverberation lines to be detected is set to 5 for all curved linear transducers
-           
-        else: #linear
-            im_crop = self.crop_US_im(im, crop2half=True)
-            reverb_lines = 4 #number of reverberation lines to be detected is set to 4 for all  linear transducers
+        # --- Reititä anturityypin mukaan. Suoristus on osa analyysiä: jos se
+        #     epäonnistuu, kutsuttu metodi nostaa poikkeuksen, joka jäljittyy
+        #     tracebackilla oikeaan kohtaan. Metriikat (u_cov ym.) EIVÄT ole
+        #     onnistumisen kriteeri. ---
+        ttype = str(TransducerType).upper()
+
+        def _convex():
+            im_c = self.transform_convex_image2linear(im)   # konveksi -> lineaari
+            im_c = self.crop_US_im(im_c, crop2half=False)
+            return im_c[:, 3:], 5                             # 5 kaikuviivaa konvekseille
+
+        def _linear():
+            return self.crop_US_im(im, crop2half=True), 4     # 4 kaikuviivaa lineaarisille
+
+        if 'CURVED' in ttype or 'CONVEX' in ttype:            # konveksi
+            im_crop, reverb_lines = _convex()
+        elif 'SECTOR' in ttype or 'PHASED' in ttype:          # sektori / phased array
+            im_crop = self.transform_sector_image2linear(im)  # best-effort suoristus
+            reverb_lines = 5
+        elif 'LINEAR' in ttype:                               # lineaari
+            im_crop, reverb_lines = _linear()
+        else:                                                 # tuntematon tagi -> tunnista geometriasta
+            im_crop, reverb_lines = _convex() if self.is_convex(im) else _linear()
             
         
         # --- Analysis ---

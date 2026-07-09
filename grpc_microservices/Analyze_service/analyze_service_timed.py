@@ -197,16 +197,12 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
                     else value for key, value in result.items()
                 }
 
-                # 🔍 Validoi konveksi-analyysi — epärealistiset arvot viittaavat epäonnistuneeseen suoristukseen
-                u_cov_val = float(json_result['U_cov'])
-                u_skew_val = abs(float(json_result['U_skew']))
-                if u_cov_val > 50 or u_skew_val > 5:
-                    logger.warning("⚠️ Instance %s: u_cov=%.1f, |u_skew|=%.1f — likely failed convex correction, skipping",
-                                   instance_id, u_cov_val, u_skew_val)
-                    record_failure(cur, instance_id, str(metadata.get("StationName", "")),
-                                   f"Konveksin suoristus todennäköisesti epäonnistui (u_cov={u_cov_val:.1f}, |u_skew|={u_skew_val:.1f})")
-                    conn.commit()
-                    continue
+                # HUOM: u_cov/u_skew ovat QA-tuloksia (laitteen tasaisuus), EIVÄT
+                # analyysin onnistumisen mittareita. Jos MAIN_US_analysis tuotti
+                # metriikat, suoristus onnistui -> tulos tallennetaan aina.
+                # Suoristuksen epäonnistuminen jäljitetään sen omassa kohdassa
+                # (transform_convex/​sector_image2linear nostaa poikkeuksen), joka
+                # päätyy yllä olevaan except-haaraan tracebackin kanssa.
 
                 # 📂 Tallennetaan analyysitulokset tietokantaan
                 transducer_name = json_result.get('transducer_name', '')
@@ -230,7 +226,7 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
                     instance_id,
                     series_id,
                     float(json_result['S_depth']),
-                    u_cov_val,
+                    float(json_result['U_cov']),
                     float(json_result['U_skew']),
                     json.dumps([float(val) for val in json_result['U_low']]),
                     horiz_prof,
