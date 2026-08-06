@@ -18,3 +18,26 @@ db.sqlite3
 
 .env
 
+# Isot dumpit / backupit (ei versionhallintaan)
+backups/
+
+# US-suoristuksen väliaikaistuloste
+array_image.png
+
+# Paikalliset ohjeet/dokumentit (ei versionhallintaan)
+CLAUDE.md
+ROADMAP.md
+palvelimen_kaynnistys.md
+
+# Vanha Django-hallinta (koko sisältö pois versionhallinnasta)
+hallinta/
+
+# docs
+docs/
+
+# Arkistoidut vanhat tiedostot (ei versionhallintaan)
+arkisto/
+
+# Claude Code -paikallisasetukset
+.claude/
+
