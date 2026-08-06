@@ -41,3 +41,6 @@ arkisto/
 # Claude Code -paikallisasetukset
 .claude/
 
+# PTG on oma git-repo (nested) — ei mukaan pääreppoon
+projects/ptg/
+
