@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: django-web
-        image: skullervo/django-web:latest
+        image: ghcr.io/autoqad/autoqad-django:latest  # TODO: korvaa go-backend-deployment.yaml:lla kun React-sivut vahvistettu
         ports:
         - containerPort: 8000
         env:

@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: analyze-service
-        image: skullervo/analyze-service-timed:distributedQA
+        image: ghcr.io/autoqad/autoqad-us-analyze:latest
         ports:
         - containerPort: 50052
         env:

@@ -40,7 +40,7 @@ services:
   fetch-service:
     build:
       context: ./grpc_microservices/Fetch_service
-      dockerfile: Dockerfile.fetch
+      dockerfile: Containerfile
     container_name: autoqad-fetch
     restart: unless-stopped
     ports:
@@ -58,7 +58,7 @@ services:
   us-analyze-service:
     build:
       context: ./grpc_microservices/Analyze_service
-      dockerfile: Dockerfile.analyze
+      dockerfile: Containerfile
     container_name: autoqad-us-analyze
     restart: unless-stopped
     ports:
@@ -84,7 +84,7 @@ services:
   xr-analyze-service:
     build:
       context: ./grpc_microservices/Xray_analyze_service
-      dockerfile: Dockerfile
+      dockerfile: Containerfile
     container_name: autoqad-xr-analyze
     restart: unless-stopped
     ports:
@@ -98,16 +98,19 @@ services:
       ORTHANC_URL: http://orthanc:8042
       ORTHANC_USERNAME: ${ORTHANC_USERNAME:-admin}
       ORTHANC_PASSWORD: ${ORTHANC_PASSWORD}
+      FETCH_SERVICE_HOST: fetch-service:50051
     depends_on:
       postgres:
         condition: service_healthy
+      fetch-service:
+        condition: service_started
     networks:
       - autoqad-net
 
   ct-analyze-service:
     build:
       context: ./grpc_microservices/CT_analyze_service
-      dockerfile: Dockerfile
+      dockerfile: Containerfile
     container_name: autoqad-ct-analyze
     restart: unless-stopped
     ports:
@@ -121,9 +124,12 @@ services:
       ORTHANC_URL: http://orthanc:8042
       ORTHANC_USERNAME: ${ORTHANC_USERNAME:-admin}
       ORTHANC_PASSWORD: ${ORTHANC_PASSWORD}
+      FETCH_SERVICE_HOST: fetch-service:50051
     depends_on:
       postgres:
         condition: service_healthy
+      fetch-service:
+        condition: service_started
     networks:
       - autoqad-net
 
@@ -143,39 +149,34 @@ services:
     networks:
       - autoqad-net
 
-  # ─── Django-verkkosovellus ──────────────────────────────────────────────────
-  # GPT-4o (OpenAI) ja Slack toimivat env-muuttujina tässä palvelussa
-  # erillistä konttia ei tarvita
+  # ─── Go-backend + React SPA ─────────────────────────────────────────────────
+  # Korvaa Django-verkkosovelluksen (Phase 3 migraatio)
 
-  django-web:
+  go-backend:
     build:
-      context: ./client
-      dockerfile: Dockerfile
-    container_name: autoqad-django
+      context: ./go-backend
+      dockerfile: Containerfile
+    container_name: autoqad-go-backend
     restart: unless-stopped
     ports:
-      - "8001:8000"   # 8000 varattuna Django dev-serverille
+      - "8081:8000"
     environment:
-      DJANGO_ENV: ${DJANGO_ENV:-prod}
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
-      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
-      DATABASE_HOST: postgres
-      DATABASE_PORT: "5432"
-      DATABASE_NAME: ${DATABASE_NAME:-QA-results}
-      DATABASE_USER: ${DATABASE_USER:-postgres}
-      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      DATABASE_URL: postgres://${DATABASE_USER:-postgres}:${DATABASE_PASSWORD}@postgres:5432/${DATABASE_NAME:-QA-results}
       ORTHANC_URL: http://orthanc:8042
       ORTHANC_USERNAME: ${ORTHANC_USERNAME:-admin}
       ORTHANC_PASSWORD: ${ORTHANC_PASSWORD}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}       # GPT-4o
-      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL} # Slack-ilmoitukset
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
+      PORT: "8000"
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - autoqad-net
+
+  # ─── Django-verkkosovellus POISTETTU aktiivisesta stackista ─────────────────
+  # Korvattu Go-backend + React -kombinaatiolla. Vanha Django-koodi arkistoitu:
+  # projects/autoQAD_django/ (oma projekti, ei ajeta tästä compose-tiedostosta).
 
 networks:
   autoqad-net:

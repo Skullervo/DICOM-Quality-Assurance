@@ -7,8 +7,9 @@ import os
 import logging
 
 ORTHANC_URL = os.getenv("ORTHANC_URL", "http://orthanc:8042")
-ORTHANC_USER = os.getenv("ORTHANC_USERNAME", "admin")
-ORTHANC_PASS = os.getenv("ORTHANC_PASSWORD", "")
+ORTHANC_USERNAME = os.getenv("ORTHANC_USERNAME", "")
+ORTHANC_PASSWORD = os.getenv("ORTHANC_PASSWORD", "")
+ORTHANC_AUTH = (ORTHANC_USERNAME, ORTHANC_PASSWORD) if ORTHANC_USERNAME else None
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +18,7 @@ class FetchService(fetch_service_pb2_grpc.FetchServiceServicer):
     def FetchDicomData(self, request, context):
         logger.info("🔍 Fetching DICOM file for instance ID: %s", request.instance_id)
 
-        auth = (ORTHANC_USER, ORTHANC_PASS) if ORTHANC_PASS else None
-        response = requests.get(f"{ORTHANC_URL}/instances/{request.instance_id}/file", auth=auth)
+        response = requests.get(f"{ORTHANC_URL}/instances/{request.instance_id}/file", auth=ORTHANC_AUTH)
         if response.status_code != 200:
             logger.error("❌ Error: Instance %s not found in Orthanc!", request.instance_id)
             context.set_code(grpc.StatusCode.NOT_FOUND)

@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: go-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: go-backend
+  template:
+    metadata:
+      labels:
+        app: go-backend
+    spec:
+      containers:
+      - name: go-backend
+        image: ghcr.io/autoqad/autoqad-backend:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: DATABASE_URL
+        - name: ORTHANC_URL
+          value: "http://orthanc:8042"
+        - name: ORTHANC_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: app-credentials
+              key: ORTHANC_USERNAME
+        - name: ORTHANC_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-credentials
+              key: ORTHANC_PASSWORD
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-credentials
+              key: OPENAI_API_KEY
+        - name: SLACK_WEBHOOK_URL
+          valueFrom:
+            secretKeyRef:
+              name: app-credentials
+              key: SLACK_WEBHOOK_URL
+        - name: PORT
+          value: "8000"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: go-backend
+spec:
+  type: ClusterIP
+  selector:
+    app: go-backend
+  ports:
+    - port: 8000
+      targetPort: 8000

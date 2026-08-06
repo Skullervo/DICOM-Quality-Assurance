@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: xr-analyze-service
-        image: skullervo/xr-analyze-service:latest
+        image: ghcr.io/autoqad/autoqad-xr-analyze:latest
         ports:
         - containerPort: 50053
         env:

@@ -1,0 +1,23 @@
+FROM python:3.12-slim
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    libgl1 \
+    libglib2.0-0 \
+    protobuf-compiler && \
+    rm -rf /var/lib/apt/lists/* && \
+    adduser --disabled-password --gecos '' --uid 1000 appuser
+
+COPY requirements_service.txt .
+RUN pip install --no-cache-dir -r requirements_service.txt
+
+COPY analyze_service_timed.py analyze_service_timed.proto fetch_service.proto US_IQ_analysis3.py LUT_table_codes.py LUT_taulukko_lisaa.py probe-LUT.xls ./
+
+RUN python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. analyze_service_timed.proto fetch_service.proto
+
+RUN chown -R appuser:appuser /app
+USER appuser
+
+EXPOSE 50052
+
+CMD ["python", "analyze_service_timed.py"]

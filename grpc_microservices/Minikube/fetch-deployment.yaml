@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: fetch-service
-        image: skullervo/fetch-service-timed:distributedQA
+        image: ghcr.io/autoqad/autoqad-fetch:latest
         ports:
         - containerPort: 50051
         env:

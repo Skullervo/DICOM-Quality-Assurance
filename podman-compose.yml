@@ -1,0 +1,201 @@
+# AutoQAD — Podman Compose
+# Käynnistys: podman-compose up -d
+# Kaikki palvelut samassa verkossa — ei porttivälitysongelmia
+
+services:
+
+  # ─── Infrastruktuuri ────────────────────────────────────────────────────────
+
+  postgres:
+    image: docker.io/library/postgres:16
+    container_name: autoqad-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DATABASE_USER:-postgres}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME:-QA-results}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "15432:5432"
+    networks:
+      - autoqad-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  orthanc:
+    image: docker.io/jodogne/orthanc-python
+    container_name: autoqad-orthanc
+    restart: unless-stopped
+    ports:
+      - "14242:4242"
+      - "18042:8042"
+    volumes:
+      - orthanc_data:/var/lib/orthanc/db
+      - ./grpc_microservices/Orthanc/orthanc.json:/etc/orthanc/orthanc.json:ro
+    networks:
+      - autoqad-net
+
+  # ─── Mikropalvelut (gRPC, Python) ─────────────────────────────────────────
+
+  fetch-service:
+    build:
+      context: ./grpc_microservices/Fetch_service
+      dockerfile: Containerfile
+    container_name: autoqad-fetch
+    restart: unless-stopped
+    ports:
+      - "50051:50051"
+    environment:
+      ORTHANC_URL: http://orthanc:8042
+      ORTHANC_USERNAME: ${ORTHANC_USERNAME:-admin}
+      ORTHANC_PASSWORD: ${ORTHANC_PASSWORD}
+    depends_on:
+      - orthanc
+      - postgres
+    networks:
+      - autoqad-net
+
+  us-analyze-service:
+    build:
+      context: ./grpc_microservices/Analyze_service
+      dockerfile: Containerfile
+    container_name: autoqad-us-analyze
+    restart: unless-stopped
+    ports:
+      - "50052:50052"
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: "5432"
+      DATABASE_NAME: ${DATABASE_NAME:-QA-results}
+      DATABASE_USER: ${DATABASE_USER:-postgres}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      ORTHANC_URL: http://orthanc:8042
+      ORTHANC_USERNAME: ${ORTHANC_USERNAME:-admin}
+      ORTHANC_PASSWORD: ${ORTHANC_PASSWORD}
+      FETCH_SERVICE_HOST: fetch-service:50051
+    depends_on:
+      postgres:
+        condition: service_healthy
+      fetch-service:
+        condition: service_started
+    networks:
+      - autoqad-net
+
+  xr-analyze-service:
+    build:
+      context: ./grpc_microservices/Xray_analyze_service
+      dockerfile: Containerfile
+    container_name: autoqad-xr-analyze
+    restart: unless-stopped
+    ports:
+      - "50053:50053"
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: "5432"
+      DATABASE_NAME: ${DATABASE_NAME:-QA-results}
+      DATABASE_USER: ${DATABASE_USER:-postgres}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      ORTHANC_URL: http://orthanc:8042
+      ORTHANC_USERNAME: ${ORTHANC_USERNAME:-admin}
+      ORTHANC_PASSWORD: ${ORTHANC_PASSWORD}
+      FETCH_SERVICE_HOST: fetch-service:50051
+    depends_on:
+      postgres:
+        condition: service_healthy
+      fetch-service:
+        condition: service_started
+    networks:
+      - autoqad-net
+
+  ct-analyze-service:
+    build:
+      context: ./grpc_microservices/CT_analyze_service
+      dockerfile: Containerfile
+    container_name: autoqad-ct-analyze
+    restart: unless-stopped
+    ports:
+      - "50054:50054"
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: "5432"
+      DATABASE_NAME: ${DATABASE_NAME:-QA-results}
+      DATABASE_USER: ${DATABASE_USER:-postgres}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      ORTHANC_URL: http://orthanc:8042
+      ORTHANC_USERNAME: ${ORTHANC_USERNAME:-admin}
+      ORTHANC_PASSWORD: ${ORTHANC_PASSWORD}
+      FETCH_SERVICE_HOST: fetch-service:50051
+    depends_on:
+      postgres:
+        condition: service_healthy
+      fetch-service:
+        condition: service_started
+    networks:
+      - autoqad-net
+
+  # ─── Image Service (US DICOM crop) ──────────────────────────────────────────
+
+  image-service:
+    build:
+      context: .
+      dockerfile: grpc_microservices/Image_service/Containerfile
+    container_name: autoqad-image-service
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    environment:
+      ORTHANC_URL: http://orthanc:8042
+      ORTHANC_USERNAME: ${ORTHANC_USERNAME:-admin}
+      ORTHANC_PASSWORD: ${ORTHANC_PASSWORD}
+    depends_on:
+      - orthanc
+    networks:
+      - autoqad-net
+
+  # ─── Go-backend + React SPA ─────────────────────────────────────────────────
+  # Samassa verkossa → kutsuu orthanc:8042 ja postgres:5432 suoraan nimellä
+
+  go-backend:
+    build:
+      context: ./go-backend
+      dockerfile: Containerfile
+    container_name: autoqad-go-backend
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    environment:
+      PORT: "8080"
+      DATABASE_HOST: postgres
+      DATABASE_PORT: "5432"
+      DATABASE_NAME: ${DATABASE_NAME:-QA-results}
+      DATABASE_USER: ${DATABASE_USER:-postgres}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      ORTHANC_URL: http://orthanc:8042
+      ORTHANC_USERNAME: ${ORTHANC_USERNAME:-admin}
+      ORTHANC_PASSWORD: ${ORTHANC_PASSWORD}
+      IMAGE_SERVICE_URL: http://image-service:8090
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      image-service:
+        condition: service_started
+    networks:
+      - autoqad-net
+
+  # ─── Django POISTETTU aktiivisesta stackista ───────────────────────────────
+  # Korvattu Go-backend + React -kombinaatiolla. Vanha Django arkistoitu:
+  # projects/autoQAD_django/ (ei ajeta tästä).
+
+networks:
+  autoqad-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  orthanc_data:

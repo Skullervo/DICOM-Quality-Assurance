@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: ct-analyze-service
-        image: skullervo/ct-analyze-service:latest
+        image: ghcr.io/autoqad/autoqad-ct-analyze:latest
         ports:
         - containerPort: 50054
         env:
