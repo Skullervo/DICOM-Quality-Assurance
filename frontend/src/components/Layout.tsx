@@ -1,6 +1,7 @@
-import { Link, Outlet, useLocation } from 'react-router-dom'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { Menu } from 'lucide-react'
+import { Menu, LogOut } from 'lucide-react'
+import { useAuth } from '../auth/authContext'
 
 const navItems = [
   { path: '/', label: 'Aloitus', exact: true },
@@ -23,6 +24,8 @@ const ctrlBtn: React.CSSProperties = {
 
 export default function Layout() {
   const location = useLocation()
+  const navigate = useNavigate()
+  const { logout } = useAuth()
   const [theme, setTheme] = useState<'dark' | 'light'>(getTheme)
   const [menuOpen, setMenuOpen] = useState(false)
   const isDevicePage = /\/(us\/device|xray\/device|ct\/device)\//.test(location.pathname)
@@ -70,6 +73,10 @@ export default function Layout() {
         </div>
         <button onClick={toggleTheme} aria-label="Vaihda teema" style={ctrlBtn}>
           {theme === 'dark' ? '☀' : '🌙'}
+        </button>
+        <button onClick={() => { logout(); navigate('/intro', { replace: true }) }}
+          aria-label="Kirjaudu ulos" title="Kirjaudu ulos" style={ctrlBtn}>
+          <LogOut size={16} aria-hidden />
         </button>
       </div>
 

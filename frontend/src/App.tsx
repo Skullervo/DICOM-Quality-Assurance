@@ -1,4 +1,8 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { AuthProvider } from './auth/AuthProvider'
+import RequireAuth from './auth/RequireAuth'
+import Intro from './pages/Intro'
+import Login from './pages/Login'
 import Layout from './components/Layout'
 import Home from './pages/Home'
 import Modaliteetit from './pages/Modaliteetit'
@@ -28,8 +32,15 @@ import Projects from './pages/Projects'
 
 export default function App() {
   return (
+    <AuthProvider>
     <BrowserRouter>
       <Routes>
+        {/* Julkiset reitit: intro + kirjautuminen */}
+        <Route path="/intro" element={<Intro />} />
+        <Route path="/login" element={<Login />} />
+
+        {/* Suojatut reitit — vaativat kirjautumisen */}
+        <Route element={<RequireAuth />}>
         <Route element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="modaliteetit" element={<Modaliteetit />} />
@@ -75,7 +86,9 @@ export default function App() {
           <Route path="hallinta/stacks" element={<StackList />} />
           <Route path="hallinta/projects" element={<Projects />} />
         </Route>
+        </Route>
       </Routes>
     </BrowserRouter>
+    </AuthProvider>
   )
 }
