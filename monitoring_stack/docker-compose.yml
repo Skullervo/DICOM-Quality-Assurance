@@ -1,3 +1,6 @@
+# AutoQAD-monitorointi (Prometheus + Grafana + Loki + Promtail).
+# Liittyy autoqad-net-verkkoon, jotta Prometheus tavoittaa go-backendin metriikat.
+# Aja: podman compose -f monitoring_stack/docker-compose.yml up -d
 services:
   loki:
     image: grafana/loki:2.9.1
@@ -10,8 +13,9 @@ services:
       - ./loki-storage/chunks:/loki/chunks
       - ./loki-storage/index:/loki/index
       - ./loki-storage/boltdb-cache:/loki/boltdb-cache
-      - ./loki-storage/wal:/loki/wal  # 🔧 Tämä RATKAISEE ongelman
-      - ./loki-storage/compactor:/loki/compactor   # 🔧 lisää tämä
+      - ./loki-storage/wal:/loki/wal
+      - ./loki-storage/compactor:/loki/compactor
+    networks: [autoqad-net]
 
   grafana:
     image: grafana/grafana
@@ -20,6 +24,8 @@ services:
       - "3000:3000"
     volumes:
       - grafana-storage:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning  # Prometheus+Loki-datalähteet
+    networks: [autoqad-net]
 
   prometheus:
     image: prom/prometheus
@@ -28,27 +34,21 @@ services:
       - "9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    networks: [autoqad-net]
 
-  # promtail:
-  #   image: grafana/promtail:2.9.1
-  #   container_name: promtail
-  #   volumes:
-  #     - ./promtail-config.yaml:/etc/promtail/config.yaml
-  #     # - /var/log:/var/log                # Linux: Järjestelmän logit
-  #     - ./logdata:/var/log/custom        # Vaihtoehtoisesti oma logihakemisto (Windows tai projektille)
-  #   command: -config.file=/etc/promtail/config.yaml
-
+  # Promtail (lokien keräys Lokiin). HUOM: konttilokien keräys Podmanissa vaatii
+  # vielä lokidriverin/discoveryn konfiguroinnin (jatkokehitys); ks. promtail-config.yaml.
   promtail:
     image: grafana/promtail:2.9.1
     container_name: promtail
     volumes:
       - ./promtail-config.yaml:/etc/promtail/config.yaml
-      - "C:/Projects/DICOM-Quality-Assurance/grpc_microservices/virtualenvversion/analyze_service/analyze_service.log:/mnt/logs/analyze_service.log"
-      # - /var/log:/var/log                # Linux: Järjestelmän logit
-      # - ./logdata:/var/log/custom        # Vaihtoehtoisesti oma logihakemisto (Windows tai projektille)
     command: -config.file=/etc/promtail/config.yaml
+    networks: [autoqad-net]
 
 volumes:
   grafana-storage:
 
-
+networks:
+  autoqad-net:
+    external: true

@@ -2,6 +2,13 @@ global:
   scrape_interval: 15s
 
 scrape_configs:
-  - job_name: 'python-app'
+  # AutoQAD Go-backend (uusi versio). Tavoitettavissa autoqad-net-verkossa.
+  - job_name: 'autoqad-go-backend'
+    metrics_path: /metrics
     static_configs:
-      - targets: ['host.docker.internal:8000']
+      - targets: ['autoqad-go-backend:8080']
+
+  # Prometheus itse
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
