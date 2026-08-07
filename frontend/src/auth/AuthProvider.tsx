@@ -4,9 +4,9 @@ import { AuthContext } from './authContext'
 // Kevyt frontend-portti. HUOM: tämä EI suojaa API:a — tunnukset ovat selaimen
 // puolella ja tarkoitettu vain käyttöliittymän porttaamiseen (sisäinen käyttö).
 // Oikea suojaus vaatii backend-autentikoinnin (go-backend/middleware/auth.go).
-const KEY = 'viroviusqa-auth'
+const KEY = 'radiqa-auth'
 const VALID_USER = String(import.meta.env.VITE_LOGIN_USER ?? 'admin')
-const VALID_PASS = String(import.meta.env.VITE_LOGIN_PASSWORD ?? 'viroviusqa')
+const VALID_PASS = String(import.meta.env.VITE_LOGIN_PASSWORD ?? 'radiqa')
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthed, setAuthed] = useState<boolean>(() => sessionStorage.getItem(KEY) === '1')

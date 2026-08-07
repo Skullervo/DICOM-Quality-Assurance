@@ -30,13 +30,14 @@ export default function Login() {
       <form className="login-card" onSubmit={onSubmit}>
         <div className="login-brand">
           <svg width="46" height="46" viewBox="0 0 44 44" aria-hidden style={{ display: 'inline-block' }}>
-            <circle cx="22" cy="23" r="18" fill="none" stroke="#c8ac74" strokeWidth="1.4" />
-            <rect x="7" y="8" width="30" height="30" fill="none" stroke="#b7965c" strokeWidth="1.2" opacity="0.7" />
-            <circle cx="22" cy="12" r="3.4" fill="none" stroke="#c8ac74" strokeWidth="1.4" />
-            <path d="M22,15 L22,30 M12,18 L32,18 M14,12 L30,12 M17,30 L13,40 M27,30 L31,40"
-              fill="none" stroke="#c8ac74" strokeWidth="1.4" strokeLinecap="round" />
+            <circle cx="22" cy="22" r="19" fill="none" stroke="#6fd3f0" strokeWidth="1.3" opacity="0.6" />
+            <path d="M28.06,18.5 L22,15 L15.94,18.5 L15.94,25.5 L22,29 L28.06,25.5 Z"
+              fill="none" stroke="#aef0ff" strokeWidth="1.6" strokeLinejoin="round" opacity="0.9" />
+            <path d="M28.06,18.5 L30,8 M22,15 L12.5,10 M15.94,18.5 L6,23 M15.94,25.5 L15,37 M22,29 L31,35 M28.06,25.5 L38,20"
+              fill="none" stroke="#4bb8e0" strokeWidth="1.2" strokeLinecap="round" opacity="0.5" />
+            <circle cx="22" cy="22" r="1.7" fill="#cdefff" />
           </svg>
-          <h1>Vitrovius<span className="mark">QA</span></h1>
+          <h1>Radi<span className="mark">qa</span></h1>
           <p>Kirjaudu sisään</p>
         </div>
 

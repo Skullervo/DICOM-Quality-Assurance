@@ -1,176 +1,192 @@
-# 🌌 DICOM Image Analysis with gRPC 🏥
+# Radiqa — Automated Medical Imaging Quality Assurance
 
-![Python](https://img.shields.io/badge/python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Go](https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white)
+![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![gRPC](https://img.shields.io/badge/gRPC-4285F4?style=for-the-badge&logo=grpc&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/postgres-336791?style=for-the-badge&logo=postgresql&logoColor=white)
-![Docker](https://img.shields.io/badge/docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
-![Kubernetes](https://img.shields.io/badge/kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)
-![Prometheus](https://img.shields.io/badge/prometheus-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)
-![Grafana](https://img.shields.io/badge/grafana-F46800?style=for-the-badge&logo=grafana&logoColor=white)
+![Podman](https://img.shields.io/badge/Podman-892CA0?style=for-the-badge&logo=podman&logoColor=white)
+![SQL Server](https://img.shields.io/badge/SQL%20Server-CC2927?style=for-the-badge&logo=microsoftsqlserver&logoColor=white)
+![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)
 
-
-
-This project consists of **gRPC-based microservices** that analyze **DICOM images**. The architecture is composed of three main services:
-
-- 🏷 **fetch_service** – Retrieves DICOM images from the **Orthanc server**.
-- 🛠 **analyze_service** – Processes images and stores results in the database.
-- 🐄 **PostgreSQL** – Stores the analysis results.
+**Radiqa** is a cloud-native framework for **automated QA of medical
+images** in multi-institutional healthcare environments. It receives DICOM images from
+hospital PACS via Orthanc, runs modality-specific QA analysis (ultrasound, X-ray, CT),
+stores the results, and presents them through a web app with trend visualization,
+tolerance management and AI-assisted reporting.
 
 ---
 
-## 📌 Technologies Used
-- ✅ **Orthanc** – DICOM server  
-- ✅ **gRPC** – Efficient and fast communication between microservices  
-- ✅ **Docker & Docker Hub** – Container management and deployment  
-- ✅ **PostgreSQL** – Database for storing analysis results  
-- ✅ **Python & pydicom** – DICOM image processing
-- ✅ **Kubernetes** – Minikube
-- :x: **Prometheus** – In progress
-- :x: **Grafana** – In progress
+## Contents
+
+1. [Architecture](#1-architecture)
+2. [Features](#2-features)
+3. [Supported modalities](#3-supported-modalities)
+4. [Tech stack](#4-tech-stack)
+5. [Services and ports](#5-services-and-ports)
+6. [Getting started](#6-getting-started)
+7. [Project structure](#7-project-structure)
+8. [Security notes](#8-security-notes)
+9. [Status and roadmap](#9-status-and-roadmap)
 
 ---
 
-## 🔥 Architecture
+## 1. Architecture
+
 ```
-[Orthanc]  →  [fetch_service]  →  [analyze_service]  →  [PostgreSQL]
+Hospital PACS ──(DICOM C-STORE)──▶ Orthanc
+                                     │
+                          Fetch Service :50051 (polls Orthanc)
+                                     │ gRPC
+        ┌───────────────┬───────────┴───────────┬───────────────┐
+   US-Analyze       XR-Analyze              CT-Analyze      Image Service
+    :50052            :50053                  :50054           :8090
+        └───────────────┴───────────┬───────────┴───────────────┘
+                                     │ (results)
+                              MS SQL Server  (QA-results)
+                                     │
+                              Go Backend :8080   ── /Laadunhallinta/api/*
+                                     │
+                              React SPA (Radiqa) ── /Laadunhallinta/*
+                                     │
+                                User browser
+
+Monitoring: Prometheus + Grafana + Loki     Orchestration: Podman (rootless) / Kubernetes
 ```
-- **fetch_service** retrieves images from **Orthanc**.
-- **analyze_service** processes the images and stores the results in the database.
-- **PostgreSQL** stores the analysis data.
+
+Each analyze service is decentralized: it polls all Orthanc series and **self-filters by
+DICOM `Modality`** (US → `US`, XR → `CR`/`DX`, CT → `CT`) — there is no central dispatcher.
 
 ---
 
-## 🚀 Installation & Deployment
+## 2. Features
 
-### 1⃣ Pull Docker Containers from Docker Hub
-Log in to each CSC server and pull the necessary containers:
-
-```sh
-docker pull skullervo/orthanc:master1
-docker pull skullervo/fetch_service:worker1v2
-docker pull skullervo/analyze_service:worker2v2
-docker pull skullervo/postgres:master1
-```
-
-### 2⃣ Start the Services
-
-#### Start `fetch_service`:
-```sh
-docker run -d --name fetch_service -p 50051:50051 skullervo/fetch_service:worker1v2
-```
-
-#### Start `analyze_service`:
-```sh
-sudo docker run -d --name analyze_service -p 50052:50052 \
-    -e FETCH_SERVICE_URL="worker-node1-ip:50051" \
-    -e POSTGRES_HOST="master-node-ip" \
-    -e POSTGRES_USER="<your_username>" \
-    -e POSTGRES_PASSWORD="<your_psw>" \
-    -e POSTGRES_DB="QA-results" \
-    skullervo/analyze_service:latest
-```
-
-#### Start `PostgreSQL`:
-```sh
-sudo docker run -d --name postgres -p 5432:5432 \
-    -e POSTGRES_USER=<your_username> \
-    -e POSTGRES_PASSWORD=<your_psw> \
-    -e POSTGRES_DB=QA-results \
-    skullervo/postgres:latest
-```
-
-#### Start `Prometheus`:
-```sh
-sudo docker run -d --name=prometheus -p 9090:9090 prom/prometheus
-```
-
-#### `Prometheus` yaml configuration:
-```sh
-global:
-  scrape_interval: 15s  # Kuinka usein dataa kerätään
-
-scrape_configs:
-  - job_name: 'master-node'
-    static_configs:
-      - targets: ['localhost:9090']
-
-  - job_name: 'worker-node1'
-    static_configs:
-      - targets: ['192.168.1.234:9090']  # Korvaa oikealla IP-osoitteella
-
-  - job_name: 'worker-node2'
-    static_configs:
-      - targets: ['192.168.1.245:9090']  # Korvaa oikealla IP-osoitteella
-
-  - job_name: 'analyze_service'
-    static_configs:
-      - targets: ['192.168.1.245:50053']  # Worker-node2:n IP ja oikea portti
-
-  - job_name: 'fetch_service'
-    static_configs:
-      - targets: ['192.168.1.234:50054']  # Korvaa oikealla Worker-node1:n IP:llä
-```
-
-#### Start `Grafana`:
-```sh
-sudo docker run -d --name=grafana -p 3000:3000 grafana/grafana
-```
+- **Per-device dashboards** — pass/fail evaluation, interactive trend charts per modality.
+- **Measurements view** — every measurement Orthanc has seen, *including failed
+  analyses*, with the failure reason and traceback.
+- **Editable acceptance limits** — tolerances live in the database, editable from the UI.
+- **Editable device metadata** — station/institution/manufacturer/model.
+- **AI-assisted reporting** — ask questions about the QA data (OpenAI GPT).
+- **Issue reporting** — one-click report to Slack.
+- **Login gate + intro** — lightweight front-end authentication.
 
 ---
 
-## ✅ Microservices Overview
+## 3. Supported modalities
 
-| **Service**         | **Port**  | **Function** |
-|--------------------|---------|------------|
-| **Orthanc**    | `8082`  | Stores DICOM images |
-| **fetch_service**  | `50051` | Retrieves DICOM images from Orthanc |
-| **analyze_service** | `50052` | Analyzes images and stores results in the database |
-| **PostgreSQL**    | `5432`  | Stores analysis results |
-
----
-
-## 🔍 Testing
-
-### 1⃣ Test Fetch Service
-```sh
-grpcurl -plaintext worker-node1-ip:50051 list
-```
-
-### 2⃣ Test Analyze Service 
-```sh
-grpcurl -plaintext worker-node2-ip:50052 list
-```
-
-### 3⃣ Test PostgreSQL Connection 
-```sh
-psql -h master-node-ip -U postgres -d QA-results -c "\dt"
-```
-
-### 4⃣ Test the Entire System
-Run the test script:
-```sh
-python test_analyze_service.py
-```
-
-✅ **If the analysis runs successfully, the entire system is working!** 🎉
+| Modality | Analysis | Phantom |
+|---|---|---|
+| **Ultrasound (US)** | In-air reverberation (van Horssen et al. 2017); convex & sector probe straightening | none |
+| **X-ray (XR)** | NORMI-13 via `normi13_qa` (pylinac): PIU uniformity, Cu wedge, low-contrast CNR/SNR, MTF | NORMI-13 |
+| **CT** | pylinac CatPhan 504/600 (auto-detected): HU linearity, uniformity/noise, MTF, low-contrast; | Catphan |
 
 ---
 
-## 🛠 Development Tools
-- 🐍 **Python** (`pydicom`, `grpcio`, `grpcio-tools`, `gRPC`)
-- 🐳 **Docker**
-- 🐄 **PostgreSQL**
-- 🏥 **Orthanc (DICOM server)**
+## 4. Tech stack
+
+- **Backend:** Go, gRPC client to the Python services
+- **Frontend:** React + Vite + TypeScript
+- **Analysis services:** Python + gRPC
+- **DICOM server:** Orthanc
+- **Database:** Microsoft SQL Server
+- **Monitoring:** Prometheus + Grafana + Loki
+- **Runtime:** Podman on network `autoqad-net`; Kubernetes/Minikube manifests
 
 ---
 
-## 📜 Future Enhancements
-- 🔄 **Asynchronous communication for the analysis service** (Kafka maybe?)
-- 🔍 **Logging and monitoring** (Prometheus & Grafana) 
-- 📊 **Error handling improvements** (Grafana) 
-- :trollface: **Kubernetes**
+## 5. Services and ports
 
---- 
-  
+| Service | Port (container) | Port (host) |
+|---|---|---|
+| Fetch service | 50051 | 50051 |
+| US analyze | 50052 | 50052 |
+| XR analyze | 50053 | 50053 |
+| CT analyze | 50054 | 50054 |
+| Image service | 8090 | 8090 |
+| Go backend | 8080 | 8081 |
+| React dev server (Vite) | — | 5174 |
+| Orthanc | 8042 | 18042 |
+| MS SQL Server | 1433 | 11433 |
+| PostgreSQL (legacy) | 5432 | 15432 |
+| Prometheus | 9090 | 9090 |
+| Grafana | 3000 | 3000 |
 
+---
 
+## 6. Getting started
+
+### 6.1 Prerequisites
+- Podman with a `podman-machine` (Windows/WSL) or native Linux
+- Node.js 20+ (frontend), Go 1.23+ (backend), Python 3.12+ (analysis services)
+
+### 6.2 Configure environment
+Copy the examples and fill in your own values (never commit real secrets — `.env` is
+git-ignored):
+
+```sh
+cp .env.docker.example .env            # backend / services
+cp frontend/.env.example frontend/.env # frontend (login gate, API base)
+```
+
+### 6.3 Start the stack (Podman)
+```sh
+./start-podman.sh          # Linux / WSL
+# or on Windows:
+.\start-autoqad.ps1
+```
+This brings up Orthanc, MS SQL Server, the fetch/analyze/image services, the Go backend
+and the monitoring stack on the `autoqad-net` network. See
+[`palvelimen_kaynnistys.md`](palvelimen_kaynnistys.md) for the full startup guide and
+troubleshooting.
+
+### 6.4 Frontend (development)
+```sh
+cd frontend
+npm install
+npm run dev        # http://localhost:5174
+```
+The app is served under `/Laadunhallinta/`. The dev login gate defaults to `admin` /
+`radiqa` (configurable via `VITE_LOGIN_USER` / `VITE_LOGIN_PASSWORD`).
+
+---
+
+## 7. Project structure
+
+```
+.
+├── go-backend/          # Go API + serves the React SPA (/Laadunhallinta/api/*)
+├── frontend/            # React + Vite SPA (Radiqa)
+├── grpc_microservices/  # Python gRPC analysis services
+│   ├── Fetch_service/        # polls Orthanc                    (:50051)
+│   ├── Analyze_service/      # ultrasound                       (:50052)
+│   ├── Xray_analyze_service/ # NORMI-13                         (:50053)
+│   ├── CT_analyze_service/   # CatPhan                          (:50054)
+│   ├── Image_service/        # US straightening / cropping      (:8090)
+│   ├── AI/                   # OpenAI GPT integration
+│   └── Minikube/             # Kubernetes manifests
+├── monitoring_stack/    # Prometheus + Grafana + Loki
+├── scripts/             # DB migration (PG→MSSQL), backfills, startup
+└── projects/            # side/archived projects (see below)
+```
+
+`projects/` holds satellite work: `analysis_lib` (standalone analysis library),
+`normi13_segmentation` (U-Net phantom segmentation), `standalone_qa` (manual upload app),
+`platform` (deployment/management backend) and `autoQAD_django` (archived Django UI that
+the Go+React app replaces). `ptg` (panoramic dental QA) lives in its own repository.
+
+---
+
+## 8. Security notes
+
+- All secrets are read from environment variables / `.env` files, which are **git-ignored**.
+- The web login is a **lightweight front-end gate** (UI-only) — it does not protect the
+  API. Real authentication (backend session/JWT) is a planned enhancement.
+
+---
+
+## 9. Status and roadmap
+
+- ✅ US / XR / CT analysis, Orthanc DICOM server, results storage
+- ✅ Go + React presentation layer
+- ✅ Prometheus + Grafana + Loki monitoring
+- ✅ MS SQL database
