@@ -124,7 +124,7 @@ Copy the examples and fill in your own values (never commit real secrets — `.e
 git-ignored):
 
 ```sh
-cp .env.docker.example .env            # backend / services
+cp .env.example .env                   # backend / services
 cp frontend/.env.example frontend/.env # frontend (login gate, API base)
 ```
 
@@ -165,14 +165,8 @@ The app is served under `/Laadunhallinta/`. The dev login gate defaults to `admi
 │   ├── AI/                   # OpenAI GPT integration
 │   └── Minikube/             # Kubernetes manifests
 ├── monitoring_stack/    # Prometheus + Grafana + Loki
-├── scripts/             # DB migration (PG→MSSQL), backfills, startup
-└── projects/            # side/archived projects (see below)
+└── scripts/             # DB migration (PG→MSSQL), backfills, startup
 ```
-
-`projects/` holds satellite work: `analysis_lib` (standalone analysis library),
-`normi13_segmentation` (U-Net phantom segmentation), `standalone_qa` (manual upload app),
-`platform` (deployment/management backend) and `autoQAD_django` (archived Django UI that
-the Go+React app replaces). `ptg` (panoramic dental QA) lives in its own repository.
 
 ---
 
