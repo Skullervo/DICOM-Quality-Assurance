@@ -1,4 +1,4 @@
-# Radiqa — Automated Medical Imaging Quality Assurance
+# Radiqa (Automated Medical Imaging Quality Assurance)
 
 ![Go](https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white)
 ![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
@@ -10,7 +10,7 @@
 ![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)
 
 **Radiqa** is a cloud-native framework for **automated QA of medical
-images** in multi-institutional healthcare environments. It receives DICOM images from
+imaging** in multi-institutional healthcare environments. It receives DICOM images from
 hospital PACS via Orthanc, runs modality-specific QA analysis (ultrasound, X-ray, CT),
 stores the results, and presents them through a web app with trend visualization,
 tolerance management and AI-assisted reporting.
@@ -51,7 +51,7 @@ Hospital PACS ──(DICOM C-STORE)──▶ Orthanc
                                      │
                                 User browser
 
-Monitoring: Prometheus + Grafana + Loki     Orchestration: Podman (rootless) / Kubernetes
+Monitoring: Prometheus + Grafana + Loki     Orchestration: Podman / Kubernetes
 ```
 
 Each analyze service is decentralized: it polls all Orthanc series and **self-filters by
@@ -61,14 +61,14 @@ DICOM `Modality`** (US → `US`, XR → `CR`/`DX`, CT → `CT`) — there is no 
 
 ## 2. Features
 
-- **Per-device dashboards** — pass/fail evaluation, interactive trend charts per modality.
-- **Measurements view** — every measurement Orthanc has seen, *including failed
+- **Per-device dashboards**: pass/fail evaluation, interactive trend charts per modality.
+- **Measurements view**: every measurement Orthanc has seen, *including failed
   analyses*, with the failure reason and traceback.
-- **Editable acceptance limits** — tolerances live in the database, editable from the UI.
-- **Editable device metadata** — station/institution/manufacturer/model.
-- **AI-assisted reporting** — ask questions about the QA data (OpenAI GPT).
-- **Issue reporting** — one-click report to Slack.
-- **Login gate + intro** — lightweight front-end authentication.
+- **Editable acceptance limits**: tolerances live in the database, editable from the UI.
+- **Editable device metadata**: station/institution/manufacturer/model.
+- **AI-assisted reporting**: ask questions about the QA data (OpenAI GPT).
+- **Issue reporting**: Slack channel.
+- **Login gate + intro**: lightweight front-end authentication.
 
 ---
 
@@ -115,38 +115,79 @@ DICOM `Modality`** (US → `US`, XR → `CR`/`DX`, CT → `CT`) — there is no 
 
 ## 6. Getting started
 
+`start-podman.sh` builds every image, creates the `autoqad-net` network and all
+containers, and initialises the MS SQL database — so a fresh install is essentially
+*configure `.env` → run the script → load some DICOM data*.
+
 ### 6.1 Prerequisites
-- Podman with a `podman-machine` (Windows/WSL) or native Linux
-- Node.js 20+ (frontend), Go 1.23+ (backend), Python 3.12+ (analysis services)
+- **Podman** (rootless). For a container-only install this is the only hard requirement —
+  the script builds the Python/Go services in containers.
+- **Node.js 20+** to run the frontend dev server.
+- (Go 1.23+ / Python 3.12+ are only needed if you build a service *outside* containers.)
 
-### 6.2 Configure environment
-Copy the examples and fill in your own values (never commit real secrets — `.env` is
-git-ignored):
-
+### 6.2 Podman machine (Windows / macOS)
 ```sh
-cp .env.example .env                   # backend / services
-cp frontend/.env.example frontend/.env # frontend (login gate, API base)
+podman machine init      # once
+podman machine start
 ```
+On native Linux you can skip this.
 
-### 6.3 Start the stack (Podman)
+### 6.3 Clone and configure
 ```sh
-./start-podman.sh          # Linux / WSL
-# or on Windows:
-.\start-autoqad.ps1
+git clone https://github.com/Skullervo/DICOM-Quality-Assurance.git
+cd DICOM-Quality-Assurance
+cp .env.example .env                    # DB / Orthanc / OpenAI / Slack values
+cp frontend/.env.example frontend/.env  # login-gate credentials (optional)
 ```
-This brings up Orthanc, MS SQL Server, the fetch/analyze/image services, the Go backend
-and the monitoring stack on the `autoqad-net` network. See
-[`palvelimen_kaynnistys.md`](palvelimen_kaynnistys.md) for the full startup guide and
-troubleshooting.
+`.env` (git-ignored) must define at least `MSSQL_SA_PASSWORD` and `ORTHANC_PASSWORD`, plus
+`OPENAI_API_KEY` / `SLACK_WEBHOOK_URL` for the AI/Slack features. Use a strong SA password
+(SQL Server requires ≥ 8 chars with upper/lower/digit/symbol).
 
-### 6.4 Frontend (development)
+### 6.4 Start the backend stack
 ```sh
-cd frontend
-npm install
-npm run dev        # http://localhost:5174
+./start-podman.sh
 ```
-The app is served under `/Laadunhallinta/`. The dev login gate defaults to `admin` /
-`radiqa` (configurable via `VITE_LOGIN_USER` / `VITE_LOGIN_PASSWORD`).
+Idempotent — it does everything and just (re)starts anything that already exists:
+1. creates the `autoqad-net` network,
+2. starts **MS SQL Server** (persistent volume) and creates the `QA-results` database +
+   schema (`scripts/schema_mssql.sql`),
+3. starts **Orthanc** (DICOM `:14242`, web `:18042`),
+4. builds & starts **Fetch**, **US / XR / CT analyze**, **Image** services and the **Go backend**.
+
+On Windows run it inside the podman machine — either the `start-autoqad.ps1` wrapper, or
+`wsl -d podman-machine-default -- bash /mnt/c/…/DICOM-Quality-Assurance/start-podman.sh`.
+
+> Monitoring (Prometheus / Grafana / Loki) is optional — see `monitoring_stack/compose.yml`.
+
+### 6.5 Load DICOM data into Orthanc
+The analyze services only act on data that has reached Orthanc. Two ways:
+
+**A) From the hospital PACS (C-STORE)** — point the PACS at Orthanc:
+- Host: the Orthanc server, **DICOM port `14242`** (container port 4242)
+- AE Title: `ORTHANC` (Orthanc accepts incoming C-STORE by default)
+
+Sent images appear automatically; the analyze services poll Orthanc (~30 s after start,
+then hourly) and self-filter by modality.
+
+**B) Upload test images manually** — open the Orthanc Explorer at
+`http://localhost:18042` (login `admin` / your `ORTHANC_PASSWORD`) → **Upload**, or via REST:
+```sh
+curl -u admin:$ORTHANC_PASSWORD --data-binary @image.dcm \
+     -H "Content-Type: application/dicom" http://localhost:18042/instances
+```
+US images are analysed as-is; XR expects a NORMI-13 phantom image and CT a CatPhan scan.
+
+### 6.6 Frontend (development)
+```sh
+cd frontend && npm install && npm run dev     # http://localhost:5174
+```
+The dev server proxies `/Laadunhallinta/api` to the Go backend. The login gate defaults to
+`admin` / `radiqa` (override with `VITE_LOGIN_USER` / `VITE_LOGIN_PASSWORD`).
+
+### 6.7 Verify
+- Go backend: `curl http://localhost:8081/Laadunhallinta/api/us/institutions`
+- Orthanc Explorer: `http://localhost:18042`
+- App: `http://localhost:5174`
 
 ---
 
