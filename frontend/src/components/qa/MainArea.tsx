@@ -42,9 +42,10 @@ export function MainArea({ breadcrumb, reportContext, reportAttachments, childre
               )
             })}
           </div>
-          {/* paddingRight varaa tilaa oikean ylakulman kiinteille painikkeille (valikko + teema),
-              jotta breadcrumb jaa niiden vasemmalle puolelle eika mene paallekkain */}
-          <div style={{ marginLeft: 'auto', alignSelf: 'center', paddingRight: 90, minWidth: 0, whiteSpace: 'nowrap',
+          {/* paddingRight varaa tilaa oikean ylakulman kiinteille painikkeille
+              (valikko + teema + uloskirjautuminen = 3 nappia), jotta breadcrumb jaa
+              niiden vasemmalle puolelle eika mene paallekkain (katkeaa ...:lla) */}
+          <div style={{ marginLeft: 'auto', alignSelf: 'center', paddingRight: 132, minWidth: 0, whiteSpace: 'nowrap',
             overflow: 'hidden', textOverflow: 'ellipsis' }}>{breadcrumb}</div>
         </div>
       </div>
