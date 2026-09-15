@@ -237,6 +237,7 @@ CREATE TABLE [ultrasound] (
     [horiz_prof] NVARCHAR(MAX) NULL,
     [vert_prof] NVARCHAR(MAX) NULL,
     [straightened_instance] NVARCHAR(MAX) NULL,
+    [processing_time] FLOAT NULL,
     CONSTRAINT [PK_ultrasound] PRIMARY KEY ([id])
 );
 

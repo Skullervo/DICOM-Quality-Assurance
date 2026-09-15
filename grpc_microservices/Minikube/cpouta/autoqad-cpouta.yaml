@@ -1,0 +1,224 @@
+# Radiqa / AutoQAD — cPouta Kubernetes deployment (KORJATTU nykyiselle MSSQL-imagelle).
+#
+# Palvelut on nimetty niin, että ne täsmäävät us-analyze-imagen env-OLETUKSIIN
+# (DATABASE_HOST=autoqad-mssql, ORTHANC_URL=http://orthanc:8042,
+#  FETCH_SERVICE_HOST=fetch-service:50051) -> tarvitaan vain salasanat env:iin.
+#
+# Käyttöönotto (ks. README.md):
+#   kubectl create namespace autoqad
+#   kubectl -n autoqad create secret generic autoqad-secrets \
+#     --from-literal=MSSQL_SA_PASSWORD='Vaihda_Vahva_Pw1!' \
+#     --from-literal=ORTHANC_PASSWORD='alice'
+#   kubectl -n autoqad create configmap mssql-schema \
+#     --from-file=schema_mssql.sql=../../../scripts/schema_mssql.sql
+#   kubectl apply -f autoqad-cpouta.yaml
+# ---------------------------------------------------------------------------
+
+# ===== MS SQL Server =====
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: mssql-pvc, namespace: autoqad }
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: 8Gi } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: mssql, namespace: autoqad }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: mssql } }
+  template:
+    metadata: { labels: { app: mssql } }
+    spec:
+      # SQL Server 2022 tarvitsee ~2 GB RAM. Worker-nodet ovat vain ~2 GB (myös OS+podit),
+      # joten se näki nälkää (virhe 701). Pinnataan control-planeen (4 GB) ja rajataan
+      # SQL:n muisti, jotta se on vakaa myös skaalaustestin (4 replikaa) kirjoituskuormalla.
+      nodeSelector: { kubernetes.io/hostname: autoqad-control }
+      tolerations:
+      - { key: node-role.kubernetes.io/control-plane, operator: Exists, effect: NoSchedule }
+      containers:
+      - name: mssql
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        ports: [{ containerPort: 1433 }]
+        env:
+        - { name: ACCEPT_EULA, value: "Y" }
+        - { name: MSSQL_PID, value: "Developer" }
+        - { name: MSSQL_MEMORY_LIMIT_MB, value: "2048" }
+        - name: MSSQL_SA_PASSWORD
+          valueFrom: { secretKeyRef: { name: autoqad-secrets, key: MSSQL_SA_PASSWORD } }
+        volumeMounts: [{ name: data, mountPath: /var/opt/mssql }]
+        resources:
+          requests: { memory: "2Gi", cpu: "500m" }
+          limits:   { memory: "2560Mi" }
+        readinessProbe:
+          tcpSocket: { port: 1433 }
+          initialDelaySeconds: 20
+          periodSeconds: 5
+      volumes:
+      - name: data
+        persistentVolumeClaim: { claimName: mssql-pvc }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: autoqad-mssql, namespace: autoqad }   # = us-analyze DATABASE_HOST -oletus
+spec:
+  selector: { app: mssql }
+  ports: [{ port: 1433, targetPort: 1433 }]
+---
+# Kertaluontoinen skeeman alustus: luo QA-results-kanta + taulut (schema_mssql.sql).
+apiVersion: batch/v1
+kind: Job
+metadata: { name: mssql-init, namespace: autoqad }
+spec:
+  backoffLimit: 20
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: init
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          set -e
+          SQL="/opt/mssql-tools18/bin/sqlcmd -S autoqad-mssql -U sa -P $MSSQL_SA_PASSWORD -C"
+          echo "Waiting for SQL Server..."
+          for i in $(seq 1 60); do $SQL -Q "SELECT 1" >/dev/null 2>&1 && break; sleep 2; done
+          $SQL -Q "IF DB_ID('QA-results') IS NULL CREATE DATABASE [QA-results]"
+          $SQL -d QA-results -i /schema/schema_mssql.sql
+          echo "Schema applied."
+        env:
+        - name: MSSQL_SA_PASSWORD
+          valueFrom: { secretKeyRef: { name: autoqad-secrets, key: MSSQL_SA_PASSWORD } }
+        volumeMounts: [{ name: schema, mountPath: /schema }]
+      volumes:
+      - name: schema
+        configMap: { name: mssql-schema }
+---
+# ===== Orthanc =====
+# PVC jotta DICOMit säilyvät podin uudelleenkäynnistyksessä (vikasietotestit
+# tappavat Orthanc-podin; emptyDir pyyhkisi kuvat).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: orthanc-pvc, namespace: autoqad }
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: 8Gi } }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: orthanc-config, namespace: autoqad }
+data:
+  orthanc.json: |
+    {
+      "Name": "AutoQAD Orthanc",
+      "StorageDirectory": "/var/lib/orthanc/db",
+      "IndexDirectory": "/var/lib/orthanc/db",
+      "RemoteAccessAllowed": true,
+      "AuthenticationEnabled": true,
+      "RegisteredUsers": { "admin": "alice" },
+      "DicomServerEnabled": true,
+      "DicomAet": "AUTOQAD",
+      "DicomPort": 4242,
+      "HttpPort": 8042,
+      "DicomAlwaysAllowStore": true,
+      "OverwriteInstances": false
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: orthanc, namespace: autoqad }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: orthanc } }
+  template:
+    metadata: { labels: { app: orthanc } }
+    spec:
+      containers:
+      - name: orthanc
+        image: docker.io/jodogne/orthanc-python
+        args: ["/etc/orthanc/orthanc.json"]
+        ports:
+        - { containerPort: 4242, name: dicom }
+        - { containerPort: 8042, name: http }
+        volumeMounts:
+        - { name: config, mountPath: /etc/orthanc/orthanc.json, subPath: orthanc.json }
+        - { name: data, mountPath: /var/lib/orthanc/db }
+      volumes:
+      - name: config
+        configMap: { name: orthanc-config }
+      - name: data
+        persistentVolumeClaim: { claimName: orthanc-pvc }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: orthanc, namespace: autoqad }        # = us-analyze ORTHANC_URL -oletus
+spec:
+  type: NodePort
+  selector: { app: orthanc }
+  ports:
+  - { name: dicom, port: 4242, targetPort: 4242, nodePort: 30042 }
+  - { name: http,  port: 8042, targetPort: 8042, nodePort: 30080 }
+---
+# ===== Fetch service =====
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: fetch, namespace: autoqad }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: fetch } }
+  template:
+    metadata: { labels: { app: fetch } }
+    spec:
+      containers:
+      - name: fetch
+        image: docker.io/skullervo/autoqad-fetch:latest
+        ports: [{ containerPort: 50051 }]
+        env:
+        - { name: ORTHANC_URL, value: "http://orthanc:8042" }
+        - { name: ORTHANC_USERNAME, value: "admin" }
+        - name: ORTHANC_PASSWORD
+          valueFrom: { secretKeyRef: { name: autoqad-secrets, key: ORTHANC_PASSWORD } }
+        resources:
+          requests: { memory: "128Mi", cpu: "100m" }
+          limits:   { memory: "256Mi", cpu: "250m" }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: fetch-service, namespace: autoqad }   # = us-analyze FETCH_SERVICE_HOST -oletus
+spec:
+  selector: { app: fetch }
+  ports: [{ port: 50051, targetPort: 50051 }]
+---
+# ===== US analyze service =====
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: us-analysis, namespace: autoqad }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: us-analysis } }
+  template:
+    metadata: { labels: { app: us-analysis } }
+    spec:
+      containers:
+      - name: us-analysis
+        image: docker.io/skullervo/autoqad-us-analyze:latest
+        ports: [{ containerPort: 50052 }]
+        env:
+        # DATABASE_HOST/PORT/USER/NAME, ORTHANC_URL/USERNAME, FETCH_SERVICE_HOST
+        # tulevat imagen oletuksista (palvelut nimetty vastaavasti). Vain salasanat:
+        - name: DATABASE_PASSWORD
+          valueFrom: { secretKeyRef: { name: autoqad-secrets, key: MSSQL_SA_PASSWORD } }
+        - name: ORTHANC_PASSWORD
+          valueFrom: { secretKeyRef: { name: autoqad-secrets, key: ORTHANC_PASSWORD } }
+        resources:
+          requests: { memory: "512Mi", cpu: "250m" }
+          limits:   { memory: "1Gi",   cpu: "500m" }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: us-analysis, namespace: autoqad }
+spec:
+  selector: { app: us-analysis }
+  ports: [{ port: 50052, targetPort: 50052 }]

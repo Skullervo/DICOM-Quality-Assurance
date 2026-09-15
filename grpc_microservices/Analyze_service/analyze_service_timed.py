@@ -6,6 +6,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'F
 import json
 import traceback
 import grpc
+import random
 from concurrent import futures
 import analyze_service_timed_pb2
 import analyze_service_timed_pb2_grpc
@@ -41,6 +42,17 @@ DB_CONFIG = {
 
 logger = logging.getLogger(__name__)
 
+# Pod-/hostnimi (k8s asettaa HOSTNAME = pod-nimi). Käytetään työnjaon claimissa
+# merkitsemään mikä replika varasi kuvan.
+POD_NAME = os.getenv("HOSTNAME", "unknown")
+
+# Kuinka vanha varaus (claim) saa olla ennen kuin toinen replika saa ottaa sen
+# haltuunsa (reclaim). Suojaa orpoja varauksia vastaan: jos pod kuolee kesken
+# analyysin, sen varaus vanhenee ja työ jatkuu toisella replikalla. Arvon pitää olla
+# reilusti pidempi kuin yhden kuvan analyysiaika (~1 s), jottei elävän podin varausta
+# varasteta. Sekunteina.
+CLAIM_TIMEOUT_SECONDS = int(os.getenv("CLAIM_TIMEOUT_SECONDS", "120"))
+
 # 🔹 Luo tietokantayhteys (taulu on jo olemassa, ks. schema_mssql.sql)
 def connect_db():
     return pymssql.connect(**DB_CONFIG)
@@ -63,6 +75,116 @@ def _ensure_failures_table(cur):
         IF COL_LENGTH('dbo.analysis_failures','detail') IS NULL
             ALTER TABLE dbo.analysis_failures ADD detail NVARCHAR(MAX) NULL
     """)
+
+
+def _ensure_ultrasound_columns(cur):
+    """Varmista per-kuva keston sarake (idempotentti). Sekunteina."""
+    cur.execute("""
+        IF COL_LENGTH('dbo.ultrasound','processing_time') IS NULL
+            ALTER TABLE dbo.ultrasound ADD processing_time FLOAT NULL
+    """)
+
+
+def _ensure_claims_table(cur):
+    """Työnjako-taulu (idempotentti). Kun useampi analyysireplika ajaa rinnakkain,
+    kukin varaa (claim) instanssin atomisesti ennen analyysia. instance_id on
+    PRIMARY KEY, joten vain yksi replika saa varauksen -> kukin kuva analysoidaan
+    tasan kerran ilman päällekkäistä työtä (mahdollistaa horisontaalisen skaalauksen)."""
+    try:
+        cur.execute("""
+            IF OBJECT_ID('dbo.analysis_claims','U') IS NULL
+            CREATE TABLE dbo.analysis_claims (
+                instance_id NVARCHAR(128) NOT NULL,
+                claimed_by NVARCHAR(128) NULL,
+                claimed_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+                CONSTRAINT pk_analysis_claims PRIMARY KEY (instance_id)
+            )
+        """)
+    except Exception as e:  # noqa: BLE001
+        # IF OBJECT_ID IS NULL + CREATE ei ole atominen: kaksi replikaa voi molemmat
+        # nähdä taulun puuttuvan ja yrittää luoda sen -> toinen saa virheen 2714
+        # ("already an object"). Vaaraton kilpailu -> jatka. Muut virheet -> nosta.
+        if "2714" not in str(e) and "already an object" not in str(e).lower():
+            raise
+
+
+def claim_instance(cur, conn, instance_id):
+    """Yritä varata instanssi atomisesti. Palauttaa True jos tämä replika sai
+    varauksen (saa analysoida), False jos toinen replika ehti ensin.
+
+    PRIMARY KEY -törmäys = varaus on jo olemassa. Silloin yritetään RECLAIM:
+    jos varaus on vanhentunut (pod kuoli, claimed_at vanhempi kuin timeout) EIKÄ
+    kuvaa ole vielä analysoitu, tämä replika ottaa varauksen haltuunsa atomisella
+    UPDATElla ja analysoi. Näin orvot varaukset eivät jää jumiin -> kaikki kuvat
+    analysoidaan lopulta, myös kaatumisen jälkeen.
+
+    Muu virhe (esim. transientti DB) -> rollback ja False; itsekorjaava, ei kaadu."""
+    # 1) Yritä tuore varaus
+    try:
+        cur.execute(
+            "INSERT INTO analysis_claims (instance_id, claimed_by) VALUES (%s, %s)",
+            (instance_id, POD_NAME))
+        conn.commit()
+        return True
+    except Exception:  # noqa: BLE001  (todennäköisesti PRIMARY KEY -törmäys)
+        try:
+            conn.rollback()
+        except Exception:  # noqa: BLE001
+            pass
+
+    # 2) Varaus on jo olemassa -> ota haltuun jos VANHENTUNUT eikä vielä analysoitu.
+    #    Atominen UPDATE: onnistuu tasan yhdelle replikalle (ehdot WHERE:ssä).
+    try:
+        cur.execute(
+            """
+            UPDATE analysis_claims
+            SET claimed_by = %s, claimed_at = SYSDATETIME()
+            WHERE instance_id = %s
+              AND claimed_at < DATEADD(second, -%s, SYSDATETIME())
+              AND NOT EXISTS (SELECT 1 FROM ultrasound WHERE instance = %s)
+            """,
+            (POD_NAME, instance_id, CLAIM_TIMEOUT_SECONDS, instance_id))
+        stolen = cur.rowcount
+        conn.commit()
+        if stolen and stolen > 0:
+            logger.info("♻️ reclaim vanhentunut varaus %s", instance_id)
+            return True
+    except Exception as e:  # noqa: BLE001
+        try:
+            conn.rollback()
+        except Exception:  # noqa: BLE001
+            pass
+        logger.info("reclaim skip %s: %s", instance_id, str(e)[:120])
+    return False
+
+
+def sweep_stale_claims(cur, conn):
+    """Vapauta orvot varaukset KERRALLA kierroksen alussa (nopea reclaim): poista
+    varaukset jotka ovat vanhentuneet (CLAIM_TIMEOUT_SECONDS) EIKÄ kuvaa ole
+    analysoitu. Näin kaatuneen podin kesken jättämät kuvat tulevat heti uudelleen
+    varattaviksi ja käsitellään SAMALLA kierroksella — ei tarvitse odottaa että
+    per-instanssi-reclaim osuu niihin useamman skannauskierroksen aikana.
+    Turvallinen: elävän podin varaus (~1 s) ei koskaan ole vanhempi kuin timeout."""
+    try:
+        cur.execute(
+            """
+            DELETE FROM analysis_claims
+            WHERE claimed_at < DATEADD(second, -%s, SYSDATETIME())
+              AND NOT EXISTS (SELECT 1 FROM ultrasound WHERE instance = analysis_claims.instance_id)
+            """,
+            (CLAIM_TIMEOUT_SECONDS,))
+        freed = cur.rowcount
+        conn.commit()
+        if freed and freed > 0:
+            logger.info("♻️ sweep: vapautettu %s orpoa varausta", freed)
+        return freed or 0
+    except Exception as e:  # noqa: BLE001
+        try:
+            conn.rollback()
+        except Exception:  # noqa: BLE001
+            pass
+        logger.info("sweep skip: %s", str(e)[:120])
+        return 0
 
 
 def record_failure(cur, orthanc_id, station, reason, detail=""):
@@ -116,9 +238,18 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
                 context.set_code(grpc.StatusCode.NOT_FOUND)
             return analyze_service_timed_pb2.AnalyzeResponse(message="No series available", series_id="ALL")
 
+        # Satunnaista sarjojen käsittelyjärjestys per replika/kierros. Ilman tätä
+        # rinnakkaiset replikat marssivat samassa järjestyksessä lukkoaskelin, jolloin
+        # ensin ehtinyt replika varaa lähes kaiken (havaittu jako 754/48). Eri
+        # järjestys -> claimit jakautuvat tasaisesti -> aito horisontaalinen skaalaus.
+        random.shuffle(series_list)
+
         fetch_stub = get_fetch_stub()
         conn = connect_db()
         cur = conn.cursor()
+        _ensure_ultrasound_columns(cur)  # per-kuva keston sarake (idempotentti)
+        _ensure_claims_table(cur)        # työnjako-taulu (idempotentti)
+        sweep_stale_claims(cur, conn)    # vapauta orvot varaukset kerralla (nopea reclaim)
 
         for series_id in series_list:
             logger.info("📡 Processing series ID: %s", series_id)
@@ -139,6 +270,13 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
                 # Tarkista onko jo analysoitu
                 if is_instance_analyzed(cur, instance_id):
                     logger.info("⏩ Instance %s already analyzed, skipping.", instance_id)
+                    continue
+
+                # 🔀 Työnjako: varaa instanssi atomisesti. Jos toinen replika ehti
+                #    varata sen, ohita -> kukin kuva analysoidaan tasan kerran.
+                #    Näin useampi replika jakaa työn (horisontaalinen skaalaus)
+                #    sen sijaan että kaikki kävisivät samat kuvat läpi päällekkäin.
+                if not claim_instance(cur, conn, instance_id):
                     continue
 
                 logger.info("📡 Fetching instance ID: %s", instance_id)
@@ -178,8 +316,9 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
                     logger.info("❌ Not an ultrasound image. Skipping instance %s", instance_id)
                     continue  # Ohitetaan tämä instanssi
 
-                # 📊 Analysoidaan kuva
+                # 📊 Analysoidaan kuva (mitataan per-kuva kesto sekunteina)
                 image_array = dicom_dataset.pixel_array
+                start_time = time.time()
                 analysis = imageQualityUS(dicom_dataset, dicom_bytes, image_array, "probe-LUT.xls")
 
                 try:
@@ -189,6 +328,7 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
                     record_failure(cur, instance_id, str(metadata.get("StationName", "")), str(e), traceback.format_exc())
                     conn.commit()
                     continue
+                processing_time = time.time() - start_time
 
                 # 🔹 Muunnetaan tulokset JSON-muotoon
                 json_result = {
@@ -213,9 +353,10 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
                         institutionname, institutionaldepartmentname, manufacturer, modality,
                         stationname, seriesdate, instance, serie, S_depth, U_cov, U_skew, U_low,
                         horiz_prof, vert_prof, tranducertype,
-                        manufacturermodelname, studydate, contentdate, deviceserialnumber, contenttime
+                        manufacturermodelname, studydate, contentdate, deviceserialnumber, contenttime,
+                        processing_time
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
                     metadata["InstitutionName"],
                     metadata["InstitutionalDepartmentName"],
@@ -237,6 +378,7 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
                     metadata["ContentDate"],
                     metadata["DeviceSerialNumber"],
                     metadata["ContentTime"],
+                    float(processing_time),
                 ))
                 clear_failure(cur, instance_id)  # onnistui -> poista mahdollinen epäonnistumismerkintä
 
@@ -258,10 +400,15 @@ def start_analyze_scheduler(interval_seconds=3600):
     def loop():
         while True:
             logger.info("⏰ Ajastettu analyysi käynnistyy")
-            service = AnalyzeService()
-            class DummyContext:
-                def set_code(self, code): pass
-            service.AnalyzeAllDicomData(None, DummyContext())
+            try:
+                service = AnalyzeService()
+                class DummyContext:
+                    def set_code(self, code): pass
+                service.AnalyzeAllDicomData(None, DummyContext())
+            except Exception as e:  # noqa: BLE001
+                # Yksittäinen kierrosvirhe (transientti DB-virhe, kilpailu ym.) EI saa
+                # tappaa analyysisäiettä pysyvästi -> logita ja jatka seuraavaan kierrokseen.
+                logger.error("Analyysikierros epäonnistui, jatketaan seuraavalla kierroksella: %s", e)
             logger.info("🕒 Odotetaan %s sekuntia seuraavaan ajoon...", interval_seconds)
             time.sleep(interval_seconds)
     t = threading.Thread(target=loop, daemon=True)
