@@ -63,50 +63,66 @@ Per-kuva-aika on käytännössä replikamäärästä riippumaton (kunkin kuvan C
 
 Kokonaisaika = DB:n `processed_at`-väli (ensimmäisestä viimeiseen kirjoitettuun riviin).
 
-### 3.1 v1 — alkuperäinen koodi
-| Replikoita | Kokonaisaika | Speedup |
+Skaalausta tutkittiin kolmessa vaiheessa. **Lopullinen puhdas mittaustapa:** StatefulSet
+index-sharding + synkronoitu startti (Parallel-podit, delete-all → yhtä aikaa) + tyhjä
+taulu joka kierros → jokainen replikamäärä käsittelee koko 802:n; db_span = ensimmäisestä
+viimeiseen analyysiin; varmistettu ettei duplikaatteja (uniikkeja = 802 joka kierros).
+
+### 3.1 Alkuperäinen koodi — ei skaalausta
+| Replikoita | Aika | Speedup |
 |---|---|---|
 | 1 | 294,5 s | 1,00× |
 | 2 | 304,0 s | 0,97× |
 | 4 | 302,8 s | 0,97× |
 
-**Ei skaalausta.** Syy: jokainen replika pollaa *kaikki* sarjat ja deduplikoi (`is_instance_analyzed`) — työtä ei jaeta, replikat duplikoivat sen. Dedup on idempotenssia varten, ei työnjakoa.
+Jokainen replika pollaa *kaikki* sarjat ja deduplikoi — **työtä ei jaeta, replikat
+duplikoivat sen.** Lisänodet menivät hukkaan.
 
-### 3.2 v2 — työnjako lisätty (claim-mekanismi), puhdas N=802
+### 3.2 Työnjako (index-sharding) lisätty — silti tasainen (!)
+Deployment → StatefulSet; kukin pod käsittelee `hash(instance_id) % R == pod-numero`
+-osansa (ei claim-etsintäkulua, tasan jaettu). Silti:
 
-Synkronoitu käynnistys, **jokainen kierros N=802** (reclaim varmistaa täydellisyyden), db_span = ensimmäisestä viimeiseen analyysiin.
-
-| Replikoita | Kokonaisaika | Speedup |
+| Replikoita | Aika | Speedup |
 |---|---|---|
-| 1 | 383,6 s | 1,00× |
-| 2 | 274,0 s | **1,40×** |
-| 4 | 384,3 s | 1,00× |
+| 1 | 314,8 s | 1,00× |
+| 2 | 304,9 s | 1,03× |
+| 3 | 306,1 s | 1,03× |
 
-Työ jakautuu nyt tasaisesti (~50/50 satunnaistuksella). Claim-mekanismin lisäkustannus nostaa yhden replikan aikaa (~294→384 s vs. alkuperäinen). **1→2 tuo aidon 1,40× nopeutuksen**, mutta **4 replikaa ei skaalaudu pidemmälle** (~1,00×) — CPU-sidonnainen katto tällä 4-vCPU-klusterilla (ks. 3.3). *(R=4:n tarkkaan lukuun sekoittuu pieni orpo-varausten reclaim-häntä, mutta johtopäätös — ei lisähyötyä 2 replikan jälkeen — on riippumaton siitä.)*
+**Yllättäen edelleen tasainen.** CPU-mittaus paljasti miksi: koko klusteri käytti
+**vain ~0,7 CPU:ta** (7 vCPU:sta) analyysin aikana — ei CPU-sidonnaista. CPU-aikasarja
+näytti että **podit ajoivat vuoron perään, eivät rinnakkain** (pod-0: 45–150 s, pod-1:
+165–270 s). Jokin serialisoi ne.
 
-### 3.3 v3 — pullonkaula poistettu (fetch 1→3 replikaa, CPU-rajat 0,25/0,5 → 1)
-- **us=4: ~227 s** (vs. v2:n 300 s) → **~24 % nopeampi**
+### 3.3 Juurisyy: puuttuva DB-indeksi → lukkokilpailu
 
-**→ Pullonkaula oli yksi CPU-rajattu fetch-service (0,25 CPU) + tiukat CPU-rajat**, ei arkkitehtuuri. Kun tarjoilijalle (fetch) ja analysoijille annettiin resursseja, skaalaus jatkui.
+`is_instance_analyzed` tekee `SELECT ... WHERE instance = X` **joka kuvalle**, mutta
+`ultrasound.instance`-sarakkeella **ei ollut indeksiä** → **koko taulun skannaus** (O(n²)),
+ja skannauksen jaetut lukot **blokkasivat rinnakkaisten podien INSERTit** (READ COMMITTED)
+→ podit serialisoituivat. **Korjaus:** `CREATE INDEX IX_ultrasound_instance ON ultrasound(instance)`
+(sarake NVARCHAR(MAX) → NVARCHAR(128) indeksointia varten).
 
-**Katto tässä klusterissa:** worker-nodeissa yhteensä vain 4 vCPU. Suuremmalla klusterilla skaalautuisi pidemmälle.
+### 3.4 Indeksin jälkeen — puhdas skaalaus ✅
+| Replikoita | Aika | Speedup | Rinnakkaistehokkuus |
+|---|---|---|---|
+| 1 | 301,8 s | 1,00× | — |
+| 2 | 183,3 s | **1,65×** | 82 % |
+| 3 | 128,0 s | **2,36×** | 79 % |
+| 4 | 113,0 s | **2,67×** | 67 % |
 
-### 3.4 Hajautettu laskenta vs. single node
+Kaikki N=802, uniikkeja=802 (ei duplikaatteja). **Aito horisontaalinen skaalaus** —
+2,67× neljällä replikalla. Tehokkuus laskee 82 % → 67 % kun lähestytään worker-nodejen
+4 vCPU:n rajaa ja jaettuja palveluita (Orthanc/MSSQL/fetch) → odotettua alilineaarisuutta.
 
-"Single node" = 1 analyysi-instanssi (replicas=1); "hajautettu" = useampi replika klusterissa.
-
-| | Kokonaisaika (802 kuvaa) | vs. single node |
+### 3.5 Yhteenveto — hajautettu vs. single node
+| Vaihe | 1→4 skaalaus | Selitys |
 |---|---|---|
-| Single node (1 replika) | 371 s | 1,00× |
-| Hajautettu, 2 replikaa (v2) | 291 s | **1,27× nopeampi** |
-| Hajautettu, 4 replikaa (v3, pullonkaula poistettu) | ~227 s | **~1,6× nopeampi** |
-| Hajautettu, alkuperäinen koodi (ei työnjakoa) | ~300 s | **0,97× (ei hyötyä)** |
+| Alkuperäinen koodi | 0,97× | replikat duplikoivat työn |
+| Sharding, ei indeksiä | ~1,0× | DB-lukkokilpailu serialisoi podit |
+| **Sharding + indeksi** | **2,67×** | aito rinnakkaisuus |
 
-**Johtopäätökset:**
-1. **Alkuperäisellä koodilla hajautus ei tuonut mitään** — usea replika = sama tai hitaampi kuin single node, koska replikat duplikoivat työn (ei työnjakoa). Lisänodet menivät hukkaan.
-2. **Työnjaon lisäämisen jälkeen hajautettu voittaa single noden:** ~1,3× kahdella replikalla, jopa ~1,6× neljällä kun jaettu pullonkaula (yksi CPU-rajattu fetch-service) poistettiin.
-3. **Nopeutus on alilineaarista** (ei 2×/4×): jaetut pullonkaulat (single fetch/MSSQL/Orthanc), claim-lisäkustannus, pieni klusteri (4 vCPU) ja podien porrastettu käynnistys rajoittavat.
-4. **Hajautus nopeuttaa läpimenoa (eräaika), ei per-kuva-latenssia** — yhden kuvan analyysiaika (0,184 s) pysyy samana replikamäärästä riippumatta.
+**Opetus:** horisontaalinen skaalaus vaati (1) työnjaon (sharding), (2) jaetun tilan
+lukkokilpailun poiston (indeksi). Kumpikin yksin ei riittänyt. Hajautus nopeuttaa
+läpimenoa (eräaika), ei per-kuva-latenssia (0,184 s pysyy samana).
 
 ---
 
@@ -119,6 +135,8 @@ Työ jakautuu nyt tasaisesti (~50/50 satunnaistuksella). Claim-mekanismin lisäk
 5. **Järjestyksen satunnaistus:** `random.shuffle(series_list)` — replikat eivät marssi lukkoaskelin → tasainen työnjako.
 6. **Reclaim (orpojen varausten haltuunotto):** jos varaus on vanhentunut (`CLAIM_TIMEOUT_SECONDS`, oletus 120 s) eikä kuvaa ole analysoitu, toinen replika ottaa sen atomisella UPDATElla ja analysoi. Näin kaatuneen podin työ ei jää jumiin → kaikki kuvat valmistuvat (TESTI 6: 3/3).
 7. **Sweep (nopea reclaim):** kierroksen alussa yksi `DELETE ... WHERE stale AND NOT analyzed` vapauttaa **kaikki** orvot varaukset kerralla, jolloin ne käsitellään heti samalla kierroksella. Poistaa per-instanssi-reclaimin hitaan hännän (aiemmin orvot ryömivät sisään usean skannauskierroksen aikana).
+8. **Index-sharding (staattinen työnjako):** `SHARD_TOTAL` (env) + `SHARD_INDEX` (StatefulSetin ordinaali hostnamesta). Kun `SHARD_TOTAL>1`, kukin pod käsittelee vain `hash(instance_id) % SHARD_TOTAL == SHARD_INDEX` -osansa — ei claim-etsintäkulua, deterministinen tasainen jako. `SHARD_TOTAL<=1` → claim/work-stealing (aiempi). Deploy: [us-analysis-statefulset.yaml](us-analysis-statefulset.yaml) (Parallel podManagementPolicy + anti-affinity).
+9. **DB-indeksi `ultrasound.instance`** ([scripts/schema_mssql.sql](../../../scripts/schema_mssql.sql)): poistaa `is_instance_analyzed`-kyselyn taulunskannauksen + rinnakkaisten podien lukkokilpailun → **mahdollistaa aidon skaalauksen** (ks. 3.3–3.4). *Kriittinen: ilman tätä skaalaus jää ~1,0×.*
 
 ---
 

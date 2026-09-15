@@ -1,0 +1,51 @@
+# us-analysis STAATTISELLA index-shardingilla.
+# StatefulSet antaa podeille pysyvät nimet us-analysis-0, us-analysis-1, ... jolloin
+# kukin lukee oman shard-numeronsa hostnamesta ja käsittelee vain oman osansa kuvista
+# (hash(instance_id) % SHARD_TOTAL == SHARD_INDEX). Ei claim-etsintäkulua -> puhdas,
+# synkronoitu skaalausmittaus.
+#
+# TÄRKEÄ: SHARD_TOTAL:n on vastattava replicas-määrää. Skaalatessa aseta molemmat:
+#   kubectl -n autoqad scale statefulset/us-analysis --replicas=R
+#   kubectl -n autoqad set env statefulset/us-analysis SHARD_TOTAL=R
+#
+# Korvaa aiemman us-analysis Deploymentin (sama nimi/label) — poista Deployment ensin:
+#   kubectl -n autoqad delete deploy us-analysis
+#   kubectl -n autoqad apply -f us-analysis-statefulset.yaml
+# ---------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: { name: us-analysis, namespace: autoqad }
+spec:
+  serviceName: us-analysis          # olemassa oleva us-analysis Service (DNS StatefulSetille)
+  replicas: 2
+  # Parallel: podit luodaan/käynnistetään yhtä aikaa (ei ordinaalijärjestyksessä) ->
+  # synkronoitu startti puhdasta skaalausmittausta varten.
+  podManagementPolicy: Parallel
+  selector: { matchLabels: { app: us-analysis } }
+  template:
+    metadata: { labels: { app: us-analysis } }
+    spec:
+      # Hajauta podit workereille (parhaan mukaan) jotta CPU jakautuu.
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector: { matchLabels: { app: us-analysis } }
+              topologyKey: kubernetes.io/hostname
+      containers:
+      - name: us-analysis
+        image: docker.io/skullervo/autoqad-us-analyze:latest
+        ports: [{ containerPort: 50052 }]
+        env:
+        # Sharding-tila. SHARD_INDEX luetaan automaattisesti hostnamesta (us-analysis-N).
+        - { name: SHARD_TOTAL, value: "2" }
+        # DATABASE_HOST/PORT/USER/NAME, ORTHANC_URL/USERNAME, FETCH_SERVICE_HOST tulevat
+        # imagen oletuksista. Vain salasanat:
+        - name: DATABASE_PASSWORD
+          valueFrom: { secretKeyRef: { name: autoqad-secrets, key: MSSQL_SA_PASSWORD } }
+        - name: ORTHANC_PASSWORD
+          valueFrom: { secretKeyRef: { name: autoqad-secrets, key: ORTHANC_PASSWORD } }
+        resources:
+          requests: { memory: "512Mi", cpu: "200m" }
+          limits:   { memory: "1Gi",   cpu: "1" }

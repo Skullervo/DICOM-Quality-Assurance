@@ -7,6 +7,8 @@ import json
 import traceback
 import grpc
 import random
+import re
+import hashlib
 from concurrent import futures
 import analyze_service_timed_pb2
 import analyze_service_timed_pb2_grpc
@@ -52,6 +54,42 @@ POD_NAME = os.getenv("HOSTNAME", "unknown")
 # reilusti pidempi kuin yhden kuvan analyysiaika (~1 s), jottei elävän podin varausta
 # varasteta. Sekunteina.
 CLAIM_TIMEOUT_SECONDS = int(os.getenv("CLAIM_TIMEOUT_SECONDS", "120"))
+
+# --- Työnjakotila (index-sharding vs. claim/work-stealing) ---
+# SHARD_TOTAL = montako replikaa jakaa työn (StatefulSetin replikamäärä).
+#   > 1 -> STAATTINEN SHARDING: kukin pod käsittelee vain oman osansa kuvista
+#          (hash(instance_id) % SHARD_TOTAL == SHARD_INDEX). Ei claim-etsintäkulua,
+#          synkronoitu puhdas skaalaus. SHARD_TOTAL:n PITÄÄ vastata ajossa olevien
+#          replikoiden määrää, muuten osa shardeista jää käsittelemättä.
+#   <= 1 -> CLAIM/WORK-STEALING (aiempi käyttäytyminen): kaikki pollaavat kaikki +
+#           varaavat atomisesti; dynaaminen + vikasietoinen (reclaim/sweep).
+# SHARD_INDEX = tämän podin numero. StatefulSetissä HOSTNAME = "<nimi>-N" -> N.
+SHARD_TOTAL = int(os.getenv("SHARD_TOTAL", "1"))
+
+
+def _detect_shard_index():
+    """Lue podin ordinaali hostnamesta (StatefulSet: '...-N'). Voi myös yliajaa
+    SHARD_INDEX-envillä (esim. Indexed Job). Oletus 0."""
+    env_idx = os.getenv("SHARD_INDEX")
+    if env_idx is not None and env_idx.strip() != "":
+        try:
+            return int(env_idx)
+        except ValueError:
+            pass
+    m = re.search(r"-(\d+)$", POD_NAME)
+    return int(m.group(1)) if m else 0
+
+
+SHARD_INDEX = _detect_shard_index()
+
+
+def _is_my_shard(instance_id):
+    """Kuuluuko tämä instanssi tämän podin osuuteen? Sharding-tilassa (SHARD_TOTAL>1)
+    deterministinen hash-jako; muuten kaikki (claim hoitaa työnjaon)."""
+    if SHARD_TOTAL <= 1:
+        return True
+    h = int(hashlib.md5(instance_id.encode("utf-8")).hexdigest(), 16)
+    return (h % SHARD_TOTAL) == SHARD_INDEX
 
 # 🔹 Luo tietokantayhteys (taulu on jo olemassa, ks. schema_mssql.sql)
 def connect_db():
@@ -221,7 +259,11 @@ def get_fetch_stub():
 
 class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
     def AnalyzeAllDicomData(self, request, context):
-        logger.info("📡 Received request to analyze all series in Orthanc")
+        if SHARD_TOTAL > 1:
+            logger.info("📡 Analyysikierros — SHARDING: pod %s = shard %s/%s (käsittelee ~1/%s kuvista)",
+                        POD_NAME, SHARD_INDEX, SHARD_TOTAL, SHARD_TOTAL)
+        else:
+            logger.info("📡 Analyysikierros — CLAIM/work-stealing (SHARD_TOTAL=1)")
 
         # 🔍 Haetaan kaikki sarjat Orthancista
         response = requests.get(f"{ORTHANC_URL}/series", auth=ORTHANC_AUTH)
@@ -267,17 +309,24 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
 
             for instance in instance_list:
                 instance_id = instance["ID"]
-                # Tarkista onko jo analysoitu
+
+                # 🔀 Sharding: käsittele vain tämän podin oma osuus (halpa hash-tarkistus,
+                #    EI DB-kyselyä). SHARD_TOTAL>1 -> staattinen jako; muuten kaikki
+                #    (claim jakaa työn). Tämä poistaa claim-etsintäkulun sharding-tilassa.
+                if not _is_my_shard(instance_id):
+                    continue
+
+                # Tarkista onko jo analysoitu (idempotenssi uudelleenajossa)
                 if is_instance_analyzed(cur, instance_id):
                     logger.info("⏩ Instance %s already analyzed, skipping.", instance_id)
                     continue
 
-                # 🔀 Työnjako: varaa instanssi atomisesti. Jos toinen replika ehti
-                #    varata sen, ohita -> kukin kuva analysoidaan tasan kerran.
-                #    Näin useampi replika jakaa työn (horisontaalinen skaalaus)
-                #    sen sijaan että kaikki kävisivät samat kuvat läpi päällekkäin.
-                if not claim_instance(cur, conn, instance_id):
-                    continue
+                # 🔀 Claim/work-stealing -tila (SHARD_TOTAL<=1): varaa instanssi atomisesti.
+                #    Sharding-tilassa (SHARD_TOTAL>1) tätä EI tehdä — jako on jo hoidettu
+                #    hashilla, joten vältetään turha varaus-/etsintäkulu.
+                if SHARD_TOTAL <= 1:
+                    if not claim_instance(cur, conn, instance_id):
+                        continue
 
                 logger.info("📡 Fetching instance ID: %s", instance_id)
 

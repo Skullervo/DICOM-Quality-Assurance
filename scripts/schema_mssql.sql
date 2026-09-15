@@ -217,7 +217,7 @@ CREATE TABLE [ultrasound] (
     [modality] NVARCHAR(MAX) NULL,
     [stationname] NVARCHAR(MAX) NULL,
     [seriesdate] NVARCHAR(MAX) NULL,
-    [instance] NVARCHAR(MAX) NULL,
+    [instance] NVARCHAR(128) NULL,   -- indeksoitava (Orthanc-instanssi-id ~44 merkkiä)
     [serie] NVARCHAR(MAX) NULL,
     [s_depth] FLOAT NULL,
     [u_cov] FLOAT NULL,
@@ -240,6 +240,13 @@ CREATE TABLE [ultrasound] (
     [processing_time] FLOAT NULL,
     CONSTRAINT [PK_ultrasound] PRIMARY KEY ([id])
 );
+
+-- Indeksi instance-sarakkeelle: is_instance_analyzed tekee SELECT ... WHERE instance=X
+-- joka kuvalle. Ilman indeksiä se on koko taulun skannaus (O(n^2)) ja skannauksen
+-- lukot kilpailevat rinnakkaisten INSERTien kanssa -> analyysipodit serialisoituvat,
+-- eikä horisontaalinen skaalaus toimi. Indeksi -> seek -> podit ajavat rinnakkain.
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID('[ultrasound]') AND name='IX_ultrasound_instance')
+    CREATE INDEX IX_ultrasound_instance ON [ultrasound]([instance]);
 
 IF OBJECT_ID('[xray_analysis]','U') IS NULL
 CREATE TABLE [xray_analysis] (
