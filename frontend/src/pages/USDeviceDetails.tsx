@@ -6,6 +6,7 @@ import { C } from '../components/DeviceShared'
 import { VerdictBar } from '../components/qa/VerdictBar'
 import { MainArea, type TabId } from '../components/qa/MainArea'
 import { DeviceInfo } from '../components/qa/DeviceInfo'
+import { MetricValues } from '../components/qa/MetricValues'
 import { PagedTrendPanel } from '../components/qa/PagedTrendPanel'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
 import { useTolerances } from '../lib/qa/useTolerances'
@@ -219,8 +220,9 @@ export default function USDeviceDetails() {
           )}
         </div>
 
-        {/* Laitetiedot — chipit + Lisätiedot */}
+        {/* Mittausarvot + Laitetiedot */}
         <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
+          <MetricValues metrics={metrics.filter((m) => m.value != null)} />
           {latest && (
             <DeviceInfo
               chips={[

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Ultraääni — Laitteet{% endblock %}
+{% block content %}
+<nav class="breadcrumb" style="margin-top:0">
+  <span><a href="/">Aloitus</a></span>
+  <span><span class="separator"> / </span><a href="/">Modaliteetit</a></span>
+  <span><span class="separator"> / </span><a href="/us/institutions">Instituutiot</a></span>
+  <span><span class="separator"> / </span><span class="current">{% if institution %}{{ institution }} — Osastot{% else %}Osastot{% endif %}</span></span>
+</nav>
+
+<div class="page-header">
+  <h1>{% if institution %}{{ institution }} — Laitteet{% else %}Kaikki ultraäänilaitteet{% endif %}</h1>
+  <p>Tutustu laadunvalvontatuloksiin klikkaamalla laitteen nimeä.</p>
+</div>
+
+<div class="table-container">
+  <table class="modern-table">
+    <thead>
+      <tr>
+        <th>Laite</th><th>Instituutio</th>
+        <th class="hide-mobile">Valmistaja</th><th class="hide-mobile">Malli</th>
+        <th class="hide-mobile">Viim. mittaus</th><th>Mittauksia</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in units %}
+      <tr>
+        <td><a href="/us/device/{{ u.station_name | urlencode }}">{{ u.station_name }}</a></td>
+        <td>{{ u.institution_name }}</td>
+        <td class="hide-mobile">{{ u.manufacturer }}</td>
+        <td class="hide-mobile">{{ u.manufacturer_model }}</td>
+        <td class="hide-mobile">{{ u.last_measurement[:10] if u.last_measurement else '—' }}</td>
+        <td>{{ u.measurement_count }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6">Ei laitteita saatavilla.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
