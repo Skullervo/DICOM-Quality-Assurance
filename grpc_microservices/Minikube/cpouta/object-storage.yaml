@@ -1,0 +1,92 @@
+# =============================================================================
+# AutoQAD — S3-yhteensopiva object storage (manuscript §2.2.5)
+#
+# Taustapalvelu: SeaweedFS (avoin, Apache-2.0, S3-yhteensopiva). Korvaa MinIO:n,
+# jonka community-image ei enää ole vapaasti pullattavissa docker.io:sta (2025
+# kaupallistaminen; vaatii entitlementin). Sovelluskoodi on S3-geneeristä
+# (boto3 / minio SDK), joten vain image + endpoint vaihtuu — rajapinta on sama S3.
+#
+# Analyysikuvat tallennetaan hierarkkisesti: qa/<modality>/<StudyUID>/...
+# Workerit kirjoittavat, Go-backend lukee (presigned URL). S3-endpoint klusterin
+# sisällä: http://object-storage.autoqad.svc:8333
+#
+# S3-TUNNUKSET eivät ole repossa — luo Secret ennen applyä (sisältää s3config.json):
+#   kubectl -n autoqad create secret generic seaweedfs-s3config \
+#     --from-file=s3config.json=./s3config.json
+# missä s3config.json:
+#   {"identities":[{"name":"autoqad",
+#     "credentials":[{"accessKey":"<ACCESS>","secretKey":"<SECRET>"}],
+#     "actions":["Admin","Read","Write","List","Tagging"]}]}
+#
+# Ajo:  kubectl apply -f object-storage.yaml
+# =============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: object-storage-pvc
+  namespace: autoqad
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: object-storage
+  namespace: autoqad
+  labels: { app: object-storage }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }        # RWO-levy -> ei rinnakkaisia podeja
+  selector: { matchLabels: { app: object-storage } }
+  template:
+    metadata:
+      labels: { app: object-storage }
+    spec:
+      # Infrapalvelu -> control-planelle (workerit jäävät workereille)
+      nodeSelector: { kubernetes.io/hostname: autoqad-control }
+      tolerations:
+      - { key: node-role.kubernetes.io/control-plane, operator: Exists, effect: NoSchedule }
+      containers:
+      - name: seaweedfs
+        image: docker.io/chrislusf/seaweedfs:latest
+        args:
+        - server
+        - -dir=/data
+        - -s3
+        - -s3.config=/etc/seaweedfs/s3config.json
+        - -ip.bind=0.0.0.0
+        ports:
+        - { name: s3, containerPort: 8333 }
+        - { name: filer, containerPort: 8888 }
+        - { name: master, containerPort: 9333 }
+        resources:
+          requests: { memory: "256Mi", cpu: "100m" }
+          limits:   { memory: "768Mi", cpu: "500m" }
+        readinessProbe:
+          httpGet: { path: /, port: 8333 }
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        volumeMounts:
+        - { name: s3config, mountPath: /etc/seaweedfs, readOnly: true }
+        - { name: data, mountPath: /data }
+      volumes:
+      - name: s3config
+        secret: { secretName: seaweedfs-s3config }
+      - name: data
+        persistentVolumeClaim: { claimName: object-storage-pvc }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: object-storage
+  namespace: autoqad
+  labels: { app: object-storage }
+spec:
+  selector: { app: object-storage }
+  ports:
+  - { name: s3, port: 8333, targetPort: 8333 }
+  - { name: filer, port: 8888, targetPort: 8888 }
