@@ -18,6 +18,6 @@ RUN python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. analyze_s
 RUN chown -R appuser:appuser /app
 USER appuser
 
-EXPOSE 50052
+EXPOSE 50052 9110
 
 CMD ["python", "analyze_service_timed.py"]

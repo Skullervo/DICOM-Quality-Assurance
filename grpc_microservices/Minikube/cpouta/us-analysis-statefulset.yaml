@@ -36,7 +36,9 @@ spec:
       containers:
       - name: us-analysis
         image: docker.io/skullervo/autoqad-us-analyze:latest
-        ports: [{ containerPort: 50052 }]
+        ports:
+        - { name: grpc, containerPort: 50052 }
+        - { name: metrics, containerPort: 9110 }   # Prometheus autoqad_-metriikat
         env:
         # Sharding-tila. SHARD_INDEX luetaan automaattisesti hostnamesta (us-analysis-N).
         - { name: SHARD_TOTAL, value: "2" }

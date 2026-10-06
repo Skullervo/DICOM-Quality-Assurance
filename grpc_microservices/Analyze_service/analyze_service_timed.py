@@ -25,6 +25,36 @@ import requests
 import threading
 import time
 import logging
+from prometheus_client import Counter, Histogram, Gauge, start_http_server
+
+# --- Prometheus-metriikat (käsikirjoituksen "continuous observability" -väitteet) ---
+# Julkaistaan HTTP-portissa METRICS_PORT (oletus 9110). Prometheus skreippaa podit.
+METRICS_PORT = int(os.getenv("METRICS_PORT", "9110"))
+
+IMAGES_PROCESSED = Counter(
+    "autoqad_images_processed_total",
+    "Analysoitujen kuvien kokonaismäärä (status=success|failed).",
+    ["modality", "status"],
+)
+ANALYSIS_DURATION = Histogram(
+    "autoqad_analysis_duration_seconds",
+    "Yksittäisen kuvan analyysin kesto sekunteina.",
+    ["modality"],
+    buckets=(0.25, 0.5, 1, 2, 4, 8, 16, 32, 64),
+)
+QA_RESULTS = Counter(
+    "autoqad_qa_results_total",
+    "Tietokantaan tallennettujen QA-tulosten kokonaismäärä.",
+    ["modality"],
+)
+ANALYSIS_ROUNDS = Counter(
+    "autoqad_analysis_rounds_total",
+    "Suoritettujen analyysikierrosten kokonaismäärä.",
+)
+SHARD_INFO = Gauge(
+    "autoqad_shard_total",
+    "Tämän replikan työnjako: kuinka moneen shardiin työ on jaettu (1 = claim-tila).",
+)
 
 # 🔹 Orthanc ja Fetch Service osoitteet
 ORTHANC_URL = os.getenv("ORTHANC_URL", "http://orthanc:8042")
@@ -259,6 +289,7 @@ def get_fetch_stub():
 
 class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
     def AnalyzeAllDicomData(self, request, context):
+        ANALYSIS_ROUNDS.inc()
         if SHARD_TOTAL > 1:
             logger.info("📡 Analyysikierros — SHARDING: pod %s = shard %s/%s (käsittelee ~1/%s kuvista)",
                         POD_NAME, SHARD_INDEX, SHARD_TOTAL, SHARD_TOTAL)
@@ -374,10 +405,12 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
                     result = analysis.MAIN_US_analysis()
                 except Exception as e:
                     logger.error("❌ Analysis failed for instance %s: %s", instance_id, e)
+                    IMAGES_PROCESSED.labels(modality="US", status="failed").inc()
                     record_failure(cur, instance_id, str(metadata.get("StationName", "")), str(e), traceback.format_exc())
                     conn.commit()
                     continue
                 processing_time = time.time() - start_time
+                ANALYSIS_DURATION.labels(modality="US").observe(processing_time)
 
                 # 🔹 Muunnetaan tulokset JSON-muotoon
                 json_result = {
@@ -430,6 +463,8 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
                     float(processing_time),
                 ))
                 clear_failure(cur, instance_id)  # onnistui -> poista mahdollinen epäonnistumismerkintä
+                IMAGES_PROCESSED.labels(modality="US", status="success").inc()
+                QA_RESULTS.labels(modality="US").inc()
 
         conn.commit()
         cur.close()
@@ -438,6 +473,12 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
         return analyze_service_timed_pb2.AnalyzeResponse(message="Analysis complete for all new series!", series_id="ALL")
 
 def serve():
+    # Prometheus-metriikat: julkaistaan HTTP-portissa METRICS_PORT. Prometheus skreippaa
+    # tämän podin (kubernetes_sd role: pod, portti 9110).
+    SHARD_INFO.set(SHARD_TOTAL)
+    start_http_server(METRICS_PORT)
+    logger.info("📈 Prometheus-metriikat portissa %s (/metrics)", METRICS_PORT)
+
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     analyze_service_timed_pb2_grpc.add_AnalyzeServiceServicer_to_server(AnalyzeService(), server)
     server.add_insecure_port("[::]:50052")
