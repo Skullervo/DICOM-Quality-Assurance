@@ -1,11 +1,16 @@
 // Suurennettu trendikäyrä (yksi metriikka): akselit + toleranssikaista + nominaali +
 // rajaviivat, pisteet statusvärillä. Y-akseli ankkuroitu toleranssiin. Klikkaus valitsee
 // mittauksen (kuten sparkline).
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } from 'recharts'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { deriveStatus, fmt, fmtDelta } from '../../lib/qa/status'
-import { formatDate } from '../DeviceShared'
+import { formatDate, formatDateAxis } from '../DeviceShared'
 import type { Metric, Status } from '../../lib/qa/types'
+
+// Montako mittausta näytetään kerralla; jos historiaa on enemmän, käyrä on vieritettävä.
+const WINDOW = 50
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
 
 const STATUS_COLOR: Record<Status, string> = {
   pass: 'var(--pass)', warn: 'var(--warn)', fail: 'var(--fail)', nodata: 'var(--neutral)',
@@ -82,8 +87,74 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
 }) {
   const { history, nominal, lowerLimit, upperLimit, unit, precision, label } = metric
   const status = deriveStatus(metric)
-  const lastIdx = history.length - 1
 
+  // Vieritettävä ikkuna: näytä enintään WINDOW mittausta, oletuksena uusimmat.
+  const n = history.length
+  const windowed = n > WINDOW
+  const maxOffset = Math.max(0, n - WINDOW)
+  const [offset, setOffset] = useState(maxOffset)
+  const [panOn, setPanOn] = useState(false)
+  const touched = useRef(false) // seuraa uusimpia kunnes käyttäjä vierittää itse
+  const chartRef = useRef<HTMLDivElement>(null)
+  const PAGE = Math.floor(WINDOW / 2)
+  const scrollBy = (d: number) => { touched.current = true; setOffset((o) => clamp(o + d, 0, maxOffset)) }
+
+  // Datamäärän muuttuessa (refetch): seuraa uusimpia ellei käyttäjä ole vierittänyt.
+  useEffect(() => {
+    setOffset((o) => (touched.current ? clamp(o, 0, maxOffset) : maxOffset))
+  }, [maxOffset])
+
+  // Skrollaa valittu mittaus näkyviin, jos se jää ikkunan ulkopuolelle.
+  useEffect(() => {
+    if (!windowed || activeIndex == null) return
+    const p = history.findIndex((h) => h.idx === activeIndex)
+    if (p < 0) return
+    setOffset((o) => (p < o || p >= o + WINDOW ? clamp(p - PAGE, 0, maxOffset) : o))
+  }, [activeIndex, windowed, maxOffset, history, PAGE])
+
+  // Pan-tilassa rullaus vierittää ikkunaa (non-passive, jotta sivu ei scrollaa).
+  useEffect(() => {
+    const el = chartRef.current
+    if (!el || !panOn || !windowed) return
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      touched.current = true
+      const dir = (e.deltaY || e.deltaX) > 0 ? 1 : -1
+      setOffset((o) => clamp(o + dir * 5, 0, maxOffset))
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [panOn, windowed, maxOffset])
+
+  // Pan-tilassa raahaus (hiiri/trackpad) vierittää ikkunaa: paina + liikuta vaakaan.
+  const drag = useRef<{ x: number; off: number; pxPerPoint: number } | null>(null)
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (!panOn || !windowed) return
+    const w = chartRef.current?.clientWidth ?? 1
+    drag.current = { x: e.clientX, off: offset, pxPerPoint: Math.max(1, w / WINDOW) }
+    touched.current = true
+  }
+  useEffect(() => {
+    if (!panOn || !windowed) return
+    const onMove = (e: PointerEvent) => {
+      const d = drag.current
+      if (!d) return
+      const deltaPoints = Math.round((e.clientX - d.x) / d.pxPerPoint)
+      setOffset(clamp(d.off - deltaPoints, 0, maxOffset)) // raahaa oikealle -> vanhemmat
+    }
+    const onUp = () => { drag.current = null }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    return () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp) }
+  }, [panOn, windowed, maxOffset])
+
+  const data = windowed ? history.slice(offset, offset + WINDOW) : history
+  const lastIdx = data.length - 1
+  const tickInterval = Math.max(0, Math.ceil(data.length / 8) - 1)
+  const shownFrom = windowed ? offset + 1 : 1
+  const shownTo = windowed ? offset + data.length : n
+
+  // Y-skaala koko historiasta (pysyy vakaana vieritettäessä, arvot eivät hyppää).
   const cand = [nominal, lowerLimit, upperLimit, ...history.map((h) => h.value)].filter(
     (x): x is number => x != null,
   )
@@ -102,30 +173,54 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
 
   return (
     <div
+      ref={chartRef}
       onMouseEnter={onHover ? () => onHover(metric.id) : undefined}
       onMouseLeave={onHover ? () => onHover(null) : undefined}
+      onDoubleClick={windowed ? () => setPanOn((p) => !p) : undefined}
+      onPointerDown={onPointerDown}
+      title={windowed ? 'Kaksoisnapauta kytkeäksesi vieritys (raahaa tai rullaa 50 mittauksen ikkunaa)' : undefined}
       style={{
+        position: 'relative',
         display: 'flex', flexDirection: 'column', minWidth: 0, borderRadius: 6, padding: 4,
         height: fill ? '100%' : undefined,
-        outline: `1px solid ${highlighted ? 'var(--info)' : 'transparent'}`,
+        cursor: panOn ? 'grab' : undefined,
+        touchAction: panOn ? 'none' : undefined,
+        userSelect: panOn ? 'none' : undefined,
+        outline: `1px solid ${highlighted ? 'var(--info)' : panOn ? 'color-mix(in srgb, var(--info) 55%, transparent)' : 'transparent'}`,
         background: highlighted ? 'color-mix(in srgb, var(--info) 9%, transparent)' : 'transparent',
       }}>
       <div style={{ fontSize: 11, fontWeight: 600, color: dimTitle ? 'color-mix(in srgb, var(--text) 72%, transparent)' : 'var(--text)', marginBottom: 2, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {renderLabel(label)}{unit && <span style={{ color: 'var(--text-faint)', fontWeight: 400 }}> [{unit}]</span>}
       </div>
+      {/* Vierityksen ohjaus + alueindikaattori (vain kun historiaa > WINDOW) */}
+      {windowed && (
+        <div style={{ position: 'absolute', top: 4, right: 6, zIndex: 3, display: 'flex', alignItems: 'center', gap: 3,
+          fontSize: 10, fontFamily: 'var(--mono)', color: panOn ? 'var(--info)' : 'var(--text-faint)',
+          background: 'color-mix(in srgb, var(--surface) 82%, transparent)', borderRadius: 5, padding: '1px 3px' }}>
+          <button onClick={() => scrollBy(-PAGE)} disabled={offset <= 0} aria-label="Vanhemmat mittaukset" style={navBtn(offset <= 0)}><ChevronLeft size={13} aria-hidden /></button>
+          <span className="tnum">{shownFrom}–{shownTo}/{n}</span>
+          <button onClick={() => scrollBy(PAGE)} disabled={offset >= maxOffset} aria-label="Uudemmat mittaukset" style={navBtn(offset >= maxOffset)}><ChevronRight size={13} aria-hidden /></button>
+        </div>
+      )}
+      {panOn && (
+        <div style={{ position: 'absolute', bottom: 6, left: 8, zIndex: 3, fontSize: 10, color: 'var(--info)',
+          background: 'color-mix(in srgb, var(--surface) 82%, transparent)', borderRadius: 5, padding: '1px 5px', pointerEvents: 'none' }}>
+          raahaa tai rullaa · kaksoisnapauta lopettaaksesi
+        </div>
+      )}
       <div style={fill ? { flex: 1, minHeight: 0 } : { height: 132 }}>
         <ResponsiveContainer>
-          <LineChart data={history} margin={{ top: 4, right: 22, left: -12, bottom: 0 }}
-            style={onSelect ? { cursor: 'pointer' } : undefined}
+          <LineChart data={data} margin={{ top: 4, right: 22, left: -12, bottom: 0 }}
+            style={onSelect ? { cursor: panOn ? 'grab' : 'pointer' } : undefined}
             onClick={(s) => {
-              if (!onSelect) return
+              if (!onSelect || panOn) return // pan-tilassa klikkaus ei valitse (raahaus etusijalla)
               const st = s as { activeTooltipIndex?: number; activePayload?: { payload?: { idx?: number } }[] }
               const idx = st.activePayload?.[0]?.payload?.idx
-                ?? (typeof st.activeTooltipIndex === 'number' ? history[st.activeTooltipIndex]?.idx : undefined)
+                ?? (typeof st.activeTooltipIndex === 'number' ? data[st.activeTooltipIndex]?.idx : undefined)
               if (idx != null) onSelect(idx)
             }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-            <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--text-muted)', fontFamily: 'var(--mono)' }} interval="preserveStartEnd" tickFormatter={(d) => formatDate(String(d))} />
+            <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--text-muted)', fontFamily: 'var(--mono)' }} interval={tickInterval} tickMargin={6} tickFormatter={(d) => formatDateAxis(String(d))} />
             <YAxis domain={[lo, hi]} ticks={yTicks} tickFormatter={(v) => fmt(Number(v), precision)}
               tick={{ fontSize: 11, fill: 'var(--text-muted)', fontFamily: 'var(--mono)' }} width={60} />
             {nominal != null && <ReferenceLine y={nominal} stroke="var(--nominal-line)" strokeDasharray="3 3" />}
@@ -141,3 +236,9 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
     </div>
   )
 }
+
+const navBtn = (disabled: boolean): CSSProperties => ({
+  display: 'flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 16,
+  borderRadius: 4, border: 'none', background: 'transparent', color: 'inherit', padding: 0,
+  cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.35 : 1,
+})

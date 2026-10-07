@@ -14,10 +14,18 @@ export const C = {
   muted: 'var(--text-secondary)',
 }
 
-// DICOM-päivä (YYYYMMDD) -> lyhyt "MM.DD" (trendien x-akseli).
+// DICOM-päivä (YYYYMMDD) -> suomalainen täysi "DD.MM.YYYY" (tooltipit, valittu mittaus).
 export function formatDate(raw: string): string {
   if (!raw) return ''
   const s = raw.replace(/\D/g, '')
-  if (s.length >= 8) return `${s.slice(4, 6)}.${s.slice(6, 8)}`
+  if (s.length >= 8) return `${s.slice(6, 8)}.${s.slice(4, 6)}.${s.slice(0, 4)}`
+  return raw
+}
+
+// Kompakti muoto trendien x-akselille: "DD.MM.YY" (vuosi mukana, mahtuu tickiin).
+export function formatDateAxis(raw: string): string {
+  if (!raw) return ''
+  const s = raw.replace(/\D/g, '')
+  if (s.length >= 8) return `${s.slice(6, 8)}.${s.slice(4, 6)}.${s.slice(2, 4)}`
   return raw
 }
