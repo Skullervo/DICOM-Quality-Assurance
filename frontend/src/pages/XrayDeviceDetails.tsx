@@ -106,6 +106,8 @@ export default function XrayDeviceDetails() {
         ]
       : [{ title: 'Laite', rows: [{ label: 'Laite', value: `${dUnit} (XR)` }] }],
     failing: failingDetails(verdictMetrics),
+    modality: String(latest?.modality ?? 'CR'),
+    station: String(latest?.station_name ?? dUnit),
   }
 
   // Raportin kuvaliitteet: analyysikuvat (ei DICOM)

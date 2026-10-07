@@ -105,6 +105,8 @@ export default function CTDeviceDetails() {
         ]
       : [{ title: 'Laite', rows: [{ label: 'Laite', value: `${station} (CT)` }] }],
     failing: failingDetails(verdictMetrics),
+    modality: 'CT',
+    station,
   }
 
   // Raportin kuvaliitteet: analyysikuvat (ei interaktiivinen DICOM-leike)

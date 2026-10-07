@@ -146,11 +146,15 @@ export const api = {
     });
     return res.json();
   },
-  reportIssue: async (text: string): Promise<{ status?: string; error?: string }> => {
+  reportIssue: async (
+    text: string,
+    meta?: { modality?: string; station?: string },
+  ): Promise<{ status?: string; error?: string }> => {
     const res = await fetch(`${BASE}/report-issue`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
+      // modality/station -> backend reitittää oikealle Slack-kanavalle (US/CT/XR)
+      body: JSON.stringify({ text, modality: meta?.modality, station: meta?.station }),
     });
     return res.json();
   },

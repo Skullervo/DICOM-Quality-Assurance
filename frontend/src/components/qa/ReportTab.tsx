@@ -14,6 +14,8 @@ export type ReportSection = { title: string; rows: { label: string; value: strin
 export type ReportContext = {
   sections: ReportSection[] // esim. DICOM-tiedot, Analyysitulokset — tiiviinä taulukkoina
   failing?: FailingItem[] // rajojen ulkopuoliset mittarit (rakenteisesti)
+  modality?: string // Slack-reititys backendissä (US / CR / DX / CT)
+  station?: string // laitteen tunnus (lisätään viestin alkuun)
 }
 
 const SEVERITIES = ['Matala', 'Kohtalainen', 'Korkea']
@@ -69,7 +71,10 @@ export function ReportTab({ context, attachments = [] }: { context: ReportContex
     const kuvausBlock = kuvaus.trim() ? `\n\nKuvaus:\n${kuvaus.trim()}` : ''
     const extraBlock = extra.trim() ? `\n\nLisätiedot:\n${extra.trim()}` : ''
     try {
-      const d = await api.reportIssue(`[Vakavuus: ${sev}]\n${rep}${ctx}${kuvausBlock}${extraBlock}${liitteet}`)
+      const d = await api.reportIssue(
+        `[Vakavuus: ${sev}]\n${rep}${ctx}${kuvausBlock}${extraBlock}${liitteet}`,
+        { modality: context.modality, station: context.station },
+      )
       setStatus(d.status === 'ok' ? 'ok' : 'error')
     } catch {
       setStatus('error')

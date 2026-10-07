@@ -152,6 +152,8 @@ export default function USDeviceDetails() {
         ]
       : [{ title: 'Laite', rows: [{ label: 'Laite', value: `${s} (US)` }] }],
     failing: failingDetails(verdictMetrics),
+    modality: 'US',
+    station: s,
   }
 
   // Raportin/AI:n kuvaliite: US-näyttökuva data-URL:na (US:llä ei erillistä kuva-URLia)
