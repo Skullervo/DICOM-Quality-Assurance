@@ -192,7 +192,7 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
       )}
       <div style={fill ? { flex: 1, minHeight: 0 } : { height: 132 }}>
         <ResponsiveContainer>
-          <LineChart data={data} margin={{ top: 4, right: 22, left: -12, bottom: 0 }}
+          <LineChart data={data} margin={{ top: 4, right: 38, left: -12, bottom: 0 }}
             style={onSelect ? { cursor: panOn ? 'grab' : 'pointer' } : undefined}
             onClick={(s) => {
               if (!onSelect || panOn) return // pan-tilassa klikkaus ei valitse (raahaus etusijalla)
