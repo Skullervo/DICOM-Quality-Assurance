@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y \
 COPY requirements_service.txt .
 RUN pip install --no-cache-dir -r requirements_service.txt
 
-COPY analyze_service_timed.py analyze_service_timed.proto fetch_service.proto US_IQ_analysis3.py LUT_table_codes.py LUT_taulukko_lisaa.py probe-LUT.xls ./
+COPY analyze_service_timed.py worker_us_eventdriven.py s3_client.py analyze_service_timed.proto fetch_service.proto US_IQ_analysis3.py LUT_table_codes.py LUT_taulukko_lisaa.py probe-LUT.xls ./
 
 RUN python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. analyze_service_timed.proto fetch_service.proto
 
