@@ -1,0 +1,108 @@
+# =============================================================================
+# AutoQAD — Event-driven pipeline (cPouta): ingestion + US worker
+# Ajetaan vanhan us-analysis-pollerin RINNALLA (strangler fig). Cutover: skaalaa
+# us-analysis StatefulSet 0:aan kun event-malli todennettu.
+#
+# Edellytykset:
+#   1. schema_eventdriven.sql ajettu QA-results-kantaan (Service Broker + job-taulut)
+#   2. object-storage.yaml deployattu + secret seaweedfs-s3config luotu
+#   3. secret s3-creds (access-key/secret-key) luotu:
+#        kubectl -n autoqad create secret generic s3-creds \
+#          --from-literal=access-key=autoqadaccess --from-literal=secret-key=<secret>
+#
+# Webhook: Orthanc-Lua POSTaa http://ingestion-service:8000/webhook/study
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingestion-service
+  namespace: autoqad
+  labels: { app: ingestion-service }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: ingestion-service } }
+  template:
+    metadata: { labels: { app: ingestion-service } }
+    spec:
+      containers:
+      - name: ingestion
+        image: docker.io/skullervo/autoqad-ingestion:latest
+        imagePullPolicy: Always
+        ports: [{ containerPort: 8000 }]
+        env:
+        - { name: ORTHANC_URL, value: "http://orthanc:8042" }
+        - { name: ORTHANC_USERNAME, value: "admin" }
+        - name: ORTHANC_PASSWORD
+          valueFrom: { secretKeyRef: { name: autoqad-secrets, key: ORTHANC_PASSWORD } }
+        - { name: DATABASE_HOST, value: "autoqad-mssql" }
+        - { name: DATABASE_PORT, value: "1433" }
+        - { name: DATABASE_USER, value: "sa" }
+        - name: DATABASE_PASSWORD
+          valueFrom: { secretKeyRef: { name: autoqad-secrets, key: MSSQL_SA_PASSWORD } }
+        - { name: DATABASE_NAME, value: "QA-results" }
+        readinessProbe:
+          httpGet: { path: /health, port: 8000 }
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests: { memory: "128Mi", cpu: "50m" }
+          limits:   { memory: "256Mi", cpu: "300m" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingestion-service
+  namespace: autoqad
+  labels: { app: ingestion-service }
+spec:
+  selector: { app: ingestion-service }
+  ports:
+  - { name: http, port: 8000, targetPort: 8000 }
+---
+# US event-driven worker — competing consumers (skaalaa replicas:N, ei SHARD_TOTALia)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: us-worker
+  namespace: autoqad
+  labels: { app: us-worker }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: us-worker } }
+  template:
+    metadata: { labels: { app: us-worker } }
+    spec:
+      # Hajauta workereille (ei control-planelle — siellä mssql)
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector: { matchLabels: { app: us-worker } }
+              topologyKey: kubernetes.io/hostname
+      containers:
+      - name: us-worker
+        image: docker.io/skullervo/autoqad-us-analyze:eventdriven
+        imagePullPolicy: Always
+        command: ["python", "worker_us_eventdriven.py"]
+        ports: [{ name: metrics, containerPort: 9110 }]
+        env:
+        - { name: DATABASE_HOST, value: "autoqad-mssql" }
+        - { name: DATABASE_PORT, value: "1433" }
+        - { name: DATABASE_USER, value: "sa" }
+        - name: DATABASE_PASSWORD
+          valueFrom: { secretKeyRef: { name: autoqad-secrets, key: MSSQL_SA_PASSWORD } }
+        - { name: DATABASE_NAME, value: "QA-results" }
+        - { name: ORTHANC_URL, value: "http://orthanc:8042" }
+        - { name: ORTHANC_USERNAME, value: "admin" }
+        - name: ORTHANC_PASSWORD
+          valueFrom: { secretKeyRef: { name: autoqad-secrets, key: ORTHANC_PASSWORD } }
+        - { name: S3_ENDPOINT, value: "http://object-storage:8333" }
+        - { name: S3_BUCKET, value: "qa-outputs" }
+        - name: S3_ACCESS_KEY
+          valueFrom: { secretKeyRef: { name: s3-creds, key: access-key } }
+        - name: S3_SECRET_KEY
+          valueFrom: { secretKeyRef: { name: s3-creds, key: secret-key } }
+        resources:
+          requests: { memory: "512Mi", cpu: "200m" }
+          limits:   { memory: "1Gi",   cpu: "1" }

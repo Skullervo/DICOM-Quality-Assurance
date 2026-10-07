@@ -67,7 +67,9 @@ spec:
           requests: { memory: "256Mi", cpu: "100m" }
           limits:   { memory: "768Mi", cpu: "500m" }
         readinessProbe:
-          httpGet: { path: /, port: 8333 }
+          # S3-portti vastaa 403:lla autentikoimattomaan GETiin -> httpGet ei kelpaa.
+          # TCP-connect riittää: portti auki = S3 pystyssä.
+          tcpSocket: { port: 8333 }
           initialDelaySeconds: 10
           periodSeconds: 10
         volumeMounts:
