@@ -13,16 +13,16 @@ import { useTolerances } from '../lib/qa/useTolerances'
 import { hasTolerance, deriveVerdict, failingDetails } from '../lib/qa/status'
 import type { ReportContext } from '../components/qa/ReportTab'
 
-const VERDICT_FI = { pass: 'Hyväksytty', warn: 'Varoitus', fail: 'Hylätty', nodata: 'Ei dataa' } as const
+const VERDICT_FI = { pass: 'Pass', warn: 'Warning', fail: 'Fail', nodata: 'No data' } as const
 const rnd = (v: unknown, p = 2) => (typeof v === 'number' ? v.toFixed(p) : '?')
 
 // Vasemman paneelin kuvavalinnat (yksi pudotusvalikko). 'dicom' = DICOM-kuva
 // (zoom/pan + harmaasävysäätö); muut = esirenderöidyt analyysikuvat.
 const IMAGE_OPTIONS = [
-  { key: 'dicom', label: 'DICOM-kuva' },
-  { key: 'contrast_rois', label: 'ROI-kartta' },
-  { key: 'mtf_lp', label: 'Viivapari' },
-  { key: 'mtf_curve', label: 'MTF-käyrä' },
+  { key: 'dicom', label: 'DICOM image' },
+  { key: 'contrast_rois', label: 'ROI map' },
+  { key: 'mtf_lp', label: 'Line pair' },
+  { key: 'mtf_curve', label: 'MTF curve' },
 ]
 const PLOT_KEYS = ['mtf_curve'] // kaaviokuvat -> ei harmaasävysäätöä
 
@@ -88,23 +88,23 @@ export default function XrayDeviceDetails() {
   const reportCtx: ReportContext = {
     sections: latest
       ? [
-          { title: 'DICOM-tiedot', rows: [
-            { label: 'Laite', value: String(latest.station_name ?? dUnit) },
-            { label: 'Instituutio', value: String(latest.institution_name ?? '—') },
-            { label: 'Fantomi', value: String(latest.phantom_model ?? 'NORMI-13') },
+          { title: 'DICOM info', rows: [
+            { label: 'Device', value: String(latest.station_name ?? dUnit) },
+            { label: 'Institution', value: String(latest.institution_name ?? '—') },
+            { label: 'Phantom', value: String(latest.phantom_model ?? 'NORMI-13') },
             { label: 'kVp', value: String(latest.kvp ?? '—') },
             { label: 'mAs', value: String(latest.exposure_mAs ?? '—') },
-            { label: 'Malli', value: String(latest.manufacturer_model_name ?? '—') },
-            { label: 'Päivämäärä', value: verdictDevice.measuredAt ?? '—' },
+            { label: 'Model', value: String(latest.manufacturer_model_name ?? '—') },
+            { label: 'Date', value: verdictDevice.measuredAt ?? '—' },
           ] },
-          { title: 'Analyysitulokset', rows: [
-            { label: 'Tasaisuus', value: `${rnd(chipUnif)} %` },
+          { title: 'Analysis results', rows: [
+            { label: 'Uniformity', value: `${rnd(chipUnif)} %` },
             { label: 'MTF 50%', value: `${rnd(chipMtf)} lp/mm` },
-            { label: 'Mediaani CNR', value: rnd(chipCnr) },
-            { label: 'Verdiktti', value: `${VERDICT_FI[v.verdict]} (${v.pass}/${v.measured})` },
+            { label: 'Median CNR', value: rnd(chipCnr) },
+            { label: 'Verdict', value: `${VERDICT_FI[v.verdict]} (${v.pass}/${v.measured})` },
           ] },
         ]
-      : [{ title: 'Laite', rows: [{ label: 'Laite', value: `${dUnit} (XR)` }] }],
+      : [{ title: 'Device', rows: [{ label: 'Device', value: `${dUnit} (XR)` }] }],
     failing: failingDetails(verdictMetrics),
     modality: String(latest?.modality ?? 'CR'),
     station: String(latest?.station_name ?? dUnit),
@@ -129,7 +129,7 @@ export default function XrayDeviceDetails() {
           <span title={String(latest?.manufacturer_model_name ?? '')}
             style={{ fontSize: 13.5, fontWeight: 600, color: C.neutral, flex: 1, minWidth: 0,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 8 }}>
-            {String(latest?.manufacturer_model_name || latest?.station_name || 'Laite')}
+            {String(latest?.manufacturer_model_name || latest?.station_name || 'Device')}
           </span>
           <span style={{ fontSize: 10, fontFamily: 'var(--mono)', padding: '2px 8px', borderRadius: 4,
             background: 'rgba(96,165,250,0.15)', color: '#93c5fd', border: '1px solid rgba(96,165,250,0.3)' }}>XR</span>
@@ -139,7 +139,7 @@ export default function XrayDeviceDetails() {
         {activeInstanceId && (
           <div style={{ flexShrink: 0, padding: '16px 10px 10px', borderBottom: `1px solid ${C.border}` }}>
             <select value={imgSel} onChange={(e) => setImgSel(e.target.value)}
-              aria-label="Valitse kuva"
+              aria-label="Select image"
               style={{
                 width: '100%', marginBottom: 8, fontSize: 12, padding: '5px 8px', borderRadius: 5,
                 background: C.surface2, color: C.neutral, border: `1px solid ${C.border}`,
@@ -152,7 +152,7 @@ export default function XrayDeviceDetails() {
               dicomImg?.image
                 ? <PngViewer key={activeInstanceId} src={`data:${dicomImg.mime ?? 'image/jpeg'};base64,${dicomImg.image}`} alt="DICOM" />
                 : <div style={{ background: '#000', borderRadius: 6, aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ color: C.muted, fontSize: 11 }}>Kuva ei saatavilla</span>
+                    <span style={{ color: C.muted, fontSize: 11 }}>Image not available</span>
                   </div>
             ) : (
               <PngViewer key={imgSel} src={api.xrayAnalysisImageUrl(activeInstanceId, imgSel)} alt={imgSel}
@@ -166,17 +166,17 @@ export default function XrayDeviceDetails() {
           {latest && (
             <DeviceInfo
               chips={[
-                { label: 'Modaliteetti', value: String(latest.modality ?? 'XR') },
-                { label: 'Fantomi', value: String(latest.phantom_model ?? 'NORMI-13') },
+                { label: 'Modality', value: String(latest.modality ?? 'XR') },
+                { label: 'Phantom', value: String(latest.phantom_model ?? 'NORMI-13') },
                 { label: 'kVp', value: String(latest.kvp ?? '') },
                 { label: 'mAs', value: String(latest.exposure_mAs ?? '') },
-                { label: 'Pvm', value: formatDay(latest.content_date as string | undefined) ?? '' },
+                { label: 'Date', value: formatDay(latest.content_date as string | undefined) ?? '' },
               ]}
               more={[
-                { label: 'Laite', value: String(latest.station_name ?? '') },
-                { label: 'Instituutio', value: String(latest.institution_name ?? '') },
-                { label: 'Valmistaja', value: String(latest.manufacturer ?? '') },
-                { label: 'Malli', value: String(latest.manufacturer_model_name ?? '') },
+                { label: 'Device', value: String(latest.station_name ?? '') },
+                { label: 'Institution', value: String(latest.institution_name ?? '') },
+                { label: 'Manufacturer', value: String(latest.manufacturer ?? '') },
+                { label: 'Model', value: String(latest.manufacturer_model_name ?? '') },
               ]}
             />
           )}
@@ -194,16 +194,16 @@ export default function XrayDeviceDetails() {
         reportAttachments={reportAttachments}
         breadcrumb={
           <nav className="text-[12px] flex gap-1 flex-wrap" style={{ color: C.muted }}>
-            <Link to="/" className="hover:text-white">Aloitus</Link><span>/</span>
-            <Link to="/xray/institutions" className="hover:text-white">Röntgen</Link><span>/</span>
+            <Link to="/" className="hover:text-white">Home</Link><span>/</span>
+            <Link to="/xray/institutions" className="hover:text-white">X-ray</Link><span>/</span>
             <Link to={`/xray/units?institution=${encodeURIComponent(dInst)}`} className="hover:text-white">{dInst}</Link><span>/</span>
             <span style={{ color: C.neutral }}>{dUnit}</span>
-            {selectedPoint && <span style={{ color: C.accent }}>· valittu mittaus {formatDate(String(selectedPoint.study_date ?? ''))}</span>}
+            {selectedPoint && <span style={{ color: C.accent }}>· selected measurement {formatDate(String(selectedPoint.study_date ?? ''))}</span>}
           </nav>
         }
       >
         {latest && (
-          <PagedTrendPanel title="Mittaustrendit" metrics={metrics} perPage={3} chromeless dimTitle
+          <PagedTrendPanel title="Measurement trends" metrics={metrics} perPage={3} chromeless dimTitle
             activeIndex={activeIdx} onSelect={handlePointClick} />
         )}
       </MainArea>

@@ -31,14 +31,14 @@ export function ContextView({ context }: { context: ReportContext }) {
       ))}
       {failing.length > 0 && (
         <div>
-          <div style={{ ...labelStyle, color: 'var(--warn)' }}>Rajan ulkopuolella</div>
+          <div style={{ ...labelStyle, color: 'var(--warn)' }}>Out of limits</div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {failing.map((f) => (
               <div key={f.label} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0', borderBottom: '1px solid var(--border)' }}>
-                <span style={failPill(f.status)}>{f.status === 'fail' ? 'Hylätty' : 'Varoitus'}</span>
+                <span style={failPill(f.status)}>{f.status === 'fail' ? 'Fail' : 'Warning'}</span>
                 <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.label}</span>
                 <span className="num" style={{ fontSize: 12.5, color: 'var(--text)', whiteSpace: 'nowrap' }}>{f.value}</span>
-                <span style={{ fontSize: 11, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>raja {f.limit}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>limit {f.limit}</span>
               </div>
             ))}
           </div>

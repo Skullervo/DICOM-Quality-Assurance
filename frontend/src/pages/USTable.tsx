@@ -9,32 +9,32 @@ export default function USTable() {
     queryFn: () => api.usUnits(),
   })
 
-  if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Ladataan...</p>
+  if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Loading...</p>
 
   return (
     <>
       <BreadcrumbNav items={[
-        { label: 'Aloitus', path: '/' },
-        { label: 'Modaliteetit', path: '/modaliteetit' },
-        { label: 'Ultraääni', path: '/us' },
-        { label: 'Taulukko' },
+        { label: 'Home', path: '/' },
+        { label: 'Modalities', path: '/modaliteetit' },
+        { label: 'Ultrasound', path: '/us' },
+        { label: 'Table' },
       ]} />
 
       <div className="page-header">
-        <h1>Ultraäänidata</h1>
-        <p>Kaikkien laitteiden mittausdata.</p>
+        <h1>Ultrasound data</h1>
+        <p>Measurement data for all devices.</p>
       </div>
 
       <div className="table-container">
         <table className="modern-table">
           <thead>
             <tr>
-              <th>Laite</th>
-              <th>Instituutio</th>
-              <th className="hide-mobile">Valmistaja</th>
-              <th className="hide-mobile">Malli</th>
-              <th>Mittauksia</th>
-              <th className="hide-mobile">Viim. mittaus</th>
+              <th>Device</th>
+              <th>Institution</th>
+              <th className="hide-mobile">Manufacturer</th>
+              <th className="hide-mobile">Model</th>
+              <th>Measurements</th>
+              <th className="hide-mobile">Last measurement</th>
               <th></th>
             </tr>
           </thead>
@@ -51,7 +51,7 @@ export default function USTable() {
                 </td>
                 <td>
                   <Link to={`/us/device/${encodeURIComponent(unit.station_name)}`}>
-                    Avaa →
+                    Open →
                   </Link>
                 </td>
               </tr>

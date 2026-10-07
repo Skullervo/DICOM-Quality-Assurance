@@ -3,22 +3,22 @@ export default function Tietoa() {
     <div className="cover-page" style={{ marginTop: 'var(--navbar-height)' }}>
       <div className="cover-container">
         <div style={{ maxWidth: 800, textAlign: 'center', padding: '2rem' }}>
-          <h1>Tietoa järjestelmästä</h1>
+          <h1>About the system</h1>
           <p style={{ color: 'var(--text-secondary)' }}>
-            Tällä sivustolla voit tarkastella POHTEEN alueella sijaitsevien lääketieteellisten
-            kuvantamislaitteiden laadunvalvonnan tuloksia.
+            On this site you can review the quality assurance results of the medical
+            imaging devices located in the POHDE region.
           </p>
           <p style={{ color: 'var(--text-secondary)' }}>
-            Järjestelmä kattaa seuraavat kuvantamismodaliteetit:
+            The system covers the following imaging modalities:
           </p>
           <ul className="modalities-list">
-            <li>Ultraääni (UÄ)</li>
-            <li>Tietokonetomografia (CT)</li>
-            <li>Natiiviröntgen</li>
+            <li>Ultrasound (US)</li>
+            <li>Computed tomography (CT)</li>
+            <li>Radiography</li>
           </ul>
           <p style={{ color: 'var(--text-secondary)' }}>
-            Sivuston tavoitteena on tarjota selkeä ja ajantasainen näkymä laitteiden
-            laadunvarmistuksen tilaan, tukien sekä fyysikoiden että kliinisten käyttäjien työtä.
+            The site aims to provide a clear and up-to-date view of the quality assurance
+            status of the devices, supporting the work of both physicists and clinical users.
           </p>
         </div>
       </div>

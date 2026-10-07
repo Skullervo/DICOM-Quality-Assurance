@@ -32,38 +32,38 @@ function huMetric(id: string, label: string, nominal: number): MetricConfig {
 }
 
 const CT_METRICS: MetricConfig[] = [
-  huMetric('hu_air', 'HU Ilma', -1000),
+  huMetric('hu_air', 'HU Air', -1000),
   huMetric('hu_pmp', 'HU PMP', -196),
   huMetric('hu_ldpe', 'HU LDPE', -104),
   huMetric('hu_poly', 'HU Poly', -35),
-  huMetric('hu_acrylic', 'HU Akryyli', 120),
+  huMetric('hu_acrylic', 'HU Acrylic', 120),
   huMetric('hu_delrin', 'HU Delrin', 340),
   huMetric('hu_teflon', 'HU Teflon', 990),
   // TODO: vahvista fyysikon kanssa — näille ei ole rajoja repossa (nyt vain näyttö).
-  { id: 'uniformity_index', label: 'Uniformiteetti', unit: '%', nominal: null, lowerLimit: null, upperLimit: null, precision: 2 },
+  { id: 'uniformity_index', label: 'Uniformity', unit: '%', nominal: null, lowerLimit: null, upperLimit: null, precision: 2 },
   { id: 'mtf_50_percent', label: 'MTF 50%', unit: 'lp/cm', nominal: null, lowerLimit: null, upperLimit: null, precision: 2 },
-  { id: 'noise_hu_std', label: 'Kohina (HU SD)', unit: 'HU', nominal: null, lowerLimit: null, upperLimit: null, precision: 1 },
-  { id: 'slice_thickness_mm', label: 'Viipalepaksuus', unit: 'mm', nominal: null, lowerLimit: null, upperLimit: null, precision: 2 },
+  { id: 'noise_hu_std', label: 'Noise (HU SD)', unit: 'HU', nominal: null, lowerLimit: null, upperLimit: null, precision: 1 },
+  { id: 'slice_thickness_mm', label: 'Slice thickness', unit: 'mm', nominal: null, lowerLimit: null, upperLimit: null, precision: 2 },
 ]
 
 // XR (NORMI-13) — repon LIMITS. Yksipuolisia: uniformiteettipoikkeama isompi = huonompi,
 // MTF/CNR pienempi = huonompi. TODO: vahvista fyysikon kanssa.
 const XR_METRICS: MetricConfig[] = [
-  { id: 'uniformity_deviation', label: 'Tasaisuus — poikkeama', unit: '%', nominal: 0, lowerLimit: null, upperLimit: 10, upperWarn: 5, precision: 2 },
+  { id: 'uniformity_deviation', label: 'Uniformity — deviation', unit: '%', nominal: 0, lowerLimit: null, upperLimit: 10, upperWarn: 5, precision: 2 },
   { id: 'mtf_50_percent', label: 'MTF 50%', unit: 'lp/mm', nominal: null, lowerLimit: 1.5, upperLimit: null, lowerWarn: 1.8, precision: 2 },
-  { id: 'median_cnr', label: 'Mediaani CNR', unit: '', nominal: null, lowerLimit: 2, upperLimit: null, lowerWarn: 3, precision: 2 },
+  { id: 'median_cnr', label: 'Median CNR', unit: '', nominal: null, lowerLimit: 2, upperLimit: null, lowerWarn: 3, precision: 2 },
   // TODO: vahvista fyysikon kanssa — ei rajoja repossa.
-  { id: 'median_contrast', label: 'Mediaani kontrasti', unit: '', nominal: null, lowerLimit: null, upperLimit: null, precision: 2 },
+  { id: 'median_contrast', label: 'Median contrast', unit: '', nominal: null, lowerLimit: null, upperLimit: null, precision: 2 },
   { id: 'cu_100_mean', label: 'Cu 1.0 mm', unit: '', nominal: null, lowerLimit: null, upperLimit: null, precision: 2 },
-  { id: 'num_contrast_rois_seen', label: 'Kontrasti-ROI', unit: '', nominal: null, lowerLimit: null, upperLimit: null, precision: 0 },
+  { id: 'num_contrast_rois_seen', label: 'Contrast ROI', unit: '', nominal: null, lowerLimit: null, upperLimit: null, precision: 0 },
 ]
 
 // US (in-air reverberation) — repon LIMITS. s_depth on informatiivinen (ei rajoja),
 // u_cov isompi = huonompi, u_skew itseisarvona. TODO: vahvista fyysikon kanssa.
 const US_METRICS: MetricConfig[] = [
-  { id: 's_depth', label: 'Herkkyys (s_depth)', unit: 'cm', nominal: null, lowerLimit: null, upperLimit: null, precision: 2 },
-  { id: 'u_cov', label: 'Tasaisuus (U_cov)', unit: '%', nominal: 0, lowerLimit: null, upperLimit: 10, upperWarn: 5, precision: 2 },
-  { id: 'u_skew', label: 'Epäsymmetria (U_skew)', unit: '', nominal: 0, lowerLimit: -1.5, upperLimit: 1.5, lowerWarn: -0.5, upperWarn: 0.5, precision: 2 },
+  { id: 's_depth', label: 'Sensitivity (s_depth)', unit: 'cm', nominal: null, lowerLimit: null, upperLimit: null, precision: 2 },
+  { id: 'u_cov', label: 'Uniformity (U_cov)', unit: '%', nominal: 0, lowerLimit: null, upperLimit: 10, upperWarn: 5, precision: 2 },
+  { id: 'u_skew', label: 'Asymmetry (U_skew)', unit: '', nominal: 0, lowerLimit: -1.5, upperLimit: 1.5, lowerWarn: -0.5, upperWarn: 0.5, precision: 2 },
 ]
 
 export const MODALITY_METRICS: Record<Modality, MetricConfig[]> = {

@@ -38,23 +38,23 @@ export default function Login() {
             <circle cx="22" cy="22" r="1.7" fill="#cdefff" />
           </svg>
           <h1>Radi<span className="mark">qa</span></h1>
-          <p>Kirjaudu sisään</p>
+          <p>Log in</p>
         </div>
 
-        {error && <p className="login-error">Väärä käyttäjätunnus tai salasana.</p>}
+        {error && <p className="login-error">Incorrect username or password.</p>}
 
         <div className="login-field">
-          <label htmlFor="login-user">Käyttäjätunnus</label>
+          <label htmlFor="login-user">Username</label>
           <input id="login-user" type="text" autoComplete="username" autoFocus
             value={user} onChange={(e) => { setUser(e.target.value); setError(false) }} />
         </div>
         <div className="login-field">
-          <label htmlFor="login-pass">Salasana</label>
+          <label htmlFor="login-pass">Password</label>
           <input id="login-pass" type="password" autoComplete="current-password"
             value={pass} onChange={(e) => { setPass(e.target.value); setError(false) }} />
         </div>
 
-        <button className="login-btn" type="submit">Kirjaudu</button>
+        <button className="login-btn" type="submit">Log in</button>
       </form>
     </div>
   )

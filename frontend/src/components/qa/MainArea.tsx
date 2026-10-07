@@ -7,9 +7,9 @@ import { ReportTab, type ReportAttachment, type ReportContext } from './ReportTa
 
 export type TabId = 'analyysi' | 'ai' | 'raportti'
 const TABS: { id: TabId; label: string; Icon: typeof BarChart3 }[] = [
-  { id: 'analyysi', label: 'Analyysi', Icon: BarChart3 },
-  { id: 'ai', label: 'Kysy tekoälyltä', Icon: Sparkles },
-  { id: 'raportti', label: 'Raportoi ongelmasta', Icon: Flag },
+  { id: 'analyysi', label: 'Analysis', Icon: BarChart3 },
+  { id: 'ai', label: 'Ask AI', Icon: Sparkles },
+  { id: 'raportti', label: 'Report issue', Icon: Flag },
 ]
 
 export function MainArea({ breadcrumb, reportContext, reportAttachments, children, onTabChange }: {

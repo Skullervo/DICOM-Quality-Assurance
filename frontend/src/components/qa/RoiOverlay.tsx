@@ -72,7 +72,7 @@ export function RoiOverlay({ src, rois, statusById, hoverId, onHover }: {
           transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
           transformOrigin: 'center center', transition: dragging ? 'none' : 'transform .05s',
         }}>
-          <img src={src} alt="CTP404-leike ROI-kartta" draggable={false}
+          <img src={src} alt="CTP404 slice ROI map" draggable={false}
             style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block',
               filter: `brightness(${brightness}%) contrast(${contrast}%)` }} />
           <svg viewBox="0 0 100 100" preserveAspectRatio="none"
@@ -99,7 +99,7 @@ export function RoiOverlay({ src, rois, statusById, hoverId, onHover }: {
           </svg>
         </div>
         {zoom > 1 && (
-          <button onClick={reset} title="Nollaa zoom/panorointi"
+          <button onClick={reset} title="Reset zoom/pan"
             style={{ position: 'absolute', top: 6, right: 6, display: 'flex', alignItems: 'center', gap: 4,
               background: 'rgba(19,25,34,.85)', border: '1px solid var(--border)', borderRadius: 5,
               color: 'var(--text-muted)', fontSize: 10, padding: '3px 6px', cursor: 'pointer' }}>
@@ -111,17 +111,17 @@ export function RoiOverlay({ src, rois, statusById, hoverId, onHover }: {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', ...sliderLabel }}>
-            <span>Kirkkaus</span><span className="num">{brightness}%</span>
+            <span>Brightness</span><span className="num">{brightness}%</span>
           </div>
           <input type="range" min={50} max={150} value={brightness}
-            onChange={(e) => setBrightness(Number(e.target.value))} style={{ width: '100%' }} aria-label="Kirkkaus" />
+            onChange={(e) => setBrightness(Number(e.target.value))} style={{ width: '100%' }} aria-label="Brightness" />
         </div>
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', ...sliderLabel }}>
-            <span>Kontrasti</span><span className="num">{contrast}%</span>
+            <span>Contrast</span><span className="num">{contrast}%</span>
           </div>
           <input type="range" min={50} max={250} value={contrast}
-            onChange={(e) => setContrast(Number(e.target.value))} style={{ width: '100%' }} aria-label="Kontrasti" />
+            onChange={(e) => setContrast(Number(e.target.value))} style={{ width: '100%' }} aria-label="Contrast" />
         </div>
       </div>
     </div>

@@ -17,17 +17,17 @@ const CONFIG: Record<LaiteModaliteetti, {
   deviceLink: (u: DeviceUnit) => string
 }> = {
   us: {
-    title: 'Ultraäänilaitteet', label: 'Ultraääni',
+    title: 'Ultrasound devices', label: 'Ultrasound',
     fetch: () => api.usUnits(),
     deviceLink: (u) => `/us/device/${encodeURIComponent(u.station_name)}`,
   },
   xray: {
-    title: 'Natiiviröntgenlaitteet', label: 'Natiiviröntgen',
+    title: 'Radiography devices', label: 'Radiography',
     fetch: () => api.xrayUnits(),
     deviceLink: (u) => `/xray/device/${encodeURIComponent(u.institution_name)}/${encodeURIComponent(u.station_name)}`,
   },
   ct: {
-    title: 'TT-laitteet', label: 'Tietokonetomografia',
+    title: 'CT devices', label: 'Computed tomography',
     fetch: () => api.ctUnits(),
     deviceLink: (u) => `/ct/device/${encodeURIComponent(u.station_name)}`,
   },
@@ -74,14 +74,14 @@ export default function LaitteetModaliteetti({ modality }: { modality: LaiteModa
   }
   const upd = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
-  if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Ladataan...</p>
+  if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Loading...</p>
 
   if (error) {
     return (
       <div className="status-message status-error">
-        <h4>Virhe ladattaessa laitteita</h4>
+        <h4>Error loading devices</h4>
         <p>{(error as Error).message}</p>
-        <Link to="/laitteet" className="btn-outline">Takaisin</Link>
+        <Link to="/laitteet" className="btn-outline">Back</Link>
       </div>
     )
   }
@@ -89,19 +89,19 @@ export default function LaitteetModaliteetti({ modality }: { modality: LaiteModa
   return (
     <>
       <BreadcrumbNav items={[
-        { label: 'Aloitus', path: '/' },
-        { label: 'Laitteet', path: '/laitteet' },
+        { label: 'Home', path: '/' },
+        { label: 'Devices', path: '/laitteet' },
         { label: cfg.label },
       ]} />
 
       <div className="page-header">
         <h1>{cfg.title}</h1>
-        <p>Laitteet joilla on tehty analyysejä ({units?.length ?? 0} kpl). Muokkaa laitteen metatietoja "Muokkaa"-painikkeella.</p>
+        <p>Devices that have been analyzed ({units?.length ?? 0} total). Edit a device's metadata with the "Edit" button.</p>
       </div>
 
       {mutation.isError && (
         <div className="status-message status-error" style={{ marginBottom: 12 }}>
-          Tallennus epäonnistui: {(mutation.error as Error).message}
+          Save failed: {(mutation.error as Error).message}
         </div>
       )}
 
@@ -109,13 +109,13 @@ export default function LaitteetModaliteetti({ modality }: { modality: LaiteModa
         <table className="modern-table">
           <thead>
             <tr>
-              <th>Laite</th>
-              <th>Instituutio</th>
-              <th className="hide-mobile">Valmistaja</th>
-              <th className="hide-mobile">Malli</th>
-              <th className="hide-mobile">Viim. mittaus</th>
-              <th>Mittauksia</th>
-              <th>Toiminnot</th>
+              <th>Device</th>
+              <th>Institution</th>
+              <th className="hide-mobile">Manufacturer</th>
+              <th className="hide-mobile">Model</th>
+              <th className="hide-mobile">Last measurement</th>
+              <th>Measurements</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -126,22 +126,22 @@ export default function LaitteetModaliteetti({ modality }: { modality: LaiteModa
                   <tr key={`${u.institution_name}-${u.station_name}`}>
                     <td>
                       {isEd
-                        ? <input value={form.station_name} onChange={upd('station_name')} aria-label="Laitetunnus" style={inp} />
+                        ? <input value={form.station_name} onChange={upd('station_name')} aria-label="Device ID" style={inp} />
                         : <Link to={cfg.deviceLink(u)}>{u.station_name}</Link>}
                     </td>
                     <td>
                       {isEd
-                        ? <input value={form.institution_name} onChange={upd('institution_name')} aria-label="Instituutio" style={inp} />
+                        ? <input value={form.institution_name} onChange={upd('institution_name')} aria-label="Institution" style={inp} />
                         : (u.institution_name || '—')}
                     </td>
                     <td className="hide-mobile">
                       {isEd
-                        ? <input value={form.manufacturer} onChange={upd('manufacturer')} aria-label="Valmistaja" style={inp} />
+                        ? <input value={form.manufacturer} onChange={upd('manufacturer')} aria-label="Manufacturer" style={inp} />
                         : (u.manufacturer || '—')}
                     </td>
                     <td className="hide-mobile">
                       {isEd
-                        ? <input value={form.manufacturer_model} onChange={upd('manufacturer_model')} aria-label="Malli" style={inp} />
+                        ? <input value={form.manufacturer_model} onChange={upd('manufacturer_model')} aria-label="Model" style={inp} />
                         : (u.manufacturer_model || '—')}
                     </td>
                     <td className="hide-mobile">{u.last_measurement ? u.last_measurement.slice(0, 10) : '—'}</td>
@@ -151,19 +151,19 @@ export default function LaitteetModaliteetti({ modality }: { modality: LaiteModa
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button onClick={() => mutation.mutate({ oldStation: u.station_name, data: form })}
                             disabled={mutation.isPending || !form.station_name.trim()} style={actionBtn('primary')}>
-                            {mutation.isPending ? 'Tallennetaan…' : 'Tallenna'}
+                            {mutation.isPending ? 'Saving…' : 'Save'}
                           </button>
-                          <button onClick={() => setEditing(null)} disabled={mutation.isPending} style={actionBtn('ghost')}>Peruuta</button>
+                          <button onClick={() => setEditing(null)} disabled={mutation.isPending} style={actionBtn('ghost')}>Cancel</button>
                         </div>
                       ) : (
-                        <button onClick={() => startEdit(u)} disabled={editing !== null} style={actionBtn('ghost')}>Muokkaa</button>
+                        <button onClick={() => startEdit(u)} disabled={editing !== null} style={actionBtn('ghost')}>Edit</button>
                       )}
                     </td>
                   </tr>
                 )
               })
             ) : (
-              <tr><td colSpan={7}>Ei laitteita saatavilla.</td></tr>
+              <tr><td colSpan={7}>No devices available.</td></tr>
             )}
           </tbody>
         </table>

@@ -5,10 +5,10 @@ import { deriveVerdict } from '../../lib/qa/status'
 import type { Metric, Status } from '../../lib/qa/types'
 
 const STATUS: Record<Status, { word: string; color: string; bg: string; Icon: typeof CheckCircle2 }> = {
-  pass: { word: 'HYVÄKSYTTY', color: 'var(--pass)', bg: 'var(--pass-bg)', Icon: CheckCircle2 },
-  warn: { word: 'VAROITUS', color: 'var(--warn)', bg: 'var(--warn-bg)', Icon: AlertTriangle },
-  fail: { word: 'HYLÄTTY', color: 'var(--fail)', bg: 'var(--fail-bg)', Icon: XCircle },
-  nodata: { word: 'EI DATAA', color: 'var(--neutral)', bg: 'transparent', Icon: MinusCircle },
+  pass: { word: 'PASS', color: 'var(--pass)', bg: 'var(--pass-bg)', Icon: CheckCircle2 },
+  warn: { word: 'WARNING', color: 'var(--warn)', bg: 'var(--warn-bg)', Icon: AlertTriangle },
+  fail: { word: 'FAIL', color: 'var(--fail)', bg: 'var(--fail-bg)', Icon: XCircle },
+  nodata: { word: 'NO DATA', color: 'var(--neutral)', bg: 'transparent', Icon: MinusCircle },
 }
 
 export interface VerdictDevice {
@@ -23,10 +23,10 @@ export function VerdictBar({ device, metrics, compact = false, card = false }: {
   const s = STATUS[verdict]
   const Icon = s.Icon
 
-  const parts = [`${pass}/${measured} mittaria rajoissa`]
-  if (warn > 0) parts.push(`${warn} varoitusta`)
-  if (fail > 0) parts.push(`${fail} hylättyä`)
-  if (nodata > 0) parts.push(`${nodata} ei dataa`)
+  const parts = [`${pass}/${measured} metrics within limits`]
+  if (warn > 0) parts.push(`${warn} warnings`)
+  if (fail > 0) parts.push(`${fail} failed`)
+  if (nodata > 0) parts.push(`${nodata} no data`)
 
   const meta = [device.phantom, device.measuredAt].filter(Boolean).join(' · ')
 
@@ -76,7 +76,7 @@ export function VerdictBar({ device, metrics, compact = false, card = false }: {
           {meta && <span style={{ color: 'var(--text-faint)' }}> · {meta}</span>}
         </div>
         {device.previousAt && (
-          <div style={{ color: 'var(--text-faint)', fontSize: 12 }}>edellinen mittaus: {device.previousAt}</div>
+          <div style={{ color: 'var(--text-faint)', fontSize: 12 }}>previous measurement: {device.previousAt}</div>
         )}
       </div>
     </div>

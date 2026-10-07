@@ -50,7 +50,7 @@ export default function Intro() {
 
         <div className="intro-title">
           <h1>Radi<span className="accent">qa</span></h1>
-          <p>Lääketieteellisen kuvantamisen laadunvalvonta</p>
+          <p>Medical imaging quality assurance</p>
         </div>
       </div>
     </div>

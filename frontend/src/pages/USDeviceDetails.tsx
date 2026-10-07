@@ -13,14 +13,14 @@ import { useTolerances } from '../lib/qa/useTolerances'
 import { hasTolerance, deriveVerdict, failingDetails } from '../lib/qa/status'
 import type { ReportContext } from '../components/qa/ReportTab'
 
-const VERDICT_FI = { pass: 'Hyväksytty', warn: 'Varoitus', fail: 'Hylätty', nodata: 'Ei dataa' } as const
+const VERDICT_FI = { pass: 'Pass', warn: 'Warning', fail: 'Fail', nodata: 'No data' } as const
 const rnd = (v: unknown, p = 2) => (typeof v === 'number' ? v.toFixed(p) : '?')
 
 /* Vertikaalinen profiili — kapea palkki kuvan oikealla puolella, täyttää parent-korkeuden */
 function VertProfileSVG({ data }: { data: number[] }) {
   if (!data || data.length === 0) return (
     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <span style={{ color: C.muted, fontSize: 8, writingMode: 'vertical-rl' }}>Ei profiilia</span>
+      <span style={{ color: C.muted, fontSize: 8, writingMode: 'vertical-rl' }}>No profile</span>
     </div>
   )
   const W = 56, H = 1000 // viewBox coordinates, SVG stretches to fill parent
@@ -42,7 +42,7 @@ function VertProfileSVG({ data }: { data: number[] }) {
 function HorizProfileSVG({ data }: { data: number[] }) {
   if (!data || data.length === 0) return (
     <div style={{ height: 48, background: '#020608', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', gridColumn: 1 }}>
-      <span style={{ color: C.muted, fontSize: 8 }}>Ei profiilia</span>
+      <span style={{ color: C.muted, fontSize: 8 }}>No profile</span>
     </div>
   )
   const W = 400, H = 48
@@ -132,25 +132,25 @@ export default function USDeviceDetails() {
   const reportCtx: ReportContext = {
     sections: latest
       ? [
-          { title: 'DICOM-tiedot', rows: [
-            { label: 'Laite', value: String(latest.stationname ?? s) },
-            { label: 'Modaliteetti', value: 'US' },
-            { label: 'Instituutio', value: String(latest.institutionname ?? '—') },
-            { label: 'Valmistaja', value: String(latest.manufacturer ?? '—') },
-            { label: 'Malli', value: String(latest.manufacturermodelname ?? '—') },
-            { label: 'Anturi', value: String(latest.tranducertype ?? '—') },
-            { label: 'Sarjanro', value: String(latest.deviceserialnumber ?? '—') },
-            { label: 'Tutkimuspäivä', value: formatDay((latest.studydate ?? latest.contentdate) as string | undefined) ?? '—' },
-            { label: 'Instanssi', value: String(latest.instance ?? '—').slice(0, 12) },
+          { title: 'DICOM info', rows: [
+            { label: 'Device', value: String(latest.stationname ?? s) },
+            { label: 'Modality', value: 'US' },
+            { label: 'Institution', value: String(latest.institutionname ?? '—') },
+            { label: 'Manufacturer', value: String(latest.manufacturer ?? '—') },
+            { label: 'Model', value: String(latest.manufacturermodelname ?? '—') },
+            { label: 'Transducer', value: String(latest.tranducertype ?? '—') },
+            { label: 'Serial no.', value: String(latest.deviceserialnumber ?? '—') },
+            { label: 'Study date', value: formatDay((latest.studydate ?? latest.contentdate) as string | undefined) ?? '—' },
+            { label: 'Instance', value: String(latest.instance ?? '—').slice(0, 12) },
           ] },
-          { title: 'Analyysitulokset', rows: [
+          { title: 'Analysis results', rows: [
             { label: 's_depth', value: `${rnd(chipSDepth)} cm` },
             { label: 'u_cov', value: `${rnd(chipUCov)} %` },
             { label: 'u_skew', value: rnd(chipUSkew) },
-            { label: 'Verdiktti', value: `${VERDICT_FI[v.verdict]} (${v.pass}/${v.measured})` },
+            { label: 'Verdict', value: `${VERDICT_FI[v.verdict]} (${v.pass}/${v.measured})` },
           ] },
         ]
-      : [{ title: 'Laite', rows: [{ label: 'Laite', value: `${s} (US)` }] }],
+      : [{ title: 'Device', rows: [{ label: 'Device', value: `${s} (US)` }] }],
     failing: failingDetails(verdictMetrics),
     modality: 'US',
     station: s,
@@ -158,7 +158,7 @@ export default function USDeviceDetails() {
 
   // Raportin/AI:n kuvaliite: US-näyttökuva data-URL:na (US:llä ei erillistä kuva-URLia)
   const reportAttachments = imageData?.image
-    ? [{ key: 'us_image', label: 'US-kuva', url: `data:${imageData.mime ?? 'image/jpeg'};base64,${imageData.image}` }]
+    ? [{ key: 'us_image', label: 'US image', url: `data:${imageData.mime ?? 'image/jpeg'};base64,${imageData.image}` }]
     : []
 
   return (
@@ -176,7 +176,7 @@ export default function USDeviceDetails() {
           <span title={String(latest?.manufacturermodelname ?? '')}
             style={{ fontSize: 13.5, fontWeight: 600, color: C.neutral, flex: 1, minWidth: 0,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 8 }}>
-            {String(latest?.manufacturermodelname || latest?.stationname || 'Laite')}
+            {String(latest?.manufacturermodelname || latest?.stationname || 'Device')}
           </span>
           <span style={{ fontSize: 10, fontFamily: 'var(--mono)', padding: '2px 8px', borderRadius: 4,
             background: `${C.accent}26`, color: C.accent, border: `1px solid ${C.accent}4d` }}>US</span>
@@ -217,7 +217,7 @@ export default function USDeviceDetails() {
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
               background: '#020608', borderRadius: 4, height: 200 }}>
-              <span style={{ color: C.muted, fontSize: 11 }}>{activeInstanceId ? 'Kuva ei saatavilla' : 'Ei instanssia'}</span>
+              <span style={{ color: C.muted, fontSize: 11 }}>{activeInstanceId ? 'Image not available' : 'No instance'}</span>
             </div>
           )}
         </div>
@@ -228,16 +228,16 @@ export default function USDeviceDetails() {
           {latest && (
             <DeviceInfo
               chips={[
-                { label: 'Modaliteetti', value: 'US' },
-                { label: 'Anturityyppi', value: String(latest.tranducertype ?? '') },
-                { label: 'Pvm', value: formatDay((latest.studydate ?? latest.contentdate) as string | undefined) ?? '' },
-                { label: 'Sarjanro', value: String(latest.deviceserialnumber ?? '') },
+                { label: 'Modality', value: 'US' },
+                { label: 'Transducer type', value: String(latest.tranducertype ?? '') },
+                { label: 'Date', value: formatDay((latest.studydate ?? latest.contentdate) as string | undefined) ?? '' },
+                { label: 'Serial no.', value: String(latest.deviceserialnumber ?? '') },
               ]}
               more={[
-                { label: 'Laite', value: String(latest.stationname ?? '') },
-                { label: 'Instituutio', value: String(latest.institutionname ?? '') },
-                { label: 'Valmistaja', value: String(latest.manufacturer ?? '') },
-                { label: 'Malli', value: String(latest.manufacturermodelname ?? '') },
+                { label: 'Device', value: String(latest.stationname ?? '') },
+                { label: 'Institution', value: String(latest.institutionname ?? '') },
+                { label: 'Manufacturer', value: String(latest.manufacturer ?? '') },
+                { label: 'Model', value: String(latest.manufacturermodelname ?? '') },
                 { label: 'Instance', value: String(latest.instance ?? '').slice(0, 24) },
               ]}
             />
@@ -256,15 +256,15 @@ export default function USDeviceDetails() {
         reportAttachments={reportAttachments}
         breadcrumb={
           <nav style={{ fontSize: 12, color: C.muted, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-            <Link to="/" style={{ color: C.muted }}>Aloitus</Link><span>/</span>
-            <Link to="/us/institutions" style={{ color: C.muted }}>Instituutiot</Link><span>/</span>
-            <Link to="/us/units" style={{ color: C.muted }}>Laitteet</Link><span>/</span>
+            <Link to="/" style={{ color: C.muted }}>Home</Link><span>/</span>
+            <Link to="/us/institutions" style={{ color: C.muted }}>Institutions</Link><span>/</span>
+            <Link to="/us/units" style={{ color: C.muted }}>Devices</Link><span>/</span>
             <span style={{ color: C.neutral }}>{s}</span>
           </nav>
         }
       >
         {(latest || selectedPoint) && (
-          <PagedTrendPanel title="Mittaustrendit" metrics={metrics} perPage={3} chromeless dimTitle
+          <PagedTrendPanel title="Measurement trends" metrics={metrics} perPage={3} chromeless dimTitle
             activeIndex={activeIdx} onSelect={handlePointClick} />
         )}
       </MainArea>

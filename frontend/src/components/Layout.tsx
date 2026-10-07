@@ -4,12 +4,12 @@ import { Menu, LogOut } from 'lucide-react'
 import { useAuth } from '../auth/authContext'
 
 const navItems = [
-  { path: '/', label: 'Aloitus', exact: true },
-  { path: '/modaliteetit', label: 'Modaliteetit', match: ['/modaliteetit', '/us', '/xray', '/ct'] },
-  { path: '/laitteet', label: 'Laitteet', match: ['/laitteet'] },
-  { path: '/mittaukset', label: 'Mittaukset', match: ['/mittaukset'] },
-  { path: '/rajat', label: 'Hyväksyttävyysrajat', match: ['/rajat'] },
-  { path: '/tietoa', label: 'Tietoa', exact: true },
+  { path: '/', label: 'Home', exact: true },
+  { path: '/modaliteetit', label: 'Modalities', match: ['/modaliteetit', '/us', '/xray', '/ct'] },
+  { path: '/laitteet', label: 'Devices', match: ['/laitteet'] },
+  { path: '/mittaukset', label: 'Measurements', match: ['/mittaukset'] },
+  { path: '/rajat', label: 'Tolerances', match: ['/rajat'] },
+  { path: '/tietoa', label: 'About', exact: true },
 ]
 
 function getTheme(): 'dark' | 'light' {
@@ -49,7 +49,7 @@ export default function Layout() {
       {/* Oikea yläkulma: navigaatio-pudotusvalikko + teema (ei enää yläpaneelia) */}
       <div style={{ position: 'fixed', top: 6, right: 14, zIndex: 2000, display: 'flex', gap: 6, alignItems: 'center' }}>
         <div style={{ position: 'relative' }}>
-          <button onClick={() => setMenuOpen(o => !o)} aria-label="Navigointivalikko" aria-expanded={menuOpen} style={ctrlBtn}>
+          <button onClick={() => setMenuOpen(o => !o)} aria-label="Navigation menu" aria-expanded={menuOpen} style={ctrlBtn}>
             <Menu size={18} aria-hidden />
           </button>
           {menuOpen && (
@@ -71,11 +71,11 @@ export default function Layout() {
             </div>
           )}
         </div>
-        <button onClick={toggleTheme} aria-label="Vaihda teema" style={ctrlBtn}>
+        <button onClick={toggleTheme} aria-label="Toggle theme" style={ctrlBtn}>
           {theme === 'dark' ? '☀' : '🌙'}
         </button>
         <button onClick={() => { logout(); navigate('/intro', { replace: true }) }}
-          aria-label="Kirjaudu ulos" title="Kirjaudu ulos" style={ctrlBtn}>
+          aria-label="Log out" title="Log out" style={ctrlBtn}>
           <LogOut size={16} aria-hidden />
         </button>
       </div>
@@ -100,7 +100,7 @@ export default function Layout() {
       {!isDevicePage && (
         <footer className="app-footer">
           <p>
-            Lääketieteellisen fysiikan asiantuntijapalvelut,{' '}
+            Medical physics expert services,{' '}
             <a href="https://github.com/Skullervo" target="_blank" rel="noopener noreferrer">
               @skullervo
             </a>.

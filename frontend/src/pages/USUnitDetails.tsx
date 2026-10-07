@@ -13,13 +13,13 @@ export default function USUnitDetails() {
     enabled: !!institution,
   })
 
-  if (!institution) return <p style={{ color: 'var(--status-fail)' }}>Instituutiota ei löydy.</p>
-  if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Ladataan...</p>
+  if (!institution) return <p style={{ color: 'var(--status-fail)' }}>Institution not found.</p>
+  if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Loading...</p>
 
   if (error) {
     return (
       <div className="status-message status-error">
-        <h4>Virhe ladattaessa dataa</h4>
+        <h4>Error loading data</h4>
         <p>{(error as Error).message}</p>
       </div>
     )
@@ -28,18 +28,18 @@ export default function USUnitDetails() {
   return (
     <>
       <BreadcrumbNav items={[
-        { label: 'Aloitus', path: '/' },
-        { label: 'Modaliteetit', path: '/modaliteetit' },
-        { label: 'Instituutiot', path: '/us/institutions' },
-        { label: 'Osastot', path: `/us/units?institution=${encodeURIComponent(institution)}` },
+        { label: 'Home', path: '/' },
+        { label: 'Modalities', path: '/modaliteetit' },
+        { label: 'Institutions', path: '/us/institutions' },
+        { label: 'Departments', path: `/us/units?institution=${encodeURIComponent(institution)}` },
         { label: institution },
       ]} />
 
       <div className="page-header">
-        <h1>{institution} — Laitteet</h1>
+        <h1>{institution} — Devices</h1>
         <p>
-          Tutustu osaston {institution} ultraäänilaitteen laadunvalvontatuloksiin
-          klikkaamalla taulukosta laitteen nimeä.
+          Click a device name in the table to view the quality assurance results
+          for ultrasound devices in the {institution} department.
         </p>
       </div>
 
@@ -47,11 +47,11 @@ export default function USUnitDetails() {
         <table className="modern-table">
           <thead>
             <tr>
-              <th>Laite</th>
-              <th>Valmistaja</th>
-              <th className="hide-mobile">Malli</th>
-              <th className="hide-mobile">Viim. mittaus</th>
-              <th>Mittauksia</th>
+              <th>Device</th>
+              <th>Manufacturer</th>
+              <th className="hide-mobile">Model</th>
+              <th className="hide-mobile">Last measurement</th>
+              <th>Measurements</th>
             </tr>
           </thead>
           <tbody>
@@ -72,7 +72,7 @@ export default function USUnitDetails() {
                 </tr>
               ))
             ) : (
-              <tr><td colSpan={5}>Ei laitteita löytynyt tälle yksikölle.</td></tr>
+              <tr><td colSpan={5}>No devices found for this unit.</td></tr>
             )}
           </tbody>
         </table>

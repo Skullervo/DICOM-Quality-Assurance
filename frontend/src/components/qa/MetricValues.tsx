@@ -21,7 +21,7 @@ function Row({ m }: { m: Metric }) {
           {m.label}
         </div>
         {limitText(m) !== '—' && (
-          <div style={{ fontSize: 9, color: 'var(--text-faint)' }}>raja {limitText(m)}{m.unit ? ' ' + m.unit : ''}</div>
+          <div style={{ fontSize: 9, color: 'var(--text-faint)' }}>limit {limitText(m)}{m.unit ? ' ' + m.unit : ''}</div>
         )}
       </div>
       <div className="num" style={{ fontSize: 14, fontWeight: 600, color: STATUS_COLOR[st], whiteSpace: 'nowrap', flexShrink: 0 }}>
@@ -37,7 +37,7 @@ export function MetricValues({ metrics }: { metrics: Metric[] }) {
   return (
     <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div style={{ fontSize: 9, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '.06em', paddingLeft: 2 }}>
-        Mittausarvot
+        Measured values
       </div>
       {metrics.map((m) => <Row key={m.id} m={m} />)}
     </div>

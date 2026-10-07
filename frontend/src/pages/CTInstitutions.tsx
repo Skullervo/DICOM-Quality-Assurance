@@ -9,12 +9,12 @@ export default function CTInstitutions() {
     queryFn: api.ctInstitutions,
   })
 
-  if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Ladataan...</p>
+  if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Loading...</p>
 
   if (error) {
     return (
       <div className="status-message status-error">
-        <h4>Virhe ladattaessa dataa</h4>
+        <h4>Error loading data</h4>
         <p>{(error as Error).message}</p>
       </div>
     )
@@ -23,24 +23,24 @@ export default function CTInstitutions() {
   return (
     <>
       <BreadcrumbNav items={[
-        { label: 'Aloitus', path: '/' },
-        { label: 'Modaliteetit', path: '/modaliteetit' },
-        { label: 'Tietokonetomografia — Instituutiot' },
+        { label: 'Home', path: '/' },
+        { label: 'Modalities', path: '/modaliteetit' },
+        { label: 'Computed tomography — Institutions' },
       ]} />
 
       <div className="page-header">
-        <h1>CT QA — Instituutiot</h1>
-        <p>Valitse instituutio nähdäksesi sen CT-laitteet.</p>
+        <h1>CT QA — Institutions</h1>
+        <p>Select an institution to see its CT devices.</p>
       </div>
 
       <div className="table-container">
         <table className="modern-table">
           <thead>
             <tr>
-              <th>Instituutio</th>
-              <th>Osastoja</th>
-              <th>Laitteita</th>
-              <th className="hide-mobile">Instansseja</th>
+              <th>Institution</th>
+              <th>Departments</th>
+              <th>Devices</th>
+              <th className="hide-mobile">Instances</th>
             </tr>
           </thead>
           <tbody>
@@ -58,7 +58,7 @@ export default function CTInstitutions() {
                 </tr>
               ))
             ) : (
-              <tr><td colSpan={4}>Ei CT-dataa saatavilla.</td></tr>
+              <tr><td colSpan={4}>No CT data available.</td></tr>
             )}
           </tbody>
         </table>

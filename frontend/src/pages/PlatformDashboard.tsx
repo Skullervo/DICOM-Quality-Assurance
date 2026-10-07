@@ -3,20 +3,20 @@ import { BreadcrumbNav } from '../components/Breadcrumb'
 
 const sections = [
   {
-    title: 'Palvelut',
-    description: 'Hallinnoi käynnissä olevia palveluita ja niiden tilaa.',
+    title: 'Services',
+    description: 'Manage running services and their status.',
     href: '/hallinta/services',
     icon: '⚙️',
   },
   {
-    title: 'Pinostot',
-    description: 'Hallinnoi palvelupinoja ja niiden yhteyksiä.',
+    title: 'Stacks',
+    description: 'Manage service stacks and their connections.',
     href: '/hallinta/stacks',
     icon: '📦',
   },
   {
-    title: 'Projektit',
-    description: 'Hallinnoi projekteja ja niiden kerroksia.',
+    title: 'Projects',
+    description: 'Manage projects and their layers.',
     href: '/hallinta/projects',
     icon: '📁',
   },
@@ -26,13 +26,13 @@ export default function PlatformDashboard() {
   return (
     <>
       <BreadcrumbNav items={[
-        { label: 'Aloitus', path: '/' },
-        { label: 'Hallinta' },
+        { label: 'Home', path: '/' },
+        { label: 'Platform' },
       ]} />
 
       <div className="page-header">
-        <h1>Hallintaportaali</h1>
-        <p>AutoQAD-palveluiden hallinta ja valvonta.</p>
+        <h1>Platform portal</h1>
+        <p>Management and monitoring of AutoQAD services.</p>
       </div>
 
       <div className="card-grid">
@@ -53,8 +53,8 @@ export default function PlatformDashboard() {
         borderRadius: 'var(--border-radius)', fontSize: '0.85rem',
         color: 'var(--status-warn)',
       }}>
-        ⚠️ Hallinta-backend siirretään parhaillaan SQLitestä PostgreSQL:ään.
-        Osa toiminnoista ei ole vielä käytettävissä.
+        ⚠️ The platform backend is currently being migrated from SQLite to PostgreSQL.
+        Some features are not yet available.
       </div>
     </>
   )

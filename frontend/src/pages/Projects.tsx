@@ -18,25 +18,25 @@ export default function Projects() {
     },
   })
 
-  if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Ladataan...</p>
+  if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Loading...</p>
 
   return (
     <>
       <BreadcrumbNav items={[
-        { label: 'Aloitus', path: '/' },
-        { label: 'Hallinta', path: '/hallinta' },
-        { label: 'Projektit' },
+        { label: 'Home', path: '/' },
+        { label: 'Platform', path: '/hallinta' },
+        { label: 'Projects' },
       ]} />
 
       <div className="page-header">
-        <h1>Projektit</h1>
-        <p>Hallinnoi projekteja ja niiden kerroksia.</p>
+        <h1>Projects</h1>
+        <p>Manage projects and their layers.</p>
       </div>
 
       {error ? (
         <div className="status-message" style={{ borderColor: 'var(--status-warn)' }}>
-          <h4 style={{ color: 'var(--status-warn)' }}>⚠️ Backend ei käytettävissä</h4>
-          <p>Hallinta-backend siirretään parhaillaan PostgreSQL:ään.</p>
+          <h4 style={{ color: 'var(--status-warn)' }}>⚠️ Backend unavailable</h4>
+          <p>The platform backend is currently being migrated to PostgreSQL.</p>
         </div>
       ) : (
         <div className="card-grid">

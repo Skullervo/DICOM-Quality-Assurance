@@ -12,14 +12,14 @@ export default function XrayUnits() {
     queryFn: () => api.xrayUnits(institution),
   })
 
-  if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Ladataan...</p>
+  if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Loading...</p>
 
   if (error) {
     return (
       <div className="status-message status-error">
-        <h4>Virhe ladattaessa dataa</h4>
+        <h4>Error loading data</h4>
         <p>{(error as Error).message}</p>
-        <Link to="/xray/institutions" className="btn-outline">Takaisin instituutioihin</Link>
+        <Link to="/xray/institutions" className="btn-outline">Back to institutions</Link>
       </div>
     )
   }
@@ -27,27 +27,27 @@ export default function XrayUnits() {
   return (
     <>
       <BreadcrumbNav items={[
-        { label: 'Aloitus', path: '/' },
-        { label: 'Modaliteetit', path: '/modaliteetit' },
-        { label: 'Röntgen — Instituutiot', path: '/xray/institutions' },
-        { label: institution ? `${institution} — Osastot` : 'Röntgenlaitteet' },
+        { label: 'Home', path: '/' },
+        { label: 'Modalities', path: '/modaliteetit' },
+        { label: 'X-ray — Institutions', path: '/xray/institutions' },
+        { label: institution ? `${institution} — Departments` : 'X-ray devices' },
       ]} />
 
       <div className="page-header">
-        <h1>{institution ? `${institution} — Röntgenlaitteet` : 'Kaikki röntgenlaitteet'}</h1>
-        <p>NORMI-13 phantom -mittaukset osastoittain.</p>
+        <h1>{institution ? `${institution} — X-ray devices` : 'All X-ray devices'}</h1>
+        <p>NORMI-13 phantom measurements by department.</p>
       </div>
 
       <div className="table-container">
         <table className="modern-table">
           <thead>
             <tr>
-              <th>Laite</th>
-              <th>Instituutio</th>
-              <th className="hide-mobile">Valmistaja</th>
-              <th className="hide-mobile">Malli</th>
-              <th className="hide-mobile">Viim. mittaus</th>
-              <th>Mittauksia</th>
+              <th>Device</th>
+              <th>Institution</th>
+              <th className="hide-mobile">Manufacturer</th>
+              <th className="hide-mobile">Model</th>
+              <th className="hide-mobile">Last measurement</th>
+              <th>Measurements</th>
             </tr>
           </thead>
           <tbody>
@@ -69,7 +69,7 @@ export default function XrayUnits() {
                 </tr>
               ))
             ) : (
-              <tr><td colSpan={6}>Ei laitteita saatavilla.</td></tr>
+              <tr><td colSpan={6}>No devices available.</td></tr>
             )}
           </tbody>
         </table>

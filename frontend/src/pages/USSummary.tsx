@@ -59,11 +59,11 @@ export default function USSummary() {
     queryFn: api.usSummary,
   })
 
-  if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Ladataan...</p>
+  if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Loading...</p>
   if (error) {
     return (
       <div className="status-message status-error">
-        <h4>Virhe ladattaessa dataa</h4>
+        <h4>Error loading data</h4>
         <p>{(error as Error).message}</p>
       </div>
     )
@@ -123,9 +123,9 @@ export default function USSummary() {
   return (
     <>
       <BreadcrumbNav items={[
-        { label: 'Aloitus', path: '/' },
-        { label: 'Modaliteetit', path: '/modaliteetit' },
-        { label: 'Ultraääni — Yhteenveto' },
+        { label: 'Home', path: '/' },
+        { label: 'Modalities', path: '/modaliteetit' },
+        { label: 'Ultrasound — Summary' },
       ]} />
 
       <div className="page-header">

@@ -14,9 +14,9 @@ const CONFIG: Record<MittausModaliteetti, {
   label: string
   deviceLink: (m: Measurement) => string
 }> = {
-  us: { title: 'Ultraäänimittaukset', label: 'Ultraääni', deviceLink: (m) => `/us/device/${encodeURIComponent(m.station_name)}` },
-  xray: { title: 'Natiiviröntgenmittaukset', label: 'Natiiviröntgen', deviceLink: (m) => `/xray/device/${encodeURIComponent(m.institution_name)}/${encodeURIComponent(m.station_name)}` },
-  ct: { title: 'TT-mittaukset', label: 'Tietokonetomografia', deviceLink: (m) => `/ct/device/${encodeURIComponent(m.station_name)}` },
+  us: { title: 'Ultrasound measurements', label: 'Ultrasound', deviceLink: (m) => `/us/device/${encodeURIComponent(m.station_name)}` },
+  xray: { title: 'Radiography measurements', label: 'Radiography', deviceLink: (m) => `/xray/device/${encodeURIComponent(m.institution_name)}/${encodeURIComponent(m.station_name)}` },
+  ct: { title: 'CT measurements', label: 'Computed tomography', deviceLink: (m) => `/ct/device/${encodeURIComponent(m.station_name)}` },
 }
 
 const fmtDate = (d: string) => (d && d.length >= 8 ? `${d.slice(6, 8)}.${d.slice(4, 6)}.${d.slice(0, 4)}` : (d || '—'))
@@ -52,14 +52,14 @@ export default function MittauksetModaliteetti({ modality }: { modality: Mittaus
     queryFn: () => api.measurements(modality),
   })
 
-  if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Ladataan...</p>
+  if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Loading...</p>
 
   if (error) {
     return (
       <div className="status-message status-error">
-        <h4>Virhe ladattaessa mittauksia</h4>
+        <h4>Error loading measurements</h4>
         <p>{(error as Error).message}</p>
-        <Link to="/mittaukset" className="btn-outline">Takaisin</Link>
+        <Link to="/mittaukset" className="btn-outline">Back</Link>
       </div>
     )
   }
@@ -74,34 +74,34 @@ export default function MittauksetModaliteetti({ modality }: { modality: Mittaus
   return (
     <>
       <BreadcrumbNav items={[
-        { label: 'Aloitus', path: '/' },
-        { label: 'Mittaukset', path: '/mittaukset' },
+        { label: 'Home', path: '/' },
+        { label: 'Measurements', path: '/mittaukset' },
         { label: cfg.label },
       ]} />
 
       <div className="page-header">
         <h1>{cfg.title}</h1>
-        <p>{all.length} mittausta — {nAnalyzed} analysoitu, {nFailed} epäonnistui/kesken.</p>
+        <p>{all.length} measurements — {nAnalyzed} analyzed, {nFailed} failed/pending.</p>
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        <button onClick={() => setFilter('all')} style={filterBtn(filter === 'all')}>Kaikki ({all.length})</button>
-        <button onClick={() => setFilter('analyzed')} style={filterBtn(filter === 'analyzed')}>Analysoitu ({nAnalyzed})</button>
-        <button onClick={() => setFilter('failed')} style={filterBtn(filter === 'failed')}>Epäonnistui ({nFailed})</button>
+        <button onClick={() => setFilter('all')} style={filterBtn(filter === 'all')}>All ({all.length})</button>
+        <button onClick={() => setFilter('analyzed')} style={filterBtn(filter === 'analyzed')}>Analyzed ({nAnalyzed})</button>
+        <button onClick={() => setFilter('failed')} style={filterBtn(filter === 'failed')}>Failed ({nFailed})</button>
       </div>
 
       <div className="table-container">
         <table className="modern-table">
           <thead>
             <tr>
-              <th>Kuva</th>
-              <th>Laite</th>
-              <th>Instituutio</th>
-              <th className="hide-mobile">Pvm</th>
-              <th className="hide-mobile">Valmistaja</th>
-              <th className="hide-mobile">Malli</th>
-              <th>Tila</th>
-              <th>Syy (jos epäonnistui)</th>
+              <th>Image</th>
+              <th>Device</th>
+              <th>Institution</th>
+              <th className="hide-mobile">Date</th>
+              <th className="hide-mobile">Manufacturer</th>
+              <th className="hide-mobile">Model</th>
+              <th>Status</th>
+              <th>Reason (if failed)</th>
             </tr>
           </thead>
           <tbody>
@@ -129,7 +129,7 @@ export default function MittauksetModaliteetti({ modality }: { modality: Mittaus
                   <td className="hide-mobile">{m.manufacturer_model || '—'}</td>
                   <td>
                     <span style={pill(m.status === 'analyzed')}>
-                      {m.status === 'analyzed' ? 'Analysoitu' : 'Epäonnistui'}
+                      {m.status === 'analyzed' ? 'Analyzed' : 'Failed'}
                     </span>
                   </td>
                   <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem', maxWidth: 360 }}>
@@ -138,7 +138,7 @@ export default function MittauksetModaliteetti({ modality }: { modality: Mittaus
                 </tr>
               ))
             ) : (
-              <tr><td colSpan={8}>Ei mittauksia.</td></tr>
+              <tr><td colSpan={8}>No measurements.</td></tr>
             )}
           </tbody>
         </table>
@@ -146,7 +146,7 @@ export default function MittauksetModaliteetti({ modality }: { modality: Mittaus
 
       {/* Suurennuslightbox — klikkaus pikkukuvasta */}
       {zoom && (
-        <div onClick={() => setZoom(null)} role="dialog" aria-label="Suurennettu kuva"
+        <div onClick={() => setZoom(null)} role="dialog" aria-label="Enlarged image"
           style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(0,0,0,.85)', cursor: 'zoom-out',
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 }}>
           <img src={api.measurementImageUrl(zoom.orthanc_id)} alt=""
@@ -155,12 +155,12 @@ export default function MittauksetModaliteetti({ modality }: { modality: Mittaus
             background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 14px', maxWidth: '90vw' }}>
             <div style={{ fontWeight: 600, fontSize: 13 }}>{zoom.station_name || '—'} · {zoom.institution_name} · {fmtDate(zoom.study_date)}</div>
             <div style={{ marginTop: 6 }}>
-              <span style={pill(zoom.status === 'analyzed')}>{zoom.status === 'analyzed' ? 'Analysoitu' : 'Epäonnistui'}</span>
+              <span style={pill(zoom.status === 'analyzed')}>{zoom.status === 'analyzed' ? 'Analyzed' : 'Failed'}</span>
               {zoom.status === 'failed' && zoom.reason ? <span style={{ color: 'var(--text-muted)', marginLeft: 8, fontSize: '0.85rem' }}>{zoom.reason}</span> : null}
             </div>
             {zoom.status === 'failed' && zoom.detail ? (
               <details style={{ marginTop: 8, textAlign: 'left' }}>
-                <summary style={{ cursor: 'pointer', color: 'var(--text-muted)', fontSize: '0.8rem' }}>Tekninen jälki (traceback)</summary>
+                <summary style={{ cursor: 'pointer', color: 'var(--text-muted)', fontSize: '0.8rem' }}>Technical trace (traceback)</summary>
                 <pre style={{ marginTop: 6, maxHeight: 220, overflow: 'auto', fontSize: 11, lineHeight: 1.4,
                   color: 'var(--text-muted)', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6,
                   padding: 10, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{zoom.detail}</pre>

@@ -73,7 +73,7 @@ export function ImageViewer({ instance }: { instance: string }) {
   if (!meta) {
     return (
       <div style={{ background: '#000', borderRadius: 6, aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ fontSize: 10, color: C.muted }}>Ladataan kuvaa…</span>
+        <span style={{ fontSize: 10, color: C.muted }}>Loading image…</span>
       </div>
     )
   }
@@ -90,7 +90,7 @@ export function ImageViewer({ instance }: { instance: string }) {
       >
         <img
           src={api.ctSeriesImageUrl(instance, q.slice, q.wc, q.ww)}
-          alt={`CT-leike ${q.slice + 1}/${meta.sliceCount}`}
+          alt={`CT slice ${q.slice + 1}/${meta.sliceCount}`}
           draggable={false}
           style={{
             width: '100%', height: '100%', objectFit: 'contain', display: 'block',
@@ -100,7 +100,7 @@ export function ImageViewer({ instance }: { instance: string }) {
           }}
         />
         {zoom > 1 && (
-          <button onClick={reset} title="Nollaa zoom/panorointi"
+          <button onClick={reset} title="Reset zoom/pan"
             style={{ position: 'absolute', top: 6, right: 6, display: 'flex', alignItems: 'center', gap: 4,
               background: 'rgba(19,25,34,.85)', border: `1px solid ${C.border}`, borderRadius: 5,
               color: C.muted, fontSize: 10, padding: '3px 6px', cursor: 'pointer' }}>
@@ -112,24 +112,24 @@ export function ImageViewer({ instance }: { instance: string }) {
       {/* Viipaleselailu */}
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', ...sliderLabel }}>
-          <span>Viipale</span><span className="num">{effSlice + 1} / {meta.sliceCount}</span>
+          <span>Slice</span><span className="num">{effSlice + 1} / {meta.sliceCount}</span>
         </div>
         <input type="range" min={0} max={meta.sliceCount - 1} value={effSlice}
-          onChange={(e) => setSlice(Number(e.target.value))} style={{ width: '100%' }} aria-label="Viipale" />
+          onChange={(e) => setSlice(Number(e.target.value))} style={{ width: '100%' }} aria-label="Slice" />
       </div>
 
       {/* Window/Level */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', ...sliderLabel }}>
-            <span>Taso (WC)</span><span className="num">{Math.round(effWc)}</span>
+            <span>Level (WC)</span><span className="num">{Math.round(effWc)}</span>
           </div>
           <input type="range" min={-1000} max={1000} value={effWc}
             onChange={(e) => setWc(Number(e.target.value))} style={{ width: '100%' }} aria-label="Window center" />
         </div>
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', ...sliderLabel }}>
-            <span>Leveys (WW)</span><span className="num">{Math.round(effWw)}</span>
+            <span>Width (WW)</span><span className="num">{Math.round(effWw)}</span>
           </div>
           <input type="range" min={1} max={3000} value={effWw}
             onChange={(e) => setWw(Number(e.target.value))} style={{ width: '100%' }} aria-label="Window width" />

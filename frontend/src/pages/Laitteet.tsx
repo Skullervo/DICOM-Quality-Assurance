@@ -3,17 +3,17 @@
 import { Link } from 'react-router-dom'
 
 const modalities = [
-  { label: 'Ultraääni', image: '/images/ultrasound_image.bmp', path: '/laitteet/us' },
-  { label: 'Natiiviröntgen', image: '/images/XRAY.png', path: '/laitteet/xray' },
-  { label: 'Tietokonetomografia', image: '/images/CT.png', path: '/laitteet/ct' },
+  { label: 'Ultrasound', image: '/images/ultrasound_image.bmp', path: '/laitteet/us' },
+  { label: 'Radiography', image: '/images/XRAY.png', path: '/laitteet/xray' },
+  { label: 'Computed tomography', image: '/images/CT.png', path: '/laitteet/ct' },
 ]
 
 export default function Laitteet() {
   return (
     <>
       <div className="page-header">
-        <h1>Laitteet</h1>
-        <p>Valitse modaliteetti nähdäksesi laitteet joilla on tehty analyysejä</p>
+        <h1>Devices</h1>
+        <p>Select a modality to see the devices that have been analyzed</p>
       </div>
 
       <div className="card-grid">
@@ -22,7 +22,7 @@ export default function Laitteet() {
             <img src={m.image} alt={m.label} />
             <div className="card-body">
               <p className="card-text">{m.label}</p>
-              <Link to={m.path} className="btn">Näytä laitteet</Link>
+              <Link to={m.path} className="btn">Show devices</Link>
             </div>
           </div>
         ))}

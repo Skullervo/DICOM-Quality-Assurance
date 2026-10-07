@@ -19,33 +19,33 @@ export default function ServiceList() {
     },
   })
 
-  if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Ladataan...</p>
+  if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Loading...</p>
 
   return (
     <>
       <BreadcrumbNav items={[
-        { label: 'Aloitus', path: '/' },
-        { label: 'Hallinta', path: '/hallinta' },
-        { label: 'Palvelut' },
+        { label: 'Home', path: '/' },
+        { label: 'Platform', path: '/hallinta' },
+        { label: 'Services' },
       ]} />
 
       <div className="page-header">
-        <h1>Palvelut</h1>
-        <p>Hallinnoi käynnissä olevia palveluita.</p>
+        <h1>Services</h1>
+        <p>Manage running services.</p>
       </div>
 
       {error ? (
         <div className="status-message" style={{ borderColor: 'var(--status-warn)' }}>
-          <h4 style={{ color: 'var(--status-warn)' }}>⚠️ Backend ei käytettävissä</h4>
-          <p>Hallinta-backend siirretään parhaillaan PostgreSQL:ään.</p>
+          <h4 style={{ color: 'var(--status-warn)' }}>⚠️ Backend unavailable</h4>
+          <p>The platform backend is currently being migrated to PostgreSQL.</p>
         </div>
       ) : (
         <div className="table-container">
           <table className="modern-table">
             <thead>
               <tr>
-                <th>Nimi</th>
-                <th>Tila</th>
+                <th>Name</th>
+                <th>Status</th>
                 <th className="hide-mobile">Image</th>
                 <th></th>
               </tr>
@@ -65,7 +65,7 @@ export default function ServiceList() {
                   </td>
                   <td className="hide-mobile" style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{svc.image ?? '—'}</td>
                   <td>
-                    <Link to={`/hallinta/services/${svc.id}`}>Avaa →</Link>
+                    <Link to={`/hallinta/services/${svc.id}`}>Open →</Link>
                   </td>
                 </tr>
               ))}

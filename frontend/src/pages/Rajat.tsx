@@ -11,18 +11,18 @@ import type { Modality } from '../lib/qa/types'
 import { BreadcrumbNav } from '../components/Breadcrumb'
 
 const MODS: { key: Modality; label: string }[] = [
-  { key: 'US', label: 'Ultraääni' },
-  { key: 'XR', label: 'Natiiviröntgen' },
-  { key: 'CT', label: 'Tietokonetomografia' },
+  { key: 'US', label: 'Ultrasound' },
+  { key: 'XR', label: 'Radiography' },
+  { key: 'CT', label: 'Computed tomography' },
 ]
 
 const FIELDS = [
-  { key: 'nominal', label: 'Nominaali' },
-  { key: 'lower_limit', label: 'Alaraja' },
-  { key: 'upper_limit', label: 'Yläraja' },
-  { key: 'action_limit', label: 'Toimintaraja ±' },
-  { key: 'lower_warn', label: 'Ala-varoitus' },
-  { key: 'upper_warn', label: 'Ylä-varoitus' },
+  { key: 'nominal', label: 'Nominal' },
+  { key: 'lower_limit', label: 'Lower limit' },
+  { key: 'upper_limit', label: 'Upper limit' },
+  { key: 'action_limit', label: 'Action limit ±' },
+  { key: 'lower_warn', label: 'Lower warning' },
+  { key: 'upper_warn', label: 'Upper warning' },
 ] as const
 type FieldKey = typeof FIELDS[number]['key']
 type Form = Record<FieldKey, string>
@@ -89,11 +89,11 @@ export default function Rajat() {
 
   return (
     <>
-      <BreadcrumbNav items={[{ label: 'Aloitus', path: '/' }, { label: 'Hyväksyttävyysrajat' }]} />
+      <BreadcrumbNav items={[{ label: 'Home', path: '/' }, { label: 'Tolerances' }]} />
 
       <div className="page-header">
-        <h1>Hyväksyttävyysrajat</h1>
-        <p>Muokkaa modaliteettien analyysien rajoja. Muutokset tallentuvat tietokantaan ja päivittyvät trendikuvaajiin.</p>
+        <h1>Tolerances</h1>
+        <p>Edit the analysis limits for each modality. Changes are saved to the database and update the trend charts.</p>
       </div>
 
       {/* Modaliteettivälilehdet */}
@@ -108,20 +108,20 @@ export default function Rajat() {
 
       {mutation.isError && (
         <div className="status-message status-error" style={{ marginBottom: 12 }}>
-          Tallennus epäonnistui: {(mutation.error as Error).message}
+          Save failed: {(mutation.error as Error).message}
         </div>
       )}
 
       {isLoading ? (
-        <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Ladataan...</p>
+        <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Loading...</p>
       ) : (
         <div className="table-container">
           <table className="modern-table">
             <thead>
               <tr>
-                <th>Metriikka</th>
+                <th>Metric</th>
                 {FIELDS.map((f) => <th key={f.key} style={{ textAlign: 'right' }}>{f.label}</th>)}
-                <th>Toiminnot</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -144,12 +144,12 @@ export default function Rajat() {
                       {isEd ? (
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button onClick={() => save(cfg.id)} disabled={mutation.isPending} style={actionBtn('primary')}>
-                            {mutation.isPending ? 'Tallennetaan…' : 'Tallenna'}
+                            {mutation.isPending ? 'Saving…' : 'Save'}
                           </button>
-                          <button onClick={() => setEditing(null)} disabled={mutation.isPending} style={actionBtn('ghost')}>Peruuta</button>
+                          <button onClick={() => setEditing(null)} disabled={mutation.isPending} style={actionBtn('ghost')}>Cancel</button>
                         </div>
                       ) : (
-                        <button onClick={() => startEdit(cfg.id)} disabled={editing !== null} style={actionBtn('ghost')}>Muokkaa</button>
+                        <button onClick={() => startEdit(cfg.id)} disabled={editing !== null} style={actionBtn('ghost')}>Edit</button>
                       )}
                     </td>
                   </tr>

@@ -9,18 +9,18 @@ export default function USOverview() {
     queryFn: () => api.usUnits(),
   })
 
-  if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Ladataan...</p>
+  if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Loading...</p>
   if (error) {
     return (
       <div className="status-message status-error">
-        <h4>Virhe ladattaessa dataa</h4>
+        <h4>Error loading data</h4>
         <p>{(error as Error).message}</p>
       </div>
     )
   }
 
   const grouped = (units ?? []).reduce<Record<string, USUnit[]>>((acc, unit) => {
-    const inst = unit.institution_name || 'Tuntematon'
+    const inst = unit.institution_name || 'Unknown'
     if (!acc[inst]) acc[inst] = []
     acc[inst].push(unit)
     return acc
@@ -29,14 +29,14 @@ export default function USOverview() {
   return (
     <>
       <BreadcrumbNav items={[
-        { label: 'Aloitus', path: '/' },
-        { label: 'Modaliteetit', path: '/modaliteetit' },
-        { label: 'Ultraääni — Laitteet' },
+        { label: 'Home', path: '/' },
+        { label: 'Modalities', path: '/modaliteetit' },
+        { label: 'Ultrasound — Devices' },
       ]} />
 
       <div className="page-header">
-        <h1>Ultraäänilaitteet</h1>
-        <p>Pääset tarkastelemaan laitteen laadunvalvontatuloksia klikkaamalla laitteen nimeä.</p>
+        <h1>Ultrasound devices</h1>
+        <p>Click a device name to view its quality assurance results.</p>
       </div>
 
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -88,7 +88,7 @@ export default function USOverview() {
         ))}
 
         {Object.keys(grouped).length === 0 && (
-          <p style={{ color: 'var(--text-secondary)' }}>Ei laitteita saatavilla.</p>
+          <p style={{ color: 'var(--text-secondary)' }}>No devices available.</p>
         )}
       </div>
     </>

@@ -18,7 +18,7 @@ export type ReportContext = {
   station?: string // laitteen tunnus (lisätään viestin alkuun)
 }
 
-const SEVERITIES = ['Matala', 'Kohtalainen', 'Korkea']
+const SEVERITIES = ['Low', 'Moderate', 'High']
 
 const absUrl = (u: string) => {
   try { return new URL(u, window.location.origin).href } catch { return u }
@@ -37,7 +37,7 @@ const textareaStyle: CSSProperties = {
 }
 
 export function ReportTab({ context, attachments = [] }: { context: ReportContext; attachments?: ReportAttachment[] }) {
-  const [sev, setSev] = useState('Kohtalainen')
+  const [sev, setSev] = useState('Moderate')
   const [kuvaus, setKuvaus] = useState('')
   const [extra, setExtra] = useState('')
   const [reporter, setReporter] = useState(() => localStorage.getItem('autoqad-reporter') || '')
@@ -63,16 +63,16 @@ export function ReportTab({ context, attachments = [] }: { context: ReportContex
     setStatus('loading')
     const picked = attachments.filter((a) => selected.has(a.key) && !broken.has(a.key))
     const liitteet = picked.length
-      ? `\n\nLiitteet:\n${picked.map((a) => a.url.startsWith('data:') ? `• ${a.label} (liitetty kuva)` : `• ${a.label}: ${absUrl(a.url)}`).join('\n')}`
+      ? `\n\nAttachments:\n${picked.map((a) => a.url.startsWith('data:') ? `• ${a.label} (attached image)` : `• ${a.label}: ${absUrl(a.url)}`).join('\n')}`
       : ''
     const rep = (reporter.trim() || email.trim())
-      ? `Raportoija: ${reporter.trim()}${email.trim() ? ` <${email.trim()}>` : ''}\n` : ''
+      ? `Reporter: ${reporter.trim()}${email.trim() ? ` <${email.trim()}>` : ''}\n` : ''
     const ctx = contextToText(context)
-    const kuvausBlock = kuvaus.trim() ? `\n\nKuvaus:\n${kuvaus.trim()}` : ''
-    const extraBlock = extra.trim() ? `\n\nLisätiedot:\n${extra.trim()}` : ''
+    const kuvausBlock = kuvaus.trim() ? `\n\nDescription:\n${kuvaus.trim()}` : ''
+    const extraBlock = extra.trim() ? `\n\nAdditional info:\n${extra.trim()}` : ''
     try {
       const d = await api.reportIssue(
-        `[Vakavuus: ${sev}]\n${rep}${ctx}${kuvausBlock}${extraBlock}${liitteet}`,
+        `[Severity: ${sev}]\n${rep}${ctx}${kuvausBlock}${extraBlock}${liitteet}`,
         { modality: context.modality, station: context.station },
       )
       setStatus(d.status === 'ok' ? 'ok' : 'error')
@@ -90,7 +90,7 @@ export function ReportTab({ context, attachments = [] }: { context: ReportContex
         opacity: status === 'loading' ? 0.6 : 1,
       }}>
       <Send size={15} aria-hidden />
-      {status === 'loading' ? 'Lähetetään…' : 'Lähetä raportti'}
+      {status === 'loading' ? 'Sending…' : 'Send report'}
     </button>
   )
 
@@ -104,7 +104,7 @@ export function ReportTab({ context, attachments = [] }: { context: ReportContex
         {/* Vasen: lomake (vierii tarvittaessa) */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
           <div>
-            <div style={labelStyle}>Vakavuus</div>
+            <div style={labelStyle}>Severity</div>
             <div style={{ display: 'flex', gap: 8 }}>
               {SEVERITIES.map((x) => (
                 <button key={x} onClick={() => setSev(x)}
@@ -120,10 +120,10 @@ export function ReportTab({ context, attachments = [] }: { context: ReportContex
           </div>
 
           <div>
-            <div style={labelStyle}>Raportoija</div>
+            <div style={labelStyle}>Reporter</div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <input value={reporter} onChange={(e) => onReporter(e.target.value)} placeholder="Nimi" aria-label="Raportoijan nimi" style={fieldStyle} />
-              <input value={email} onChange={(e) => onEmail(e.target.value)} type="email" placeholder="Sähköposti (valinnainen)" aria-label="Sähköposti" style={fieldStyle} />
+              <input value={reporter} onChange={(e) => onReporter(e.target.value)} placeholder="Name" aria-label="Reporter name" style={fieldStyle} />
+              <input value={email} onChange={(e) => onEmail(e.target.value)} type="email" placeholder="Email (optional)" aria-label="Email" style={fieldStyle} />
             </div>
           </div>
 
@@ -131,15 +131,15 @@ export function ReportTab({ context, attachments = [] }: { context: ReportContex
           <ContextView context={context} />
 
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 120 }}>
-            <div style={labelStyle}>Kuvaus</div>
+            <div style={labelStyle}>Description</div>
             <textarea value={kuvaus} onChange={(e) => setKuvaus(e.target.value)}
-              placeholder="Kuvaile ongelma omin sanoin…" style={{ ...textareaStyle, flex: 1, minHeight: 0 }} />
+              placeholder="Describe the issue in your own words…" style={{ ...textareaStyle, flex: 1, minHeight: 0 }} />
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 100 }}>
-            <div style={labelStyle}>Lisätiedot</div>
+            <div style={labelStyle}>Additional info</div>
             <textarea value={extra} onChange={(e) => setExtra(e.target.value)}
-              placeholder="Tehdyt toimenpiteet, muut havainnot…" style={{ ...textareaStyle, flex: 1, minHeight: 0 }} />
+              placeholder="Actions taken, other observations…" style={{ ...textareaStyle, flex: 1, minHeight: 0 }} />
           </div>
         </div>
 
@@ -147,7 +147,7 @@ export function ReportTab({ context, attachments = [] }: { context: ReportContex
         {hasAtt && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
             <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
-              Liitä kuvia {selected.size > 0 && <span style={{ color: 'var(--info)' }}>({selected.size} valittu)</span>}
+              Attach images {selected.size > 0 && <span style={{ color: 'var(--info)' }}>({selected.size} selected)</span>}
             </div>
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'grid', gridTemplateColumns: usable.length <= 1 ? '1fr' : '1fr 1fr', gap: 8, alignContent: 'start' }}>
               {usable.map((a) => {
@@ -187,12 +187,12 @@ export function ReportTab({ context, attachments = [] }: { context: ReportContex
 
       {status === 'ok' && (
         <div style={{ background: 'var(--pass-bg)', border: '1px solid var(--pass)', color: 'var(--pass)', borderRadius: 8, padding: '10px 12px', fontSize: 13 }}>
-          Raportti lähetetty.
+          Report sent.
         </div>
       )}
       {status === 'error' && (
         <div style={{ background: 'var(--fail-bg)', border: '1px solid var(--fail)', color: 'var(--fail)', borderRadius: 8, padding: '10px 12px', fontSize: 13 }}>
-          Lähetys epäonnistui.
+          Sending failed.
         </div>
       )}
     </div>

@@ -30,31 +30,31 @@ export function AiChat({ context, attachments = [] }: { context: ReportContext; 
     const q = input.trim()
     if (!q) return
     const picked = attachments.filter((a) => selected.has(a.key) && !broken.has(a.key))
-    const refText = picked.length ? `\n\n[Viittaan analyysikuviin: ${picked.map((a) => a.label).join(', ')}]` : ''
+    const refText = picked.length ? `\n\n[Referring to analysis images: ${picked.map((a) => a.label).join(', ')}]` : ''
     setMessages(prev => [...prev, { role: 'user', text: q, imgs: picked.map((a) => a.label) }])
     setInput('')
     setSelected(new Set())
     setLoading(true)
     try {
       // Liitä laitteen konteksti kysymykseen, jotta AI tuntee mittauksen
-      const d = await api.askAI(`Laitteen konteksti:\n${contextToText(context)}\n\nKysymys: ${q}${refText}`)
-      setMessages(prev => [...prev, { role: 'ai', text: d.answer ?? d.error ?? 'Virhe' }])
+      const d = await api.askAI(`Device context:\n${contextToText(context)}\n\nQuestion: ${q}${refText}`)
+      setMessages(prev => [...prev, { role: 'ai', text: d.answer ?? d.error ?? 'Error' }])
     } catch {
-      setMessages(prev => [...prev, { role: 'ai', text: 'Pyyntö epäonnistui' }])
+      setMessages(prev => [...prev, { role: 'ai', text: 'Request failed' }])
     } finally { setLoading(false) }
   }
 
   const hasAtt = usable.length > 0
 
   const sendBtn = (
-    <button onClick={send} disabled={loading || !input.trim()} aria-label="Lähetä kysymys"
+    <button onClick={send} disabled={loading || !input.trim()} aria-label="Send question"
       style={{
         display: 'flex', alignItems: 'center', gap: 7,
         background: '#5b5bd6', border: 'none', color: '#fff', borderRadius: 8,
         padding: '10px 18px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
         opacity: loading || !input.trim() ? 0.6 : 1,
       }}>
-      <Send size={15} aria-hidden />{loading ? 'Lähetetään…' : 'Lähetä'}
+      <Send size={15} aria-hidden />{loading ? 'Sending…' : 'Send'}
     </button>
   )
 
@@ -77,7 +77,7 @@ export function AiChat({ context, attachments = [] }: { context: ReportContext; 
                 background: m.role === 'user' ? 'color-mix(in srgb, var(--info) 12%, transparent)' : 'var(--surface-2)',
                 border: m.role === 'user' ? '1px solid color-mix(in srgb, var(--info) 34%, transparent)' : '1px solid var(--border)',
               }}>
-                {m.role === 'ai' && <span style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4, color: 'var(--text-muted)' }}>Tekoäly</span>}
+                {m.role === 'ai' && <span style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4, color: 'var(--text-muted)' }}>AI</span>}
                 <span style={{ whiteSpace: 'pre-wrap' }}>{m.text}</span>
                 {m.imgs && m.imgs.length > 0 && (
                   <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4, justifyContent: 'flex-end' }}>
@@ -93,14 +93,14 @@ export function AiChat({ context, attachments = [] }: { context: ReportContext; 
 
             {loading && (
               <div style={{ alignSelf: 'flex-start', borderRadius: 8, padding: '10px 12px', fontSize: 13, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-                Ladataan vastausta…
+                Loading response…
               </div>
             )}
           </div>
 
           {/* Syöte — vasemmassa sarakkeessa (sama leveys kuin konteksti) */}
           <div>
-            <div style={label}>Kysymys</div>
+            <div style={label}>Question</div>
             <textarea value={input} onChange={(e) => setInput(e.target.value)} rows={2}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
               style={{
@@ -108,7 +108,7 @@ export function AiChat({ context, attachments = [] }: { context: ReportContext; 
                 padding: 12, color: 'var(--text)', fontSize: 13.5, resize: 'none', outline: 'none',
                 boxSizing: 'border-box', fontFamily: 'var(--sans)', lineHeight: 1.5,
               }}
-              placeholder="Kirjoita kysymys…" />
+              placeholder="Type a question…" />
           </div>
         </div>
 
@@ -116,7 +116,7 @@ export function AiChat({ context, attachments = [] }: { context: ReportContext; 
         {hasAtt && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
             <div style={label}>
-              Liitä kuvia {selected.size > 0 && <span style={{ color: 'var(--info)' }}>({selected.size} valittu)</span>}
+              Attach images {selected.size > 0 && <span style={{ color: 'var(--info)' }}>({selected.size} selected)</span>}
             </div>
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'grid', gridTemplateColumns: usable.length <= 1 ? '1fr' : '1fr 1fr', gap: 8, alignContent: 'start' }}>
               {usable.map((a) => {

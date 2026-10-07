@@ -9,12 +9,12 @@ export default function USInstitutions() {
     queryFn: api.usInstitutions,
   })
 
-  if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Ladataan...</p>
+  if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Loading...</p>
 
   if (error) {
     return (
       <div className="status-message status-error">
-        <h4>Virhe ladattaessa dataa</h4>
+        <h4>Error loading data</h4>
         <p>{(error as Error).message}</p>
       </div>
     )
@@ -23,23 +23,23 @@ export default function USInstitutions() {
   return (
     <>
       <BreadcrumbNav items={[
-        { label: 'Aloitus', path: '/' },
-        { label: 'Modaliteetit', path: '/modaliteetit' },
-        { label: 'Ultraääni — Instituutiot' },
+        { label: 'Home', path: '/' },
+        { label: 'Modalities', path: '/modaliteetit' },
+        { label: 'Ultrasound — Institutions' },
       ]} />
 
       <div className="page-header">
-        <h1>Instituutiot</h1>
-        <p>Tutustu eri instituutioiden laadunvalvontatuloksiin</p>
+        <h1>Institutions</h1>
+        <p>Browse quality assurance results across institutions</p>
       </div>
 
       <div className="table-container">
         <table className="modern-table">
           <thead>
             <tr>
-              <th>Instituutio</th>
-              <th>Osastoja</th>
-              <th>Laitteita</th>
+              <th>Institution</th>
+              <th>Measurements</th>
+              <th>Devices</th>
             </tr>
           </thead>
           <tbody>
@@ -56,7 +56,7 @@ export default function USInstitutions() {
                 </tr>
               ))
             ) : (
-              <tr><td colSpan={3}>Ei instituutioita saatavilla.</td></tr>
+              <tr><td colSpan={3}>No institutions available.</td></tr>
             )}
           </tbody>
         </table>

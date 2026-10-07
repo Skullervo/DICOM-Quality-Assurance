@@ -178,7 +178,7 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
       onMouseLeave={onHover ? () => onHover(null) : undefined}
       onDoubleClick={windowed ? () => setPanOn((p) => !p) : undefined}
       onPointerDown={onPointerDown}
-      title={windowed ? 'Kaksoisnapauta kytkeäksesi vieritys (raahaa tai rullaa 50 mittauksen ikkunaa)' : undefined}
+      title={windowed ? 'Double-click to toggle scrolling (drag or wheel the 50-measurement window)' : undefined}
       style={{
         position: 'relative',
         display: 'flex', flexDirection: 'column', minWidth: 0, borderRadius: 6, padding: 4,
@@ -197,15 +197,15 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
         <div style={{ position: 'absolute', top: 4, right: 6, zIndex: 3, display: 'flex', alignItems: 'center', gap: 3,
           fontSize: 10, fontFamily: 'var(--mono)', color: panOn ? 'var(--info)' : 'var(--text-faint)',
           background: 'color-mix(in srgb, var(--surface) 82%, transparent)', borderRadius: 5, padding: '1px 3px' }}>
-          <button onClick={() => scrollBy(-PAGE)} disabled={offset <= 0} aria-label="Vanhemmat mittaukset" style={navBtn(offset <= 0)}><ChevronLeft size={13} aria-hidden /></button>
+          <button onClick={() => scrollBy(-PAGE)} disabled={offset <= 0} aria-label="Older measurements" style={navBtn(offset <= 0)}><ChevronLeft size={13} aria-hidden /></button>
           <span className="tnum">{shownFrom}–{shownTo}/{n}</span>
-          <button onClick={() => scrollBy(PAGE)} disabled={offset >= maxOffset} aria-label="Uudemmat mittaukset" style={navBtn(offset >= maxOffset)}><ChevronRight size={13} aria-hidden /></button>
+          <button onClick={() => scrollBy(PAGE)} disabled={offset >= maxOffset} aria-label="Newer measurements" style={navBtn(offset >= maxOffset)}><ChevronRight size={13} aria-hidden /></button>
         </div>
       )}
       {panOn && (
         <div style={{ position: 'absolute', bottom: 6, left: 8, zIndex: 3, fontSize: 10, color: 'var(--info)',
           background: 'color-mix(in srgb, var(--surface) 82%, transparent)', borderRadius: 5, padding: '1px 5px', pointerEvents: 'none' }}>
-          raahaa tai rullaa · kaksoisnapauta lopettaaksesi
+          drag or wheel · double-click to stop
         </div>
       )}
       <div style={fill ? { flex: 1, minHeight: 0 } : { height: 132 }}>

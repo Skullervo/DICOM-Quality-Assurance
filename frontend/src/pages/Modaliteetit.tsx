@@ -2,17 +2,17 @@ import { Link } from 'react-router-dom'
 
 const modalities = [
   {
-    label: 'Ultraääni',
+    label: 'Ultrasound',
     image: '/images/ultrasound_image.bmp',
     path: '/us/institutions',
   },
   {
-    label: 'Natiiviröntgen',
+    label: 'Radiography',
     image: '/images/XRAY.png',
     path: '/xray/institutions',
   },
   {
-    label: 'Tietokonetomografia',
+    label: 'Computed tomography',
     image: '/images/CT.png',
     path: '/ct/institutions',
   },
@@ -22,8 +22,8 @@ export default function Modaliteetit() {
   return (
     <>
       <div className="page-header">
-        <h1>Modaliteetit</h1>
-        <p>Valitse kuvantamismodaliteetti</p>
+        <h1>Modalities</h1>
+        <p>Select an imaging modality</p>
       </div>
 
       <div className="card-grid">
@@ -32,7 +32,7 @@ export default function Modaliteetit() {
             <img src={m.image} alt={m.label} />
             <div className="card-body">
               <p className="card-text">{m.label}</p>
-              <Link to={m.path} className="btn">Instituutiot</Link>
+              <Link to={m.path} className="btn">Institutions</Link>
             </div>
           </div>
         ))}

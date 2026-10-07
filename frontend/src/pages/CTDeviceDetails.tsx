@@ -16,23 +16,23 @@ import { hasTolerance, deriveVerdict, deriveStatus, failingDetails } from '../li
 import type { Status } from '../lib/qa/types'
 import type { ReportContext } from '../components/qa/ReportTab'
 
-const VERDICT_FI = { pass: 'Hyväksytty', warn: 'Varoitus', fail: 'Hylätty', nodata: 'Ei dataa' } as const
+const VERDICT_FI = { pass: 'Pass', warn: 'Warning', fail: 'Fail', nodata: 'No data' } as const
 const rnd = (v: unknown, p = 2) => (typeof v === 'number' ? v.toFixed(p) : '?')
 
 // Vasemman paneelin kuvavalinnat (yksi pudotusvalikko, säästää tilaa vs. välilehdet).
 // 'dicom' = interaktiivinen DICOM-leike (säädettävä W/L); muut = esirenderöidyt
 // analyysikuvat (ei harmaasävysäätöä).
 const IMAGE_OPTIONS = [
-  { key: 'dicom', label: 'Kuvapakka' },
-  { key: 'roi', label: 'ROI-kartta (HU)' },
-  { key: 'thickness', label: 'Viipalepaksuus' },
-  { key: 'uniformity', label: 'Uniformiteetti' },
+  { key: 'dicom', label: 'Image stack' },
+  { key: 'roi', label: 'ROI map (HU)' },
+  { key: 'thickness', label: 'Slice thickness' },
+  { key: 'uniformity', label: 'Uniformity' },
   { key: 'mtf', label: 'MTF' },
-  { key: 'low_contrast', label: 'Matala kontrasti' },
+  { key: 'low_contrast', label: 'Low contrast' },
   { key: 'hu_linearity_chart', label: 'HU scatter' },
-  { key: 'mtf_chart', label: 'MTF-käyrä' },
-  { key: 'uniformity_profile', label: 'Profiilit' },
-  { key: 'side_view', label: 'Sivunäkymä' },
+  { key: 'mtf_chart', label: 'MTF curve' },
+  { key: 'uniformity_profile', label: 'Profiles' },
+  { key: 'side_view', label: 'Side view' },
 ]
 // Kaaviokuvat (ei harmaasävyä -> ei kirkkaus/kontrasti-liukuja)
 const PLOT_KEYS = ['hu_linearity_chart', 'mtf_chart', 'uniformity_profile']
@@ -84,26 +84,26 @@ export default function CTDeviceDetails() {
   const reportCtx: ReportContext = {
     sections: latest
       ? [
-          { title: 'DICOM-tiedot', rows: [
-            { label: 'Laite', value: String(latest.station_name ?? station) },
-            { label: 'Instituutio', value: String(latest.institution_name ?? '—') },
-            { label: 'Fantomi', value: String(latest.phantom_model ?? '—') },
+          { title: 'DICOM info', rows: [
+            { label: 'Device', value: String(latest.station_name ?? station) },
+            { label: 'Institution', value: String(latest.institution_name ?? '—') },
+            { label: 'Phantom', value: String(latest.phantom_model ?? '—') },
             { label: 'kVp', value: String(latest.kvp ?? '—') },
             { label: 'mAs', value: String(latest.exposure_mAs ?? '—') },
-            { label: 'Leikepaksuus', value: latest.slice_thickness ? `${latest.slice_thickness} mm` : '—' },
-            { label: 'Malli', value: String(latest.manufacturer_model_name ?? '—') },
-            { label: 'Päivämäärä', value: formatDay(latest.content_date as string | undefined) ?? '—' },
+            { label: 'Slice thickness', value: latest.slice_thickness ? `${latest.slice_thickness} mm` : '—' },
+            { label: 'Model', value: String(latest.manufacturer_model_name ?? '—') },
+            { label: 'Date', value: formatDay(latest.content_date as string | undefined) ?? '—' },
           ] },
-          { title: 'Analyysitulokset', rows: [
-            { label: 'HU ilma', value: `${rnd(latest.hu_air, 0)} HU` },
-            { label: 'HU akryyli', value: `${rnd(latest.hu_acrylic, 0)} HU` },
+          { title: 'Analysis results', rows: [
+            { label: 'HU air', value: `${rnd(latest.hu_air, 0)} HU` },
+            { label: 'HU acrylic', value: `${rnd(latest.hu_acrylic, 0)} HU` },
             { label: 'HU teflon', value: `${rnd(latest.hu_teflon, 0)} HU` },
-            { label: 'Uniformiteetti', value: `${rnd(latest.uniformity_index)} %` },
+            { label: 'Uniformity', value: `${rnd(latest.uniformity_index)} %` },
             { label: 'MTF 50%', value: `${rnd(latest.mtf_50_percent)} lp/cm` },
-            { label: 'Verdiktti', value: `${VERDICT_FI[v.verdict]} (${v.pass}/${v.measured})` },
+            { label: 'Verdict', value: `${VERDICT_FI[v.verdict]} (${v.pass}/${v.measured})` },
           ] },
         ]
-      : [{ title: 'Laite', rows: [{ label: 'Laite', value: `${station} (CT)` }] }],
+      : [{ title: 'Device', rows: [{ label: 'Device', value: `${station} (CT)` }] }],
     failing: failingDetails(verdictMetrics),
     modality: 'CT',
     station,
@@ -129,7 +129,7 @@ export default function CTDeviceDetails() {
           <span title={String(latest?.manufacturer_model_name ?? '')}
             style={{ fontSize: 13.5, fontWeight: 600, color: C.neutral, flex: 1, minWidth: 0,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 8 }}>
-            {String(latest?.manufacturer_model_name || latest?.station_name || 'Laite')}
+            {String(latest?.manufacturer_model_name || latest?.station_name || 'Device')}
           </span>
           <span style={{ fontSize: 10, fontFamily: 'var(--mono)', padding: '2px 8px', borderRadius: 4,
             background: 'rgba(45,212,191,0.15)', color: '#5eead4', border: '1px solid rgba(45,212,191,0.3)' }}>CT</span>
@@ -139,7 +139,7 @@ export default function CTDeviceDetails() {
         {instanceId && (
           <div style={{ flexShrink: 0, padding: '16px 10px 10px', borderBottom: `1px solid ${C.border}` }}>
             <select value={imgSel} onChange={(e) => setImgSel(e.target.value)}
-              aria-label="Valitse kuva"
+              aria-label="Select image"
               style={{
                 width: '100%', marginBottom: 8, fontSize: 12, padding: '5px 8px', borderRadius: 5,
                 background: C.surface2, color: C.neutral, border: `1px solid ${C.border}`,
@@ -168,18 +168,18 @@ export default function CTDeviceDetails() {
           {latest && (
             <DeviceInfo
               chips={[
-                { label: 'Modaliteetti', value: 'CT' },
-                { label: 'Fantomi', value: String(latest.phantom_model ?? '') },
+                { label: 'Modality', value: 'CT' },
+                { label: 'Phantom', value: String(latest.phantom_model ?? '') },
                 { label: 'kVp', value: String(latest.kvp ?? '') },
                 { label: 'mAs', value: String(latest.exposure_mAs ?? '') },
-                { label: 'Leike', value: latest.slice_thickness ? `${latest.slice_thickness} mm` : '' },
-                { label: 'Pvm', value: formatDay(latest.content_date as string | undefined) ?? '' },
+                { label: 'Slice', value: latest.slice_thickness ? `${latest.slice_thickness} mm` : '' },
+                { label: 'Date', value: formatDay(latest.content_date as string | undefined) ?? '' },
               ]}
               more={[
-                { label: 'Laite', value: String(latest.station_name ?? '') },
-                { label: 'Instituutio', value: String(latest.institution_name ?? '') },
-                { label: 'Valmistaja', value: String(latest.manufacturer ?? '') },
-                { label: 'Malli', value: String(latest.manufacturer_model_name ?? '') },
+                { label: 'Device', value: String(latest.station_name ?? '') },
+                { label: 'Institution', value: String(latest.institution_name ?? '') },
+                { label: 'Manufacturer', value: String(latest.manufacturer ?? '') },
+                { label: 'Model', value: String(latest.manufacturer_model_name ?? '') },
               ]}
             />
           )}
@@ -197,16 +197,16 @@ export default function CTDeviceDetails() {
         reportAttachments={reportAttachments}
         breadcrumb={
           <nav className="text-[12px] flex gap-1 flex-wrap" style={{ color: C.muted }}>
-            <Link to="/" className="hover:text-white">Aloitus</Link><span>/</span>
-            <Link to="/ct/institutions" className="hover:text-white">TT</Link><span>/</span>
-            <Link to="/ct/units" className="hover:text-white">Laitteet</Link><span>/</span>
+            <Link to="/" className="hover:text-white">Home</Link><span>/</span>
+            <Link to="/ct/institutions" className="hover:text-white">CT</Link><span>/</span>
+            <Link to="/ct/units" className="hover:text-white">Devices</Link><span>/</span>
             <span style={{ color: C.neutral }}>{station}</span>
-            {selectedPoint && <span style={{ color: C.accent }}>· valittu mittaus {formatDay(selectedPoint.study_date as string) ?? ''}</span>}
+            {selectedPoint && <span style={{ color: C.accent }}>· selected measurement {formatDay(selectedPoint.study_date as string) ?? ''}</span>}
           </nav>
         }
       >
         {latest && (
-          <PagedTrendPanel title="Mittaustrendit" metrics={metrics} perPage={3} chromeless dimTitle
+          <PagedTrendPanel title="Measurement trends" metrics={metrics} perPage={3} chromeless dimTitle
             activeIndex={activeIdx} onSelect={handlePointClick}
             highlightId={hoverRoi} onHover={setHoverRoi} />
         )}
