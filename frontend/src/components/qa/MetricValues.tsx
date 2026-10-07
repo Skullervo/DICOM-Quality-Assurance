@@ -3,6 +3,7 @@
 // statuksen mukaan (pass/warn/fail/nodata). Päivittyy kun kaavion piste valitaan
 // (metrics rakennetaan valitusta mittauksesta).
 import { deriveStatus, fmt, limitText } from '../../lib/qa/status'
+import { renderLabel } from '../DeviceShared'
 import type { Metric, Status } from '../../lib/qa/types'
 
 const STATUS_COLOR: Record<Status, string> = {
@@ -18,7 +19,7 @@ function Row({ m }: { m: Metric }) {
     }}>
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 11.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {m.label}
+          {renderLabel(m.label)}
         </div>
         {limitText(m) !== '—' && (
           <div style={{ fontSize: 9, color: 'var(--text-faint)' }}>limit {limitText(m)}{m.unit ? ' ' + m.unit : ''}</div>

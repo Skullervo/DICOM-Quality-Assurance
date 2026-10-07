@@ -1,11 +1,11 @@
 // Suurennettu trendikäyrä (yksi metriikka): akselit + toleranssikaista + nominaali +
 // rajaviivat, pisteet statusvärillä. Y-akseli ankkuroitu toleranssiin. Klikkaus valitsee
 // mittauksen (kuten sparkline).
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } from 'recharts'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { deriveStatus, fmt, fmtDelta } from '../../lib/qa/status'
-import { formatDate, formatDateAxis } from '../DeviceShared'
+import { formatDate, formatDateAxis, renderLabel } from '../DeviceShared'
 import type { Metric, Status } from '../../lib/qa/types'
 
 // Montako mittausta näytetään kerralla; jos historiaa on enemmän, käyrä on vieritettävä.
@@ -14,24 +14,6 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 
 const STATUS_COLOR: Record<Status, string> = {
   pass: 'var(--pass)', warn: 'var(--warn)', fail: 'var(--fail)', nodata: 'var(--neutral)',
-}
-
-// Renderöi metriikkatokenit (s_depth, U_cov, U_skew) oikeassa muodossa: '_'-merkin
-// jälkeinen osa alaindeksinä -> s‹depth›, U‹cov›, U‹skew›. Muut labelit (ei '_') palautuvat
-// sellaisenaan.
-function renderLabel(label: string) {
-  const re = /([A-Za-z])_([A-Za-z]+)/g
-  const parts: ReactNode[] = []
-  let last = 0
-  let m: RegExpExecArray | null
-  let k = 0
-  while ((m = re.exec(label)) !== null) {
-    if (m.index > last) parts.push(label.slice(last, m.index))
-    parts.push(<span key={k++}>{m[1]}<sub>{m[2]}</sub></span>)
-    last = m.index + m[0].length
-  }
-  if (last < label.length) parts.push(label.slice(last))
-  return parts
 }
 
 function DateTooltip(props: Record<string, unknown>) {
