@@ -60,6 +60,8 @@ func main() {
 			r.Get("/us/api/s_depth/{station}", handlers.USData(db))
 			r.Get("/us/summary", handlers.USSummary(db))
 			r.Get("/us/image/{instance}", handlers.USImage(db))
+			r.Get("/us/analysis-image/{instance}", handlers.USAnalysisImage(db))        // S3-proxy (event-driven)
+			r.Get("/us/analysis-image-url/{instance}", handlers.USAnalysisImageURL(db)) // S3 presigned URL
 
 			// X-ray
 			r.Get("/xray/institutions", handlers.XrayInstitutions(db))
@@ -103,8 +105,8 @@ func main() {
 			r.Get("/hallinta/stacks", handlers.GetStacks(db))
 			r.Get("/hallinta/projects", handlers.GetProjects(db))
 
-			// AI + Slack (stub)
-			r.Post("/ask-ai", handlers.AskAI)
+			// AI (mittauskontekstoitu) + Slack (modaliteettireititetty)
+			r.Post("/ask-ai", handlers.AskAI(db))
 			r.Post("/report-issue", handlers.ReportSlackIssue)
 		})
 
