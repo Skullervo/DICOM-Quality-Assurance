@@ -21,7 +21,10 @@ function InfoRow({ field, last }: { field: InfoField; last: boolean }) {
 export function DeviceInfo({ chips, more = [] }: { chips: InfoField[]; more?: InfoField[] }) {
   const rows = [...chips, ...more]
   return (
-    <div style={{ padding: 10 }}>
+    <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ fontSize: 9, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '.06em', paddingLeft: 2 }}>
+        DICOM info
+      </div>
       <div style={{ background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)', overflow: 'hidden' }}>
         {rows.map((c, i) => <InfoRow key={c.label} field={c} last={i === rows.length - 1} />)}
       </div>
