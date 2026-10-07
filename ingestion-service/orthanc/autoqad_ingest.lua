@@ -7,7 +7,13 @@
 --
 -- INGESTION_URL voidaan yliajaa Orthancin ympäristöstä; oletus klusterin DNS-nimi.
 
-local INGESTION_URL = os.getenv("INGESTION_URL") or "http://ingestion-service:8000/webhook/study"
+-- Oletus-URL (klusterin/verkon DNS-nimi). Orthancin Lua-sandbox ei välttämättä
+-- tarjoa os:ää -> vartioidaan, ettei skripti kaadu latauksessa (jolloin
+-- OnStableStudy ei rekisteröityisi lainkaan).
+local INGESTION_URL = "http://ingestion-service:8000/webhook/study"
+if os ~= nil and type(os.getenv) == "function" then
+   INGESTION_URL = os.getenv("INGESTION_URL") or INGESTION_URL
+end
 
 function OnStableStudy(studyId, tags, metadata)
    local payload = DumpJson({

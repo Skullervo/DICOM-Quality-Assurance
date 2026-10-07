@@ -11,5 +11,8 @@
   "DicomPort": 4242,
   "HttpPort": 8042,
   "HttpCompressionEnabled": true,
-  "OverwriteInstances": false
+  "OverwriteInstances": false,
+  "StableAge": 10,
+  "Plugins": ["/usr/local/share/orthanc/plugins/libOrthancPython.so"],
+  "PythonScript": "/etc/orthanc/autoqad_ingest.py"
 }

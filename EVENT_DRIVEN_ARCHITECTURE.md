@@ -56,7 +56,7 @@ Orthanc ───(Lua OnStableStudy)──▶ Ingestion Service (FastAPI, :8000)
 |---|---|---|
 | 2.2.3 | DB-skeema + Service Broker | `scripts/schema_eventdriven.sql` |
 | 2.2.2 | Ingestion-palvelu | `ingestion-service/` |
-| 2.2.1 | Orthanc-webhook | `ingestion-service/orthanc/autoqad_ingest.lua` |
+| 2.2.1 | Orthanc-webhook | `ingestion-service/orthanc/autoqad_ingest.py` (Python-plugin, toimiva) / `.lua` (varalla) |
 | 2.2.4 | US-worker | `grpc_microservices/Analyze_service/worker_us_eventdriven.py` |
 | 2.2.5 | S3-client | `grpc_microservices/Analyze_service/s3_client.py` |
 | 2.2.5 | Object storage (k8s) | `grpc_microservices/Minikube/cpouta/object-storage.yaml` |
@@ -89,8 +89,15 @@ podman run -d --name us-worker-ed --network autoqad-net \
   -e S3_ENDPOINT=http://object-storage:8333 -e S3_ACCESS_KEY=... -e S3_SECRET_KEY=... -e S3_BUCKET=qa-outputs \
   localhost/autoqad-us-worker:latest python worker_us_eventdriven.py
 
-# 5. Orthanc: mountaa autoqad_ingest.lua + lisää konfiguraatioon
-#    "LuaScripts": ["/etc/orthanc/autoqad_ingest.lua"]   (vaatii Orthanc-restartin)
+# 5. Orthanc-webhook (auto-laukaisu). Käytä PYTHON-PLUGINIA — Orthancin sisäänrakennettu
+#    Lua-HTTP-client (HttpPost) ei saa ulosmeneviä pyyntöjä läpi kaikissa ympäristöissä
+#    (todettu lokaalisti). Image jodogne/orthanc-python sisältää libOrthancPython.so.
+#    orthanc.json:
+#      "StableAge": 10,
+#      "Plugins": ["/usr/local/share/orthanc/plugins/libOrthancPython.so"],
+#      "PythonScript": "/etc/orthanc/autoqad_ingest.py"
+#    + mountaa autoqad_ingest.py /etc/orthanc/:iin (vaatii Orthanc-restartin).
+#    Validoitu lokaalisti: StableStudy -> plugin -> ingestion -> job luotu automaattisesti.
 ```
 
 Manuaalinen laukaisu ilman webhookia (testaus):
