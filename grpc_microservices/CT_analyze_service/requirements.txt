@@ -9,3 +9,4 @@ matplotlib>=3.8.4
 pylinac>=3.24.1
 requests
 python-dotenv
+prometheus_client>=0.20.0

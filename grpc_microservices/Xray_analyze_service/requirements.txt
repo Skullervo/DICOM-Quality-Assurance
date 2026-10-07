@@ -10,3 +10,4 @@ matplotlib>=3.8.4
 pylinac==3.38.0
 requests
 normi13-qa @ git+https://github.com/MIPT-Oulu/radiography-qa.git
+prometheus_client>=0.20.0
