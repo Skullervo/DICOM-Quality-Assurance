@@ -114,6 +114,10 @@ func main() {
 		r.Get("/*", handlers.ServeReact)
 	})
 
+	// Serve React SPA + assets at root too, so direct access (NodePort/ilman Caddya)
+	// toimii: index.html (base='/') viittaa /assets/* -> nämä tarjoillaan juuresta.
+	r.Get("/*", handlers.ServeReact)
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = os.Getenv("GO_PORT")

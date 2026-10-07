@@ -44,3 +44,5 @@ arkisto/
 # projects/ = ali-/arkistoprojektit, eivät kuulu tähän reppoon (mm. ptg oma git-repo)
 projects/
 
+
+go-backend/frontend/

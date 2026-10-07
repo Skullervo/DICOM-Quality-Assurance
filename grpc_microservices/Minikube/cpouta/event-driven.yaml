@@ -1,5 +1,5 @@
-# =============================================================================
-# AutoQAD — Event-driven pipeline (cPouta): ingestion + US worker
+﻿# =============================================================================
+# AutoQAD â€” Event-driven pipeline (cPouta): ingestion + US worker
 # Ajetaan vanhan us-analysis-pollerin RINNALLA (strangler fig). Cutover: skaalaa
 # us-analysis StatefulSet 0:aan kun event-malli todennettu.
 #
@@ -27,7 +27,7 @@ spec:
       containers:
       - name: ingestion
         image: docker.io/skullervo/autoqad-ingestion:latest
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports: [{ containerPort: 8000 }]
         env:
         - { name: ORTHANC_URL, value: "http://orthanc:8042" }
@@ -59,7 +59,7 @@ spec:
   ports:
   - { name: http, port: 8000, targetPort: 8000 }
 ---
-# US event-driven worker — competing consumers (skaalaa replicas:N, ei SHARD_TOTALia)
+# US event-driven worker â€” competing consumers (skaalaa replicas:N, ei SHARD_TOTALia)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -72,7 +72,7 @@ spec:
   template:
     metadata: { labels: { app: us-worker } }
     spec:
-      # Hajauta workereille (ei control-planelle — siellä mssql)
+      # Hajauta workereille (ei control-planelle â€” siellÃ¤ mssql)
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -82,8 +82,8 @@ spec:
               topologyKey: kubernetes.io/hostname
       containers:
       - name: us-worker
-        image: docker.io/skullervo/autoqad-us-analyze:eventdriven
-        imagePullPolicy: Always
+        image: docker.io/skullervo/autoqad-us-analyze:cv4s
+        imagePullPolicy: IfNotPresent
         command: ["python", "worker_us_eventdriven.py"]
         ports: [{ name: metrics, containerPort: 9110 }]
         env:
@@ -104,5 +104,5 @@ spec:
         - name: S3_SECRET_KEY
           valueFrom: { secretKeyRef: { name: s3-creds, key: secret-key } }
         resources:
-          requests: { memory: "512Mi", cpu: "200m" }
-          limits:   { memory: "1Gi",   cpu: "1" }
+          requests: { memory: "384Mi", cpu: "150m" }
+          limits:   { memory: "768Mi",   cpu: "1" }

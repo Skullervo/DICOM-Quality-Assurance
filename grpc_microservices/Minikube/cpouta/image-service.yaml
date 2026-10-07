@@ -1,0 +1,43 @@
+# AutoQAD image-service (cPouta): rajaa US-kuvan (poistaa annotaatiot) lineaarisille
+# antureille. Go-backend kutsuu http://image-service:8090/us/image/{instance} kun
+# straightened_instance puuttuu. Täysi UI-kuvapariteetti lokaalin kanssa.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: image-service
+  namespace: autoqad
+  labels: { app: image-service }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: image-service } }
+  template:
+    metadata: { labels: { app: image-service } }
+    spec:
+      containers:
+      - name: image-service
+        image: docker.io/skullervo/autoqad-image-service:latest
+        imagePullPolicy: IfNotPresent
+        ports: [{ containerPort: 8090 }]
+        env:
+        - { name: ORTHANC_URL, value: "http://orthanc:8042" }
+        - { name: ORTHANC_USERNAME, value: "admin" }
+        - name: ORTHANC_PASSWORD
+          valueFrom: { secretKeyRef: { name: autoqad-secrets, key: ORTHANC_PASSWORD } }
+        readinessProbe:
+          httpGet: { path: /health, port: 8090 }
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests: { memory: "128Mi", cpu: "50m" }
+          limits:   { memory: "512Mi", cpu: "500m" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: image-service
+  namespace: autoqad
+  labels: { app: image-service }
+spec:
+  selector: { app: image-service }
+  ports:
+  - { name: http, port: 8090, targetPort: 8090 }

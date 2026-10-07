@@ -221,14 +221,17 @@ data:
         target_label: node
 
     # AutoQAD US-analyysipodit: autoqad_-metriikat portissa 9110.
+    # Kattaa sekä vanhan pollerin (us-analysis) että event-driven workerit (us-worker).
     - job_name: 'us-analysis'
       kubernetes_sd_configs:
       - role: pod
         namespaces: { names: [autoqad] }
       relabel_configs:
       - source_labels: [__meta_kubernetes_pod_label_app]
-        regex: 'us-analysis'
+        regex: 'us-analysis|us-worker'
         action: keep
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        target_label: app
       - source_labels: [__meta_kubernetes_pod_container_port_number]
         regex: '9110'
         action: keep
@@ -505,6 +508,50 @@ data:
           "type": "timeseries", "title": "Noden CPU-käyttö %",
           "gridPos": { "h": 7, "w": 12, "x": 12, "y": 6 },
           "targets": [ { "expr": "100 - (avg by(node)(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)", "refId": "A", "legendFormat": "{{node}}" } ]
+        }
+      ]
+    }
+  autoqad-eventdriven.json: |
+    {
+      "title": "AutoQAD — Event-driven skaalaus",
+      "uid": "autoqad-eventdriven",
+      "schemaVersion": 39,
+      "version": 1,
+      "time": { "from": "now-30m", "to": "now" },
+      "refresh": "10s",
+      "panels": [
+        {
+          "type": "stat", "title": "Aktiiviset US-workerit",
+          "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+          "targets": [ { "expr": "count(up{job=\"us-analysis\", app=\"us-worker\"} == 1)", "refId": "A" } ]
+        },
+        {
+          "type": "timeseries", "title": "Läpäisy: analysoituja kuvia / min",
+          "gridPos": { "h": 6, "w": 18, "x": 6, "y": 0 },
+          "targets": [ { "expr": "sum(rate(autoqad_qa_results_total{modality=\"US\"}[1m])) * 60", "refId": "A", "legendFormat": "yhteensä" } ]
+        },
+        {
+          "type": "timeseries", "title": "Per-worker läpäisy / min",
+          "gridPos": { "h": 7, "w": 12, "x": 0, "y": 6 },
+          "targets": [ { "expr": "sum by(pod)(rate(autoqad_qa_results_total[1m])) * 60", "refId": "A", "legendFormat": "{{pod}}" } ]
+        },
+        {
+          "type": "timeseries", "title": "Analyysin kesto p50/p95 (s)",
+          "gridPos": { "h": 7, "w": 12, "x": 12, "y": 6 },
+          "targets": [
+            { "expr": "histogram_quantile(0.5, sum(rate(autoqad_analysis_duration_seconds_bucket[2m])) by (le))", "refId": "A", "legendFormat": "p50" },
+            { "expr": "histogram_quantile(0.95, sum(rate(autoqad_analysis_duration_seconds_bucket[2m])) by (le))", "refId": "B", "legendFormat": "p95" }
+          ]
+        },
+        {
+          "type": "timeseries", "title": "Kuvat statuksittain / min (success|failed)",
+          "gridPos": { "h": 7, "w": 12, "x": 0, "y": 13 },
+          "targets": [ { "expr": "sum by(status)(rate(autoqad_images_processed_total[1m])) * 60", "refId": "A", "legendFormat": "{{status}}" } ]
+        },
+        {
+          "type": "timeseries", "title": "Job-tilasiirtymät / s",
+          "gridPos": { "h": 7, "w": 12, "x": 12, "y": 13 },
+          "targets": [ { "expr": "sum by(state)(rate(autoqad_jobs_total[1m]))", "refId": "A", "legendFormat": "{{state}}" } ]
         }
       ]
     }

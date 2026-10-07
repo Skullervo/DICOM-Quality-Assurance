@@ -24,15 +24,24 @@ import logging
 import traceback
 
 import numpy as np
+import cv2
 import requests
 import pymssql
 import pydicom
 from pydicom.errors import InvalidDicomError
+from pydicom.dataset import Dataset, FileDataset, FileMetaDataset
+from pydicom.uid import generate_uid, SecondaryCaptureImageStorage, ExplicitVRLittleEndian
 from PIL import Image
 from prometheus_client import Counter, Histogram, start_http_server
 
 from US_IQ_analysis3 import imageQualityUS
 import s3_client
+
+# Suoristettu näyttökuva: konveksin anturin kuva suoristetaan ja tallennetaan
+# Orthanciin DERIVED Secondary Capture -DICOMina (Modality=SC -> ei uudelleenanalyysiä),
+# linkki ultrasound.straightened_instance. Go-backend tarjoilee sen laitesivulla.
+# Kytke pois perf-mittauksissa: STRAIGHTEN_US=0.
+STRAIGHTEN_US = os.getenv("STRAIGHTEN_US", "1") == "1"
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 logger = logging.getLogger("us_worker")
@@ -173,6 +182,72 @@ def render_png(pixel_array) -> bytes:
     return buf.getvalue()
 
 
+def _build_sc_dicom(orig_ds, straight_u8):
+    """DERIVED Secondary Capture -DICOM suoristetusta kuvasta (ks. straighten_us_backfill.py)."""
+    new_sop = generate_uid()
+    fm = FileMetaDataset()
+    fm.MediaStorageSOPClassUID = SecondaryCaptureImageStorage
+    fm.MediaStorageSOPInstanceUID = new_sop
+    fm.TransferSyntaxUID = ExplicitVRLittleEndian
+    ds = FileDataset(None, {}, file_meta=fm, preamble=b"\x00" * 128)
+    for tag in ("PatientID", "PatientName", "PatientBirthDate", "PatientSex",
+                "StudyInstanceUID", "StudyDate", "StudyTime", "StudyID",
+                "AccessionNumber", "ReferringPhysicianName",
+                "StationName", "InstitutionName", "InstitutionalDepartmentName",
+                "Manufacturer", "ManufacturerModelName", "DeviceSerialNumber"):
+        if tag in orig_ds:
+            setattr(ds, tag, getattr(orig_ds, tag))
+    ds.SOPClassUID = SecondaryCaptureImageStorage
+    ds.SOPInstanceUID = new_sop
+    ds.SeriesInstanceUID = generate_uid()
+    ds.Modality = "SC"                        # -> US-analyysi/ingestion ohittaa
+    ds.ConversionType = "WSD"
+    ds.ImageType = ["DERIVED", "SECONDARY"]
+    ds.SeriesDescription = "STRAIGHTENED US (derived)"
+    ds.SeriesNumber = 9001
+    ds.InstanceNumber = 1
+    ref = Dataset()
+    ref.ReferencedSOPClassUID = orig_ds.get("SOPClassUID", "")
+    ref.ReferencedSOPInstanceUID = orig_ds.get("SOPInstanceUID", "")
+    ds.ReferencedImageSequence = [ref]
+    arr = np.ascontiguousarray(straight_u8.astype(np.uint8))
+    ds.SamplesPerPixel = 1
+    ds.PhotometricInterpretation = "MONOCHROME2"
+    ds.Rows, ds.Columns = arr.shape
+    ds.BitsAllocated = 8
+    ds.BitsStored = 8
+    ds.HighBit = 7
+    ds.PixelRepresentation = 0
+    ds.PixelData = arr.tobytes()
+    ds.is_little_endian = True
+    ds.is_implicit_VR = False
+    out = io.BytesIO()
+    ds.save_as(out, write_like_original=False)
+    return out.getvalue()
+
+
+def straighten_and_store(analysis, image_array, orig_ds, result):
+    """Konveksille anturille: suorista (result['im_t']) -> SC-DICOM -> Orthanc.
+    Palauttaa SC-instanssin Orthanc-UUID:n tai None. Best-effort (ei kaada analyysiä)."""
+    if not STRAIGHTEN_US:
+        return None
+    try:
+        if not analysis.is_convex(image_array):
+            return None  # lineaarinen -> ei suoristeta (USImage näyttää raa'an)
+        im_t = result.get("im_t")
+        if im_t is None:
+            return None
+        u8 = cv2.normalize(np.asarray(im_t).astype(np.float32), None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
+        sc_bytes = _build_sc_dicom(orig_ds, u8)
+        r = requests.post(f"{ORTHANC_URL}/instances", data=sc_bytes, auth=ORTHANC_AUTH,
+                          headers={"Content-Type": "application/dicom"}, timeout=30)
+        r.raise_for_status()
+        return r.json().get("ID")
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Suoristus/SC-tallennus epäonnistui: %s", e)
+        return None
+
+
 def process_job(cur, conn, job):
     job_id = job["id"]
     orthanc_id = job["orthanc_id"]
@@ -221,6 +296,9 @@ def process_job(cur, conn, job):
     except Exception as e:  # noqa: BLE001 — S3-virhe ei saa kaataa analyysiä
         logger.warning("S3-upload epäonnistui (%s): %s", s3_key, e)
 
+    # Suoristettu näyttökuva (konveksi) -> SC-DICOM Orthanciin + linkki
+    straightened = straighten_and_store(analysis, image_array, ds, result)
+
     cur.execute(
         """
         INSERT INTO ultrasound (
@@ -228,8 +306,8 @@ def process_job(cur, conn, job):
             stationname, seriesdate, instance, s_depth, u_cov, u_skew, u_low,
             horiz_prof, vert_prof, tranducertype,
             manufacturermodelname, studydate, contentdate, deviceserialnumber, contenttime,
-            processing_time, output_image_path
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            processing_time, output_image_path, straightened_instance
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """,
         (
             meta["InstitutionName"], meta["InstitutionalDepartmentName"], meta["Manufacturer"], meta["Modality"],
@@ -240,7 +318,7 @@ def process_job(cur, conn, job):
             jr.get("transducer_name", ""),
             meta["ManufacturerModelName"], meta["StudyDate"], meta["ContentDate"],
             meta["DeviceSerialNumber"], meta["ContentTime"],
-            float(processing_time), output_path,
+            float(processing_time), output_path, straightened,
         ),
     )
     conn.commit()
