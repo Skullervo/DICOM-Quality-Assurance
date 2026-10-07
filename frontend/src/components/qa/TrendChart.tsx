@@ -1,6 +1,7 @@
 // Suurennettu trendikäyrä (yksi metriikka): akselit + toleranssikaista + nominaali +
 // rajaviivat, pisteet statusvärillä. Y-akseli ankkuroitu toleranssiin. Klikkaus valitsee
 // mittauksen (kuten sparkline).
+import type { ReactNode } from 'react'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } from 'recharts'
 import { deriveStatus, fmt, fmtDelta } from '../../lib/qa/status'
 import { formatDate } from '../DeviceShared'
@@ -8,6 +9,24 @@ import type { Metric, Status } from '../../lib/qa/types'
 
 const STATUS_COLOR: Record<Status, string> = {
   pass: 'var(--pass)', warn: 'var(--warn)', fail: 'var(--fail)', nodata: 'var(--neutral)',
+}
+
+// Renderöi metriikkatokenit (s_depth, U_cov, U_skew) oikeassa muodossa: '_'-merkin
+// jälkeinen osa alaindeksinä -> s‹depth›, U‹cov›, U‹skew›. Muut labelit (ei '_') palautuvat
+// sellaisenaan.
+function renderLabel(label: string) {
+  const re = /([A-Za-z])_([A-Za-z]+)/g
+  const parts: ReactNode[] = []
+  let last = 0
+  let m: RegExpExecArray | null
+  let k = 0
+  while ((m = re.exec(label)) !== null) {
+    if (m.index > last) parts.push(label.slice(last, m.index))
+    parts.push(<span key={k++}>{m[1]}<sub>{m[2]}</sub></span>)
+    last = m.index + m[0].length
+  }
+  if (last < label.length) parts.push(label.slice(last))
+  return parts
 }
 
 function DateTooltip(props: Record<string, unknown>) {
@@ -92,7 +111,7 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
         background: highlighted ? 'color-mix(in srgb, var(--info) 9%, transparent)' : 'transparent',
       }}>
       <div style={{ fontSize: 11, fontWeight: 600, color: dimTitle ? 'color-mix(in srgb, var(--text) 72%, transparent)' : 'var(--text)', marginBottom: 2, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {label}{unit && <span style={{ color: 'var(--text-faint)', fontWeight: 400 }}> [{unit}]</span>}
+        {renderLabel(label)}{unit && <span style={{ color: 'var(--text-faint)', fontWeight: 400 }}> [{unit}]</span>}
       </div>
       <div style={fill ? { flex: 1, minHeight: 0 } : { height: 132 }}>
         <ResponsiveContainer>
