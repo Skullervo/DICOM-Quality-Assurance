@@ -126,11 +126,18 @@ export default function CTDeviceDetails() {
         borderRight: `1px solid ${C.border}`, background: C.bg }}>
         <div className="shrink-0 flex items-center justify-between"
           style={{ height: 46, boxSizing: 'border-box', padding: '0 14px', borderBottom: `1px solid ${C.border}` }}>
-          <span title={String(latest?.manufacturer_model_name ?? '')}
-            style={{ fontSize: 13.5, fontWeight: 600, color: C.neutral, flex: 1, minWidth: 0,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 8 }}>
-            {String(latest?.manufacturer_model_name || latest?.station_name || 'Device')}
-          </span>
+          <div style={{ flex: 1, minWidth: 0, marginRight: 8, display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.2, overflow: 'hidden' }}>
+            {latest?.manufacturer ? (
+              <span title={String(latest.manufacturer)}
+                style={{ fontSize: 9.5, color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {String(latest.manufacturer)}
+              </span>
+            ) : null}
+            <span title={String(latest?.manufacturer_model_name ?? '')}
+              style={{ fontSize: 13.5, fontWeight: 600, color: C.neutral, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {String(latest?.manufacturer_model_name || latest?.station_name || 'Device')}
+            </span>
+          </div>
           <span style={{ fontSize: 10, fontFamily: 'var(--mono)', padding: '2px 8px', borderRadius: 4,
             background: 'rgba(45,212,191,0.15)', color: '#5eead4', border: '1px solid rgba(45,212,191,0.3)' }}>CT</span>
         </div>
