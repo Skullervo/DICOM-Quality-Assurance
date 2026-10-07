@@ -121,10 +121,19 @@ event-malli on todennettu tuotantoympäristössä:
    kubectl -n autoqad scale deployment/us-worker --replicas=N
    ```
 
-## Jäljellä / jatko
+## Tila (2026-10)
 
-- XR- ja CT-workerit samalla mallilla (nyt vain US; XRJobQueue/CTJobQueue + taulut
-  ovat valmiina skeemassa).
-- Go-backendin S3-lukureitit ovat build-varmennetut (kääntyy, `go vet` puhdas);
-  live-testi vaatii go-backend-imagen uudelleenbuildin S3-envillä.
-- cPouta-deploy: `object-storage.yaml` + ingestion/worker-manifestit + Orthanc-Lua.
+- **US/XR/CT-workerit: VALMIIT + e2e-validoitu lokaalisti.** Jaettu `worker_common.py`
+  (EventWorker) + `worker_{us,xr,ct}_eventdriven.py`. US → S3; XR/CT → DB-BLOBit
+  (nykyinen Go-backend-lukupolku ennallaan).
+- **Go-backend S3-luku: live-testattu** (`/us/analysis-image/{instance}` → 200 image/png
+  SeaweedFS:stä). Lisäksi Slack-modaliteettireititys + AI-mittauskontekstointi.
+- **cPouta: event-infra deployattu** — event-skeema (Service Broker + job-taulut),
+  secretit, object-storage (SeaweedFS) 1/1 Ready.
+
+### Jäljellä
+- cPouta `ingestion` + `us-worker`: `kubectl apply -f event-driven.yaml` kun image-push
+  docker.io/skullervo:hon onnistuu (Docker Hub -push estetty — rate limit / tili / ghcr).
+- XR/CT-analyysikuvat voisi migratoida DB-BLOBeista S3:een (US:n tapaan) yhtenäisyyden
+  vuoksi — vaatii output_image_path-sarakkeet + Go-backendin lukupolun muutoksen.
+- Orthanc-Lua-webhookin tuotantokäyttöönotto (lokaali validointi tehty).
