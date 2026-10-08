@@ -45,9 +45,9 @@ export default function Layout() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - var(--app-inset) * 2)' }}>
       {/* Oikea yläkulma: navigaatio-pudotusvalikko + teema (ei enää yläpaneelia) */}
-      <div style={{ position: 'fixed', top: 6, right: 14, zIndex: 2000, display: 'flex', gap: 6, alignItems: 'center' }}>
+      <div style={{ position: 'fixed', top: 12, right: 18, zIndex: 2000, display: 'flex', gap: 6, alignItems: 'center' }}>
         <div style={{ position: 'relative' }}>
           <button onClick={() => setMenuOpen(o => !o)} aria-label="Navigation menu" aria-expanded={menuOpen} style={ctrlBtn}>
             <Menu size={18} aria-hidden />

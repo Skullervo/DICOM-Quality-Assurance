@@ -52,6 +52,7 @@
   --border-radius: 14px;
   --font-family:   var(--sans);
   --navbar-height: 0px; /* yläpaneeli poistettu; navigointi oikean yläkulman valikosta */
+  --app-inset:     5px;  /* pieni marginaali näytön reunasta koko UI:lle (kehys) */
 }
 
 /* Tabulaariset numerot mitatuille arvoille (fyysikon UI:n allekirjoitus) */
@@ -66,13 +67,16 @@
 /* ===== Laitesivun runko (responsiivinen) ===== */
 .device-shell {
   position: fixed;
-  top: var(--navbar-height);
-  left: 0;
-  right: 0;
-  bottom: 0;
+  top: calc(var(--navbar-height) + var(--app-inset));
+  left: var(--app-inset);
+  right: var(--app-inset);
+  bottom: var(--app-inset);
   display: grid;
   grid-template-columns: 300px 1fr;
   background: var(--bg);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: hidden;
 }
 /* < 1024px: vasen paneeli pääalueen yläpuolelle (romahdettava), välilehdet säilyvät */
 @media (max-width: 1024px) {
@@ -168,6 +172,20 @@ html, body, #root {
   min-height: 100vh;
   margin: 0;
   padding: 0;
+}
+
+/* Pieni marginaali näytön reunasta + sama erotinviiva kehyksenä koko UI:lle.
+   Device-sivut kehystetään erikseen .device-shellissä (position: fixed). */
+body {
+  padding: var(--app-inset);
+  box-sizing: border-box;
+}
+
+#root {
+  box-sizing: border-box;
+  min-height: calc(100vh - var(--app-inset) * 2);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
 }
 
 body {

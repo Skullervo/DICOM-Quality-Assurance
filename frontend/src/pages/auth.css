@@ -126,7 +126,7 @@
 
 /* ---------- Kirjautuminen ---------- */
 .login-root {
-  min-height: 100vh;
+  min-height: calc(100vh - var(--app-inset, 5px) * 2);
   display: flex;
   align-items: center;
   justify-content: center;
