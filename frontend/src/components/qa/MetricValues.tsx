@@ -21,13 +21,13 @@ function Row({ m }: { m: Metric }) {
         <div style={{ fontSize: 11.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {renderLabel(m.label)}
         </div>
-        {limitText(m) !== '—' && (
-          <div style={{ fontSize: 9, color: 'var(--text-faint)' }}>limit {limitText(m)}{m.unit ? ' ' + m.unit : ''}</div>
-        )}
       </div>
       <div className="num" style={{ fontSize: 14, fontWeight: 600, color: STATUS_COLOR[st], whiteSpace: 'nowrap', flexShrink: 0 }}>
         {fmt(m.value, m.precision)}
         {m.unit && <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 400, marginLeft: 3 }}>{m.unit}</span>}
+        {limitText(m) !== '—' && (
+          <span style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 400, marginLeft: 4 }}>({limitText(m)}{m.unit ? ' ' + m.unit : ''})</span>
+        )}
       </div>
     </div>
   )
