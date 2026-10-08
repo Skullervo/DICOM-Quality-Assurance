@@ -11,7 +11,7 @@
 
 - **Workload:** all 802 ultrasound instances in the cPouta Orthanc (the same dataset as the earlier sharding tests). Jobs created by the ingestion service (one `us_jobs` row per instance).
 - **Scaling model:** competing consumers. Each `us-worker` replica independently claims jobs from `us_jobs` atomically (`UPDATE ... WITH (READPAST, ROWLOCK, UPDLOCK)`); no index-sharding, no `SHARD_TOTAL`. Scale = `kubectl scale deployment/us-worker --replicas=R`.
-- **Per replica count R ∈ {1, 2, 4}:**
+- **Per replica count R ∈ {1, 2, 3, 4}:**
   1. scale workers to 0, reset all jobs to `QUEUED` (clear timestamps),
   2. scale to R, wait until all R pods are `1/1`,
   3. wait until every job is terminal (`COMPLETED`/`FAILED`),
@@ -26,7 +26,10 @@
 |---|---|---|---|---|---|---|---|---|
 | 1 | 802 | 802 | 0 | 472.6 | 1.70 | 1.00× | 100 % | worker-1 |
 | 2 | 802 | 802 | 0 | 300.5 | 2.67 | **1.57×** | 78 % | worker-1 + worker-2 |
+| 3 | 802 | 802 | 0 | 198.6 | 4.04 | **2.38×** | 79 % | worker-1 + worker-2 |
 | 4 | 802 | 802 | 0 | 162.7 | 4.93 | **2.90×** | 73 % | worker-1 + worker-2 (2 pods/node) |
+
+> R=3 was added on 2026-10-08 (same methodology, `STRAIGHTEN_US=0`); R=1/2/4 are from 2026-10-07. The ~1 % run-to-run variance explains R=3 efficiency (79 %) sitting level with R=2 (78 %) rather than strictly between it and R=4.
 
 **All 802 images analyzed successfully (0 failures) at every replica count.**
 
