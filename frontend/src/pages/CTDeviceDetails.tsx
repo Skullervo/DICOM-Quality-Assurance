@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { C } from '../components/DeviceShared'
@@ -202,15 +202,7 @@ export default function CTDeviceDetails() {
         onTabChange={setActiveTab}
         reportContext={reportCtx}
         reportAttachments={reportAttachments}
-        breadcrumb={
-          <nav className="text-[12px] flex gap-1 flex-wrap" style={{ color: C.muted }}>
-            <Link to="/" className="hover:text-white">Home</Link><span>/</span>
-            <Link to="/ct/institutions" className="hover:text-white">CT</Link><span>/</span>
-            <Link to="/ct/units" className="hover:text-white">Devices</Link><span>/</span>
-            <span style={{ color: C.neutral }}>{station}</span>
-            {selectedPoint && <span style={{ color: C.accent }}>· selected measurement {formatDay(selectedPoint.study_date as string) ?? ''}</span>}
-          </nav>
-        }
+        breadcrumb={null}
       >
         {latest && (
           <PagedTrendPanel title="Measurement trends" metrics={metrics} perPage={3} chromeless dimTitle

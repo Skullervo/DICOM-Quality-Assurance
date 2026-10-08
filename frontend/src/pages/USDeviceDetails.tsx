@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api, type USDataPoint, type USImageResponse } from '../api/client'
 import { C } from '../components/DeviceShared'
@@ -261,14 +261,7 @@ export default function USDeviceDetails() {
         onTabChange={setActiveTab}
         reportContext={reportCtx}
         reportAttachments={reportAttachments}
-        breadcrumb={
-          <nav style={{ fontSize: 12, color: C.muted, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-            <Link to="/" style={{ color: C.muted }}>Home</Link><span>/</span>
-            <Link to="/us/institutions" style={{ color: C.muted }}>Institutions</Link><span>/</span>
-            <Link to="/us/units" style={{ color: C.muted }}>Devices</Link><span>/</span>
-            <span style={{ color: C.neutral }}>{s}</span>
-          </nav>
-        }
+        breadcrumb={null}
       >
         {(latest || selectedPoint) && (
           <PagedTrendPanel title="Measurement trends" metrics={metrics} perPage={3} chromeless dimTitle

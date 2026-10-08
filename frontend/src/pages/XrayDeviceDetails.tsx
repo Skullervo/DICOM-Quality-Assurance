@@ -1,8 +1,8 @@
 import { useState, useCallback } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api, type ImageResponse } from '../api/client'
-import { C, formatDate } from '../components/DeviceShared'
+import { C } from '../components/DeviceShared'
 import { VerdictBar } from '../components/qa/VerdictBar'
 import { MainArea, type TabId } from '../components/qa/MainArea'
 import { DeviceInfo } from '../components/qa/DeviceInfo'
@@ -199,15 +199,7 @@ export default function XrayDeviceDetails() {
         onTabChange={setActiveTab}
         reportContext={reportCtx}
         reportAttachments={reportAttachments}
-        breadcrumb={
-          <nav className="text-[12px] flex gap-1 flex-wrap" style={{ color: C.muted }}>
-            <Link to="/" className="hover:text-white">Home</Link><span>/</span>
-            <Link to="/xray/institutions" className="hover:text-white">X-ray</Link><span>/</span>
-            <Link to={`/xray/units?institution=${encodeURIComponent(dInst)}`} className="hover:text-white">{dInst}</Link><span>/</span>
-            <span style={{ color: C.neutral }}>{dUnit}</span>
-            {selectedPoint && <span style={{ color: C.accent }}>· selected measurement {formatDate(String(selectedPoint.study_date ?? ''))}</span>}
-          </nav>
-        }
+        breadcrumb={null}
       >
         {latest && (
           <PagedTrendPanel title="Measurement trends" metrics={metrics} perPage={3} chromeless dimTitle
