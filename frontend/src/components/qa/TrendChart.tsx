@@ -83,7 +83,7 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
   const { history, nominal, lowerLimit, upperLimit, unit, precision, label } = metric
   // Rajat per-piste-statuksen laskentaan (väri kullekin pisteelle erikseen).
   const dotLimits: Omit<StatusInput, 'value'> = {
-    nominal, lowerLimit, upperLimit,
+    nominal, lowerLimit, upperLimit, precision,
     actionLimit: metric.actionLimit, lowerWarn: metric.lowerWarn, upperWarn: metric.upperWarn,
   }
 

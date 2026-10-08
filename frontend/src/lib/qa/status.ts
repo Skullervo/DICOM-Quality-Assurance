@@ -5,7 +5,7 @@ import type { Metric, Status } from './types'
 export type StatusInput = Pick<
   Metric,
   'value' | 'nominal' | 'lowerLimit' | 'upperLimit' | 'actionLimit' | 'lowerWarn' | 'upperWarn'
->
+> & { precision?: number }
 
 /**
  * Johda metriikan status rajoista:
@@ -19,7 +19,8 @@ export type StatusInput = Pick<
  */
 export function deriveStatus(m: StatusInput): Status {
   if (m.value == null || Number.isNaN(m.value)) return 'nodata'
-  const v = m.value
+  // Luokittele NÄYTETYLLÄ tarkkuudella -> samalta näyttävät arvot saavat saman statuksen/värin.
+  const v = m.precision != null ? Number(m.value.toFixed(m.precision)) : m.value
 
   // Hyväksymisrajat (fail)
   if (m.lowerLimit != null && v < m.lowerLimit) return 'fail'
