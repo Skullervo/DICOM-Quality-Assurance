@@ -3,7 +3,6 @@
 // statuksen mukaan (pass/warn/fail/nodata). Päivittyy kun kaavion piste valitaan
 // (metrics rakennetaan valitusta mittauksesta).
 import { deriveStatus, fmt, limitText } from '../../lib/qa/status'
-import { renderLabel } from '../DeviceShared'
 import type { Metric, Status } from '../../lib/qa/types'
 
 const STATUS_COLOR: Record<Status, string> = {
@@ -12,6 +11,9 @@ const STATUS_COLOR: Record<Status, string> = {
 
 function Row({ m }: { m: Metric }) {
   const st = deriveStatus(m)
+  // Näytä pelkkä nimi ilman metriikkakoodia "(s_depth)" yms.; raja nimen perässä sulkeissa.
+  const name = m.label.replace(/\s*\([^)]*_[^)]*\)\s*$/, '')
+  const lim = limitText(m)
   return (
     <div style={{
       background: 'var(--surface)', borderRadius: 6, borderLeft: `3px solid ${STATUS_COLOR[st]}`,
@@ -19,15 +21,15 @@ function Row({ m }: { m: Metric }) {
     }}>
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 11.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {renderLabel(m.label)}
+          {name}
+          {lim !== '—' && (
+            <span style={{ color: 'var(--text-faint)', fontWeight: 400 }}> ({lim}{m.unit ? ' ' + m.unit : ''})</span>
+          )}
         </div>
       </div>
       <div className="num" style={{ fontSize: 14, fontWeight: 600, color: STATUS_COLOR[st], whiteSpace: 'nowrap', flexShrink: 0 }}>
         {fmt(m.value, m.precision)}
         {m.unit && <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 400, marginLeft: 3 }}>{m.unit}</span>}
-        {limitText(m) !== '—' && (
-          <span style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 400, marginLeft: 4 }}>({limitText(m)}{m.unit ? ' ' + m.unit : ''})</span>
-        )}
       </div>
     </div>
   )
