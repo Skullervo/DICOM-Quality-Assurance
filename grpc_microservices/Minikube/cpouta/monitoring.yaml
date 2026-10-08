@@ -251,19 +251,19 @@ data:
     - name: autoqad-availability
       rules:
       - alert: AutoQADAnalysisDown
-        expr: kube_statefulset_status_replicas_ready{namespace="autoqad",statefulset="us-analysis"} == 0
+        expr: kube_deployment_status_replicas_available{namespace="autoqad",deployment="us-worker"} == 0
         for: 1m
-        labels: { severity: critical, service: us-analysis }
+        labels: { severity: critical, service: us-worker }
         annotations:
-          summary: "AutoQAD US-analyysipalvelu alhaalla"
-          description: "us-analysis StatefulSetissä ei ole yhtään valmista replikaa yli 1 minuuttiin — QA-analyysi pysähtynyt."
+          summary: "AutoQAD US-analyysiworker alhaalla"
+          description: "us-worker Deploymentissä ei ole yhtään saatavilla olevaa replikaa yli 1 minuuttiin — QA-analyysi pysähtynyt."
       - alert: AutoQADAnalysisDegraded
-        expr: kube_statefulset_status_replicas_ready{namespace="autoqad",statefulset="us-analysis"} < kube_statefulset_replicas{namespace="autoqad",statefulset="us-analysis"}
+        expr: kube_deployment_status_replicas_available{namespace="autoqad",deployment="us-worker"} < kube_deployment_spec_replicas{namespace="autoqad",deployment="us-worker"}
         for: 2m
-        labels: { severity: warning, service: us-analysis }
+        labels: { severity: warning, service: us-worker }
         annotations:
           summary: "AutoQAD US-analyysi vajaakapasiteetilla"
-          description: "Osa us-analysis-replikoista ei ole valmiita yli 2 minuuttiin."
+          description: "Osa us-worker-replikoista ei ole saatavilla yli 2 minuuttiin."
       - alert: TargetDown
         expr: up == 0
         for: 2m
@@ -276,7 +276,7 @@ data:
       - alert: AutoQADHighAnalysisLatency
         expr: histogram_quantile(0.95, sum(rate(autoqad_analysis_duration_seconds_bucket[5m])) by (le)) > 10
         for: 5m
-        labels: { severity: warning, service: us-analysis }
+        labels: { severity: warning, service: us-worker }
         annotations:
           summary: "US-analyysin p95-kesto korkea"
           description: "Yhden kuvan analyysin p95-kesto yli 10 s viimeisen 5 minuutin aikana."
@@ -487,9 +487,9 @@ data:
       "refresh": "30s",
       "panels": [
         {
-          "type": "stat", "title": "Valmiit replikat (us-analysis)",
+          "type": "stat", "title": "Valmiit replikat (us-worker)",
           "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
-          "targets": [ { "expr": "kube_statefulset_status_replicas_ready{namespace=\"autoqad\",statefulset=\"us-analysis\"}", "refId": "A" } ]
+          "targets": [ { "expr": "kube_deployment_status_replicas_available{namespace=\"autoqad\",deployment=\"us-worker\"}", "refId": "A" } ]
         },
         {
           "type": "timeseries", "title": "Analysoituja kuvia / min",
