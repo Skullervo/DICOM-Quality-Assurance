@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } from 'recharts'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { deriveStatus, fmt, fmtDelta } from '../../lib/qa/status'
+import { deriveStatus, fmt, fmtDelta, type StatusInput } from '../../lib/qa/status'
 import { formatDate, formatDateAxis, renderLabel } from '../DeviceShared'
 import type { Metric, Status } from '../../lib/qa/types'
 
@@ -46,11 +46,13 @@ function DateTooltip(props: Record<string, unknown>) {
 }
 
 function StatusDot(props: Record<string, unknown>) {
-  const { cx, cy, index, payload, status, lastIdx, activeIndex, onSelect } = props as {
-    cx?: number; cy?: number; index?: number; payload?: { idx?: number }
-    status: Status; lastIdx: number; activeIndex?: number; onSelect?: (i: number) => void
+  const { cx, cy, index, payload, limits, lastIdx, activeIndex, onSelect } = props as {
+    cx?: number; cy?: number; index?: number; payload?: { idx?: number; value?: number }
+    limits: Omit<StatusInput, 'value'>; lastIdx: number; activeIndex?: number; onSelect?: (i: number) => void
   }
   if (cx == null || cy == null) return null
+  // Väri PER PISTE: kunkin mittauksen oma arvo luokitellaan (pass/warn/fail), ei koko metriikkaa.
+  const status = deriveStatus({ ...limits, value: payload?.value ?? null })
   const clickIdx = payload?.idx
   const onClick = onSelect && clickIdx != null ? () => onSelect(clickIdx) : undefined
   const cursor = onSelect ? 'pointer' : undefined
@@ -79,7 +81,11 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
   dimTitle?: boolean // himmennä otsikkofontti (ei täysvalkoinen)
 }) {
   const { history, nominal, lowerLimit, upperLimit, unit, precision, label } = metric
-  const status = deriveStatus(metric)
+  // Rajat per-piste-statuksen laskentaan (väri kullekin pisteelle erikseen).
+  const dotLimits: Omit<StatusInput, 'value'> = {
+    nominal, lowerLimit, upperLimit,
+    actionLimit: metric.actionLimit, lowerWarn: metric.lowerWarn, upperWarn: metric.upperWarn,
+  }
 
   // Vieritettävä ikkuna: näytä enintään WINDOW mittausta, oletuksena uusimmat.
   const n = history.length
@@ -224,7 +230,7 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
             {lowerLimit != null && <ReferenceLine y={lowerLimit} stroke="var(--limit-line)" />}
             <Tooltip content={<DateTooltip unit={unit} nominal={nominal} precision={precision} />} />
             <Line type="linear" dataKey="value" stroke="var(--series)" strokeWidth={1.8}
-              dot={<StatusDot status={status} lastIdx={lastIdx} activeIndex={activeIndex} onSelect={onSelect} />}
+              dot={<StatusDot limits={dotLimits} lastIdx={lastIdx} activeIndex={activeIndex} onSelect={onSelect} />}
               activeDot={false} isAnimationActive={false} connectNulls />
           </LineChart>
         </ResponsiveContainer>
