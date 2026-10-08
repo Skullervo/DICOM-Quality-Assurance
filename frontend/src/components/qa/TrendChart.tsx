@@ -12,6 +12,17 @@ import type { Metric, Status } from '../../lib/qa/types'
 const WINDOW = 50
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
 
+// Pyöristetty askel ~N jaolle (nice numbers 1/2/2.5/5/10 × 10^k) -> y-akselin
+// ala/yläraja + tickit tasalukuina kaikissa kaavioissa.
+function niceStep(range: number, divisions: number): number {
+  if (!(range > 0) || !isFinite(range)) return 1
+  const raw = range / divisions
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)))
+  const norm = raw / mag
+  const nice = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10
+  return nice * mag
+}
+
 const STATUS_COLOR: Record<Status, string> = {
   pass: 'var(--pass)', warn: 'var(--warn)', fail: 'var(--fail)', nodata: 'var(--neutral)',
 }
@@ -140,18 +151,21 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
   const cand = [nominal, lowerLimit, upperLimit, ...history.map((h) => h.value)].filter(
     (x): x is number => x != null,
   )
-  let lo = cand.length ? Math.min(...cand) : 0
-  let hi = cand.length ? Math.max(...cand) : 1
-  if (lo === hi) {
+  let dlo = cand.length ? Math.min(...cand) : 0
+  let dhi = cand.length ? Math.max(...cand) : 1
+  if (dlo === dhi) {
     // Litteä / yksittäinen mittaus: paddaa suhteessa suuruusluokkaan (ei kiinteä ±1,
     // joka näyttää absurdilta isoilla HU-arvoilla)
-    const e = Math.max(Math.abs(lo) * 0.05, 1)
-    lo -= e; hi += e
+    const e = Math.max(Math.abs(dlo) * 0.05, 1)
+    dlo -= e; dhi += e
   }
-  const pad = (hi - lo) * 0.15
-  lo -= pad; hi += pad
-  // Eksplisiittiset tickit -> ei Recharts-"nice"-algoritmin duplikaatteja/hyppyjä
-  const yTicks = [lo, (lo + hi) / 2, hi]
+  // Pyöristä ääriarvot tasaluvuiksi: ala alas, ylä ylös lähimpään nice-askeleeseen.
+  const yStep = niceStep(dhi - dlo, 3)
+  const lo = Math.floor(dlo / yStep) * yStep
+  const hi = Math.ceil(dhi / yStep) * yStep
+  // Eksplisiittiset tickit nice-askeleella -> kaikki pyöreitä, ei Recharts-"nice"-hyppyjä
+  const yTicks: number[] = []
+  for (let v = lo; v <= hi + yStep * 0.5; v += yStep) yTicks.push(Number(v.toFixed(6)))
 
   return (
     <div
@@ -203,7 +217,7 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
             }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--text-muted)', fontFamily: 'var(--mono)' }} interval={tickInterval} tickMargin={6} tickFormatter={(d) => formatDateAxis(String(d))} />
-            <YAxis domain={[lo, hi]} ticks={yTicks} tickFormatter={(v) => fmt(Number(v), precision)}
+            <YAxis domain={[lo, hi]} ticks={yTicks} tickFormatter={(v) => String(Number(Number(v).toFixed(3)))}
               tick={{ fontSize: 11, fill: 'var(--text-muted)', fontFamily: 'var(--mono)' }} width={60} />
             {nominal != null && <ReferenceLine y={nominal} stroke="var(--nominal-line)" strokeDasharray="3 3" />}
             {upperLimit != null && <ReferenceLine y={upperLimit} stroke="var(--limit-line)" />}
