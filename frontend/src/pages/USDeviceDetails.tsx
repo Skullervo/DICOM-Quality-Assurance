@@ -235,15 +235,12 @@ export default function USDeviceDetails() {
           {latest && (
             <DeviceInfo
               chips={[
-                { label: 'Transducer type', value: String(latest.tranducertype ?? '') },
-                { label: 'Date', value: formatDay((latest.studydate ?? latest.contentdate) as string | undefined) ?? '' },
-                { label: 'Serial no.', value: String(latest.deviceserialnumber ?? '') },
-              ]}
-              more={[
-                { label: 'Device', value: String(latest.stationname ?? '') },
                 { label: 'Institution', value: String(latest.institutionname ?? '') },
-                { label: 'Manufacturer', value: String(latest.manufacturer ?? '') },
+                { label: 'Device', value: String(latest.stationname ?? '') },
+                { label: 'Transducer type', value: String(latest.tranducertype ?? '') },
                 { label: 'Instance', value: String(latest.instance ?? '').slice(0, 24) },
+                { label: 'Study date', value: formatDay((latest.studydate ?? latest.contentdate) as string | undefined) ?? '' },
+                { label: 'Serial no.', value: String(latest.deviceserialnumber ?? '') },
               ]}
             />
           )}
