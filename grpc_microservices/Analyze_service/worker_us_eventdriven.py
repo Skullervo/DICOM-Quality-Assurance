@@ -72,10 +72,77 @@ ANALYSIS_DURATION = Histogram("autoqad_analysis_duration_seconds", "Analyysin ke
                               buckets=(0.25, 0.5, 1, 2, 4, 8, 16, 32, 64))
 QA_RESULTS = Counter("autoqad_qa_results_total", "Tallennetut QA-tulokset.", ["modality"])
 JOBS = Counter("autoqad_jobs_total", "Job-tilasiirtymät.", ["modality", "state"])
+# QA-verdikti per mittaus (toleranssiluokittelu) — QA-hälytyksen lähde.
+QA_VERDICT = Counter("autoqad_qa_verdict_total", "QA-verdikti per mittaus toleransseja vasten.",
+                     ["modality", "station", "verdict"])
+
+# tolerance_config-metriikka-id -> US-analyysin result-avain
+US_METRIC_KEYS = {"s_depth": "S_depth", "u_cov": "U_cov", "u_skew": "U_skew"}
+# Ladataan tolerance_configista run()-silmukassa (sama lähde kuin frontend/go-backend).
+TOLERANCES: dict = {}
 
 
 def connect_db():
     return pymssql.connect(**DB_CONFIG)
+
+
+# --- QA-toleranssit + luokittelu (sama logiikka kuin frontendin deriveStatus) ---
+def load_tolerances(cur) -> dict:
+    """Lataa US-toleranssit tolerance_configista. Tyhjä jos taulu puuttuu."""
+    try:
+        cur.execute(
+            "SELECT metric_id, nominal, lower_limit, upper_limit, action_limit, lower_warn, upper_warn "
+            "FROM tolerance_config WHERE modality='US'"
+        )
+        cols = ("nominal", "lower_limit", "upper_limit", "action_limit", "lower_warn", "upper_warn")
+        return {r[0]: dict(zip(cols, r[1:])) for r in cur.fetchall()}
+    except Exception as e:  # noqa: BLE001 — taulu voi puuttua / transientti virhe
+        logger.warning("Toleranssien lataus epäonnistui: %s", e)
+        return {}
+
+
+def _derive_status(v, lim) -> str:
+    if v is None:
+        return "nodata"
+    lo, hi = lim.get("lower_limit"), lim.get("upper_limit")
+    if lo is not None and v < lo:
+        return "fail"
+    if hi is not None and v > hi:
+        return "fail"
+    nom, act = lim.get("nominal"), lim.get("action_limit")
+    lw, uw = lim.get("lower_warn"), lim.get("upper_warn")
+    if act is not None and nom is not None and abs(v - nom) > act:
+        return "warn"
+    if lw is not None and v < lw:
+        return "warn"
+    if uw is not None and v > uw:
+        return "warn"
+    return "pass"
+
+
+def _has_tol(lim) -> bool:
+    return any(lim.get(k) is not None for k in
+               ("lower_limit", "upper_limit", "action_limit", "lower_warn", "upper_warn"))
+
+
+def qa_verdict(jr) -> str:
+    """Mittauksen kokonaisverdikti toleransseja vasten (ankarin voittaa)."""
+    statuses = []
+    for mid, key in US_METRIC_KEYS.items():
+        lim = TOLERANCES.get(mid)
+        val = jr.get(key)
+        if lim and _has_tol(lim) and val is not None:
+            try:
+                statuses.append(_derive_status(float(val), lim))
+            except (TypeError, ValueError):
+                pass
+    if not statuses:
+        return "nodata"
+    if "fail" in statuses:
+        return "fail"
+    if "warn" in statuses:
+        return "warn"
+    return "pass"
 
 
 def ensure_columns(cur):
@@ -324,8 +391,15 @@ def process_job(cur, conn, job):
     conn.commit()
     IMAGES_PROCESSED.labels(modality="US", status="success").inc()
     QA_RESULTS.labels(modality="US").inc()
+    # QA-verdikti toleransseja vasten -> metriikka (QA-hälytyksen lähde)
+    station = str(meta["StationName"]) or "Unknown"
+    verdict = qa_verdict(jr)
+    QA_VERDICT.labels(modality="US", station=station, verdict=verdict).inc()
+    if verdict == "fail":
+        logger.warning("⚠️ QA FAIL: station=%s instance=%s (U_cov=%s U_skew=%s)",
+                       station, orthanc_id, jr.get("U_cov"), jr.get("U_skew"))
     set_status(cur, conn, job_id, "COMPLETED")
-    logger.info("✅ Job %s (orthanc %s) COMPLETED in %.2fs", job_id, orthanc_id, processing_time)
+    logger.info("✅ Job %s (orthanc %s) COMPLETED in %.2fs (verdict=%s)", job_id, orthanc_id, processing_time, verdict)
 
 
 def run():
@@ -338,9 +412,14 @@ def run():
     ensure_columns(cur)
     conn.commit()
 
+    global TOLERANCES
+    TOLERANCES = load_tolerances(cur)
+    logger.info("Ladattu %d US-toleranssia QA-verdiktille", len(TOLERANCES))
+
     while True:
         try:
             drain_doorbell(cur, conn)   # odota herätystä (tai timeout)
+            TOLERANCES = load_tolerances(cur)  # pidä ajan tasalla (/rajat-muokkaukset)
             reclaim_stale(cur, conn)    # vapauta orvot varaukset
             # Tyhjennä kaikki jonossa odottavat jobit (useampi voi olla QUEUED)
             while True:

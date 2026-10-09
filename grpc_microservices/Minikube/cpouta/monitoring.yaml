@@ -287,6 +287,16 @@ data:
         annotations:
           summary: "Noden {{ $labels.node }} CPU yli 90%"
           description: "Noden CPU-käyttö yli 90% viimeiset 5 minuuttia."
+    # QA-hälytys: mittaus ylittää toleranssin (worker emittoi autoqad_qa_verdict_total).
+    - name: autoqad-qa
+      rules:
+      - alert: AutoQADQAFailure
+        expr: increase(autoqad_qa_verdict_total{verdict="fail"}[10m]) > 0
+        for: 0m
+        labels: { severity: warning, service: qa }
+        annotations:
+          summary: "QA-raja ylittyi ({{ $labels.modality }} / {{ $labels.station }})"
+          description: "Laitteen {{ $labels.station }} ({{ $labels.modality }}) QA-mittaus ylitti hyväksyttävyysrajan viimeisen 10 minuutin aikana — fyysikon tarkistettava."
 ---
 apiVersion: apps/v1
 kind: Deployment
