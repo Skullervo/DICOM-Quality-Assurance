@@ -87,6 +87,22 @@ The monitoring/alerting path (Prometheus → Alertmanager → Slack) was re-vali
 
 Detection ~9 s, end-to-end fire ~69 s (dominated by the deliberate 1-minute dwell). Both the firing and the resolved notification were delivered to `#LV-automaatti` with zero failures — confirming the full observability/alerting path works for the event-driven architecture, not only the legacy service. (The broader monitoring verification — 7/7 targets up, custom `autoqad_` metrics, Grafana 58 ms median — carries over from [monitoring-test-results-2026-09-28.md](monitoring-test-results-2026-09-28.md); `us-worker` is already scraped on :9110 via the same instrumentation in `worker_common.py`.)
 
+### 3.5 QA-failure alerting — out-of-tolerance measurement → Slack (2026-10-09)
+
+Distinct from the infrastructure alert (§3.4, *service down*), the framework now alerts on **QA results**. The US event worker (image `:cv4q`) loads `tolerance_config` and classifies each measurement against the tolerances (same PASS/WARN/FAIL logic as the frontend `deriveStatus`), emitting `autoqad_qa_verdict_total{modality, station, verdict}`. A new rule `AutoQADQAFailure` (`autoqad_qa_verdict_total{verdict="fail"} > 0`, per device) routes to Slack.
+
+**Controlled test** — the US `u_cov` upper limit was temporarily lowered to 0.5 so one otherwise-normal measurement exceeds it:
+
+| Measure | Result |
+|---|---|
+| Worker classifies the measurement as FAIL | ✅ `autoqad_qa_verdict_total{verdict="fail"}` = 1 |
+| `AutoQADQAFailure` fires, **naming the device** | ✅ firing, station `LS71810305S3` |
+| Alertmanager received | ✅ 1 active |
+| Slack delivery | ✅ delivered (`alertmanager_notifications_total{slack}` 28→29), **0 failures** |
+| Auto-clear | ✅ rule back to `inactive` after the condition cleared (counter reset on worker restart) |
+
+An out-of-tolerance QA measurement now reaches the physicist on Slack automatically, naming the failing device — not only the service-down infrastructure alert. *Limitation: the counter-based rule stays firing until the worker's metric resets; a gauge-based "current device status" that auto-resolves when the device next passes is the natural refinement.*
+
 ---
 
 ## 4. Important methodological finding — dependency bug invalidated the first run
