@@ -250,13 +250,13 @@ data:
     groups:
     - name: autoqad-availability
       rules:
-      - alert: AutoQADAnalysisDown
-        expr: kube_deployment_status_replicas_available{namespace="autoqad",deployment="us-worker"} == 0
+      - alert: AutoQADServiceDown
+        expr: kube_deployment_status_replicas_available{namespace="autoqad",deployment=~"us-worker|go-backend|ingestion-service|object-storage|orthanc|mssql"} == 0
         for: 1m
-        labels: { severity: critical, service: us-worker }
+        labels: { severity: critical }
         annotations:
-          summary: "AutoQAD US-analyysiworker alhaalla"
-          description: "us-worker Deploymentissä ei ole yhtään saatavilla olevaa replikaa yli 1 minuuttiin — QA-analyysi pysähtynyt."
+          summary: "AutoQAD-palvelu alhaalla: {{ $labels.deployment }}"
+          description: "Deployment {{ $labels.deployment }} (namespace autoqad) ilman saatavilla olevaa replikaa yli 1 minuuttiin — palvelu ei käytettävissä. Kattaa kaikki kriittiset palvelut (worker, go-backend, ingestion, object storage, Orthanc, tietokanta)."
       - alert: AutoQADAnalysisDegraded
         expr: kube_deployment_status_replicas_available{namespace="autoqad",deployment="us-worker"} < kube_deployment_spec_replicas{namespace="autoqad",deployment="us-worker"}
         for: 2m

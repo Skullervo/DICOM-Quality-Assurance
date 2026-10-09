@@ -74,20 +74,20 @@ The killed pods' orphaned claims (CLAIMED rows whose `claimed_at` went stale; `C
 
 When MSSQL was killed (F5), the running workers **survived the DB outage with 0 restarts** — they reconnect rather than crash-loop. Combined with the atomic claim + job state machine, a transient DB blip neither loses jobs nor corrupts state (the 802/802 job + 1604/1604 result rows were intact after recovery).
 
-### 3.4 Monitoring & alerting — alert fires on worker outage, delivered to Slack
+### 3.4 Monitoring & alerting — service-down alert across all services, delivered to Slack
 
-The monitoring/alerting path (Prometheus → Alertmanager → Slack) was re-validated against the **event-driven worker** (the 2026-09-28 monitoring test targeted the legacy `us-analysis` StatefulSet; the `AutoQADAnalysisDown` rule was updated to watch the `us-worker` Deployment — `kube_deployment_status_replicas_available{deployment="us-worker"} == 0`).
+The service-down rule (`AutoQADServiceDown`) watches **all six critical deployments** (`kube_deployment_status_replicas_available{deployment=~"us-worker|go-backend|ingestion-service|object-storage|orthanc|mssql"} == 0`, `for: 1m`). Each service was scaled to 0 and the detection (→ `pending`) and firing times measured (n=1 each):
 
-| Measure | Result |
-|---|---|
-| Alert inactive while healthy (us-worker=2) | ✅ inactive |
-| `us-worker` scaled to 0 → `pending` | **~9 s** (detection) |
-| → `firing` | **~69 s** (incl. `for: 1m` flap-suppression dwell) |
-| Alertmanager received alert | ✅ active (critical) |
-| Slack delivery (firing + resolved) | ✅ **2/2** (`alertmanager_notifications_total{slack}` 26→28), **0 failures** |
-| Auto-resolved on recovery (us-worker→2) | ✅ 0 active alerts, rule back to inactive |
+| Service (scaled to 0) | Detection → pending (s) | → firing (s) |
+|---|---|---|
+| Analysis worker (us-worker) | 21 | 80 |
+| Web backend (go-backend) | 8 | 69 |
+| Ingestion service | 16 | 77 |
+| Object storage (SeaweedFS) | 18 | 77 |
+| DICOM server (Orthanc) | 13 | 72 |
+| Database (MSSQL) | 8 | 67 |
 
-Detection ~9 s, end-to-end fire ~69 s (dominated by the deliberate 1-minute dwell). Both the firing and the resolved notification were delivered to `#LV-automaatti` with zero failures — confirming the full observability/alerting path works for the event-driven architecture, not only the legacy service. (The broader monitoring verification — 7/7 targets up, custom `autoqad_` metrics, Grafana 58 ms median — carries over from [monitoring-test-results-2026-09-28.md](monitoring-test-results-2026-09-28.md); `us-worker` is already scraped on :9110 via the same instrumentation in `worker_common.py`.)
+Detection **8–21 s** (scrape-limited; the spread is scrape-alignment, not a real per-service difference); firing **67–80 s**, **dominated by the deliberate `for: 1m` flap-suppression dwell** (≈ detection + 60 s). All six fired and were delivered to Slack (`#LV-automaatti`) with **0 failures**. Broader observability carries over from [monitoring-test-results-2026-09-28.md](monitoring-test-results-2026-09-28.md): 7/7 scrape targets up, custom `autoqad_` metrics populated, Grafana **58 ms** median query latency; `us-worker` is scraped on :9110 via the same instrumentation in `worker_common.py`.
 
 ### 3.5 QA-failure alerting — out-of-tolerance measurement → Slack (2026-10-09)
 
@@ -98,12 +98,12 @@ Distinct from the infrastructure alert (§3.4, *service down*), the framework no
 | Measure | Result |
 |---|---|
 | Worker classifies the measurement as FAIL | ✅ `autoqad_qa_verdict_total{verdict="fail"}` = 1 |
-| `AutoQADQAFailure` fires, **naming the device** | ✅ firing, station `LS71810305S3` |
-| Alertmanager received | ✅ 1 active |
-| Slack delivery | ✅ delivered (`alertmanager_notifications_total{slack}` 28→29), **0 failures** |
+| Detection — fail metric visible in Prometheus | **6 s** (from the failing measurement) |
+| `AutoQADQAFailure` fires (no dwell, `for: 0m`), **naming the device** | **18 s** — firing, station `LS71810305S3` |
+| Slack delivery | ✅ delivered (`alertmanager_notifications_total{slack}` +1), **0 failures** |
 | Auto-clear | ✅ rule back to `inactive` after the condition cleared (counter reset on worker restart) |
 
-An out-of-tolerance QA measurement now reaches the physicist on Slack automatically, naming the failing device — not only the service-down infrastructure alert. *Limitation: the counter-based rule stays firing until the worker's metric resets; a gauge-based "current device status" that auto-resolves when the device next passes is the natural refinement.*
+An out-of-tolerance QA measurement now reaches the physicist on Slack automatically, naming the failing device — not only the service-down infrastructure alert. It fires in **~18 s** (detection 6 s + one evaluation cycle, **no suppression dwell** — a real QA finding should surface immediately), versus 67–80 s for the infrastructure alert whose `for: 1m` dwell suppresses transient flaps (§3.4). *Limitation: the counter-based rule stays firing until the worker's metric resets; a gauge-based "current device status" that auto-resolves when the device next passes is the natural refinement.*
 
 ---
 
