@@ -44,16 +44,18 @@ Each component's pod is force-killed (`kubectl delete pod --force --grace-period
 
 ### 3.1 Component recovery + data persistence
 
-| Component | Kill scenario | Recovery | Data survived |
-|---|---|---|---|
-| **us-worker** (stateless) | single pod deleted, n=10 | **mean 4.4 s** (range 2.0–11.2, median 3.3) | — (recreated; mid-analysis kill → task survival in §3.2) |
-| **go-backend** (stateless) | pod killed | **13 s** (/health 200 + UI 200) | — |
-| **ingestion** (FastAPI, stateless) | pod killed | **14 s** (/health 200) | — (no PVC) |
-| **SeaweedFS / S3** (PVC) | pod killed | **55 s** | ✅ 802 → 802 objektia |
-| **Orthanc / DICOM** (PVC) | pod killed | **25 s** | ✅ 1212 → 1212 instanssia |
-| **MS SQL Server** (PVC, stateful) | pod killed | **81 s** (SQL online) | ✅ us_jobs 802→802, ultrasound 1604→1604 |
+Each recovery time is **n=10** (pod deletion → replacement pod Ready), mean with range and median; data survival verified after the kills.
 
-Same stateless (~13–55 s) vs stateful (~81 s) recovery contrast as the earlier report: MSSQL engine start + DB recovery dominates. **All PVC-backed data survived** (local-path PVs; MSSQL is pinned to the control-plane node via `nodeSelector`, so it reschedules onto the same node's volume). The data-persistence kills (F3–F5) were run with the job queue empty, i.e. a pure recovery+persistence test; in-flight resilience is covered by 3.2.
+| Component | Recovery time, n=10 (mean; range; median) | Data survived |
+|---|---|---|
+| **us-worker** (analysis, stateless) | **4.4 s**; 2.0–11.2; 3.3 | — (recreated; mid-analysis kill → task survival §3.2) |
+| **Orthanc / DICOM** (PVC) | **6.0 s**; 3.7–9.2; 5.9 | ✅ DICOM instances retained |
+| **go-backend** (stateless) | **11.0 s**; 10.6–11.6; 11.0 | — (API + UI served again) |
+| **ingestion** (FastAPI, stateless) | **11.0 s**; 10.7–11.3; 11.0 | — (no PVC) |
+| **SeaweedFS / S3** (PVC) | **45.5 s**; 31.0–53.3; 51.0 | ✅ 802 → 802 objects |
+| **MS SQL Server** (PVC, stateful) | **87.6 s**; 42.9–113.0; 95.4 | ✅ jobs + results retained; workers survived DB outage (0 restarts) |
+
+All measured n=10 with the same method as the analysis worker (previously the other services were single measurements — 13/14/55/25/81 s — which the n=10 repeats corrected: Orthanc in particular averages 6 s, not the 25 s single outlier; go-backend/ingestion 11 s). The **stateless/light components recover in seconds** (us-worker 4.4, Orthanc 6, go-backend/ingestion 11); the **stateful MS SQL Server dominates** (87.6 s mean — engine start + DB recovery, high variance 43–113 s). **All PVC-backed data survived** (local-path PVs; MSSQL is pinned to the control-plane node via `nodeSelector`, so it reschedules onto the same node's volume). The data-persistence kills were run with the job queue empty (pure recovery + persistence test); in-flight resilience is covered by §3.2.
 
 ### 3.2 Task survival — in-flight work survives a crash (the event-model core property)
 
