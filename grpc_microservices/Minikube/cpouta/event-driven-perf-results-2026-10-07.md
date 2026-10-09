@@ -46,7 +46,7 @@ Each component's pod is force-killed (`kubectl delete pod --force --grace-period
 
 | Component | Kill scenario | Recovery | Data survived |
 |---|---|---|---|
-| **us-worker** (stateless) | 2 of 4 killed mid-analysis | self-heal 4/4 (k8s recreated) | — (jobs reclaimed, see 3.2) |
+| **us-worker** (stateless) | single pod deleted, n=10 | **mean 4.4 s** (range 2.0–11.2, median 3.3) | — (recreated; mid-analysis kill → task survival in §3.2) |
 | **go-backend** (stateless) | pod killed | **13 s** (/health 200 + UI 200) | — |
 | **ingestion** (FastAPI, stateless) | pod killed | **14 s** (/health 200) | — (no PVC) |
 | **SeaweedFS / S3** (PVC) | pod killed | **55 s** | ✅ 802 → 802 objektia |
