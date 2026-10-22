@@ -1,0 +1,20 @@
+# AutoQAD Angiography/fluoroscopy (XA) analysis — Leeds TOR-18 event-driven worker.
+# No gRPC service for this modality: the event-driven worker IS the service.
+FROM python:3.12-slim
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git gcc libgl1 libglib2.0-0 && \
+    rm -rf /var/lib/apt/lists/* && \
+    adduser --disabled-password --gecos '' --uid 1000 appuser
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+USER appuser
+
+EXPOSE 9110
+
+CMD ["python", "worker_angio_eventdriven.py"]

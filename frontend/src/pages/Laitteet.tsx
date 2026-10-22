@@ -6,6 +6,7 @@ const modalities = [
   { label: 'Ultrasound', image: '/images/ultrasound_image.bmp', path: '/laitteet/us' },
   { label: 'Radiography', image: '/images/XRAY.png', path: '/laitteet/xray' },
   { label: 'Computed tomography', image: '/images/CT.png', path: '/laitteet/ct' },
+  { label: 'Angiography', image: '/images/ANGIO.png', path: '/laitteet/angio' },
 ]
 
 export default function Laitteet() {

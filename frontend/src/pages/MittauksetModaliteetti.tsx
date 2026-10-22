@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom'
 import { api, type Measurement } from '../api/client'
 import { BreadcrumbNav } from '../components/Breadcrumb'
 
-export type MittausModaliteetti = 'us' | 'xray' | 'ct'
+export type MittausModaliteetti = 'us' | 'xray' | 'ct' | 'angio'
 
 const CONFIG: Record<MittausModaliteetti, {
   title: string
@@ -17,6 +17,7 @@ const CONFIG: Record<MittausModaliteetti, {
   us: { title: 'Ultrasound measurements', label: 'Ultrasound', deviceLink: (m) => `/us/device/${encodeURIComponent(m.station_name)}` },
   xray: { title: 'Radiography measurements', label: 'Radiography', deviceLink: (m) => `/xray/device/${encodeURIComponent(m.institution_name)}/${encodeURIComponent(m.station_name)}` },
   ct: { title: 'CT measurements', label: 'Computed tomography', deviceLink: (m) => `/ct/device/${encodeURIComponent(m.station_name)}` },
+  angio: { title: 'Angiography measurements', label: 'Angiography', deviceLink: (m) => `/angio/device/${encodeURIComponent(m.institution_name)}/${encodeURIComponent(m.station_name)}` },
 }
 
 const fmtDate = (d: string) => (d && d.length >= 8 ? `${d.slice(6, 8)}.${d.slice(4, 6)}.${d.slice(0, 4)}` : (d || '—'))

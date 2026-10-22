@@ -16,6 +16,11 @@ const modalities = [
     image: '/images/CT.png',
     path: '/ct/institutions',
   },
+  {
+    label: 'Angiography',
+    image: '/images/ANGIO.png',
+    path: '/angio/institutions',
+  },
 ]
 
 export default function Modaliteetit() {

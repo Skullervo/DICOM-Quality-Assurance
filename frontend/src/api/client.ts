@@ -90,6 +90,13 @@ export interface CTInstitution {
   measurement_count: number;
 }
 
+// Angio (Leeds TOR-18)
+export interface AngioInstitution {
+  name: string;
+  device_count: number;
+  measurement_count: number;
+}
+
 export const api = {
   // US
   usInstitutions: () => fetchJSON<USInstitution[]>('/us/institutions'),
@@ -120,14 +127,27 @@ export const api = {
   ctDeviceDetail: (station: string) => fetchJSON<Record<string, unknown>[]>(`/ct/device/${encodeURIComponent(station)}`),
   ctData: (station: string) => fetchJSON<Record<string, unknown>[]>(`/ct/api/data/${encodeURIComponent(station)}`),
 
+  // Angio (Leeds TOR-18) — peilaa X-ray-rajapinnan
+  angioInstitutions: () => fetchJSON<AngioInstitution[]>('/angio/institutions'),
+  angioUnits: (institution?: string) => {
+    const qs = institution ? `?institution=${encodeURIComponent(institution)}` : '';
+    return fetchJSON<DeviceUnit[]>(`/angio/units${qs}`);
+  },
+  angioDeviceDetail: (inst: string, unit: string) =>
+    fetchJSON<Record<string, unknown>[]>(`/angio/device/${encodeURIComponent(inst)}/${encodeURIComponent(unit)}`),
+  angioData: (station: string) => fetchJSON<Record<string, unknown>[]>(`/angio/api/uniformity/${encodeURIComponent(station)}`),
+
   // Images (Orthanc proxy + DB profiles)
   usImage: (instance: string) => fetchJSON<USImageResponse>(`/us/image/${encodeURIComponent(instance)}`),
   xrayImage: (instance: string) => fetchJSON<ImageResponse>(`/xray/image/${encodeURIComponent(instance)}`),
   ctImage: (instance: string) => fetchJSON<ImageResponse>(`/ct/image/${encodeURIComponent(instance)}`),
+  angioImage: (instance: string) => fetchJSON<ImageResponse>(`/angio/image/${encodeURIComponent(instance)}`),
   xrayAnalysisImageUrl: (instance: string, type: string) =>
     `${BASE}/xray/analysis-image/${encodeURIComponent(instance)}/${type}`,
   ctAnalysisImageUrl: (instance: string, type: string) =>
     `${BASE}/ct/analysis-image/${encodeURIComponent(instance)}/${type}`,
+  angioAnalysisImageUrl: (instance: string, type: string) =>
+    `${BASE}/angio/analysis-image/${encodeURIComponent(instance)}/${type}`,
 
   // CT DICOM-katselin: sarjan metatiedot + palvelinpuolella renderöity viipale (W/L)
   ctSeriesMeta: (instance: string) =>
@@ -160,7 +180,7 @@ export const api = {
   },
 
   // Mittaukset (kaikki Orthanc-mittaukset + analyysin tila)
-  measurements: (modality: 'us' | 'xray' | 'ct') => fetchJSON<Measurement[]>(`/${modality}/measurements`),
+  measurements: (modality: 'us' | 'xray' | 'ct' | 'angio') => fetchJSON<Measurement[]>(`/${modality}/measurements`),
   measurementImageUrl: (orthancId: string) => `${BASE}/measurement-image/${encodeURIComponent(orthancId)}`,
 
   // Toleranssit (hyväksyttävyysrajat)
@@ -177,7 +197,7 @@ export const api = {
 
   // Laitteen metatietojen paivitys (UPDATE kaikille laitteen mittauksille)
   updateDevice: async (
-    modality: 'us' | 'xray' | 'ct',
+    modality: 'us' | 'xray' | 'ct' | 'angio',
     oldStation: string,
     data: { station_name: string; institution_name: string; manufacturer: string; manufacturer_model: string },
   ): Promise<{ updated: number; station_name: string }> => {

@@ -6,6 +6,7 @@ import { C } from '../components/DeviceShared'
 import { VerdictBar } from '../components/qa/VerdictBar'
 import { MainArea, type TabId } from '../components/qa/MainArea'
 import { DeviceInfo } from '../components/qa/DeviceInfo'
+import { MetricValues } from '../components/qa/MetricValues'
 import { PngViewer } from '../components/qa/PngViewer'
 import { PagedTrendPanel } from '../components/qa/PagedTrendPanel'
 import { buildMetrics, formatDay } from '../lib/qa/adapt'
@@ -168,22 +169,18 @@ export default function XrayDeviceDetails() {
           </div>
         )}
 
-        {/* Laitetiedot — chipit + Lisätiedot */}
+        {/* Mittausarvot + Laitetiedot */}
         <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
+          <MetricValues metrics={metrics.filter((m) => m.value != null)} />
           {latest && (
             <DeviceInfo
               chips={[
-                { label: 'Modality', value: String(latest.modality ?? 'XR') },
+                { label: 'Institution', value: String(latest.institution_name ?? '') },
+                { label: 'Device', value: String(latest.station_name ?? '') },
                 { label: 'Phantom', value: String(latest.phantom_model ?? 'NORMI-13') },
                 { label: 'kVp', value: String(latest.kvp ?? '') },
                 { label: 'mAs', value: String(latest.exposure_mAs ?? '') },
                 { label: 'Date', value: formatDay(latest.content_date as string | undefined) ?? '' },
-              ]}
-              more={[
-                { label: 'Device', value: String(latest.station_name ?? '') },
-                { label: 'Institution', value: String(latest.institution_name ?? '') },
-                { label: 'Manufacturer', value: String(latest.manufacturer ?? '') },
-                { label: 'Model', value: String(latest.manufacturer_model_name ?? '') },
               ]}
             />
           )}

@@ -11,7 +11,7 @@ from ..config import settings
 logger = logging.getLogger(__name__)
 
 # Modaliteettiavain -> job-taulu. Avain on palvelun sisäinen (ei käyttäjäsyötettä).
-JOB_TABLES = {"us": "us_jobs", "xray": "xray_jobs", "ct": "ct_jobs"}
+JOB_TABLES = {"us": "us_jobs", "xray": "xray_jobs", "ct": "ct_jobs", "angio": "angio_jobs"}
 
 
 def connect():
@@ -43,12 +43,12 @@ def create_job(cur, kind: str, job: dict) -> bool:
 def create_jobs_for_study(enumerated: dict) -> dict:
     """Luo jobit koko study:lle (us/xray/ct). Palauttaa luonti-/duplikaattilukumäärät."""
     study_uid = enumerated.get("study_instance_uid", "")
-    counts = {"created": 0, "duplicate": 0, "by_modality": {"us": 0, "xray": 0, "ct": 0}}
+    counts = {"created": 0, "duplicate": 0, "by_modality": {"us": 0, "xray": 0, "ct": 0, "angio": 0}}
 
     conn = connect()
     try:
         cur = conn.cursor()
-        for kind in ("us", "xray", "ct"):
+        for kind in ("us", "xray", "ct", "angio"):
             for job in enumerated.get(kind, []):
                 job.setdefault("study_instance_uid", study_uid)
                 if create_job(cur, kind, job):

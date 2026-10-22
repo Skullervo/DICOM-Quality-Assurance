@@ -106,3 +106,51 @@ spec:
         resources:
           requests: { memory: "384Mi", cpu: "150m" }
           limits:   { memory: "768Mi",   cpu: "1" }
+---
+# Angiography/fluoroscopy (XA) event-driven worker — Leeds TOR-18. Competing
+# consumers (scale replicas:N). Per-instance; images -> S3 (like US).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: angio-worker
+  namespace: autoqad
+  labels: { app: angio-worker }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: angio-worker } }
+  template:
+    metadata: { labels: { app: angio-worker } }
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector: { matchLabels: { app: angio-worker } }
+              topologyKey: kubernetes.io/hostname
+      containers:
+      - name: angio-worker
+        image: docker.io/skullervo/autoqad-angio-analyze:latest
+        imagePullPolicy: IfNotPresent
+        command: ["python", "worker_angio_eventdriven.py"]
+        ports: [{ name: metrics, containerPort: 9110 }]
+        env:
+        - { name: DATABASE_HOST, value: "autoqad-mssql" }
+        - { name: DATABASE_PORT, value: "1433" }
+        - { name: DATABASE_USER, value: "sa" }
+        - name: DATABASE_PASSWORD
+          valueFrom: { secretKeyRef: { name: autoqad-secrets, key: MSSQL_SA_PASSWORD } }
+        - { name: DATABASE_NAME, value: "QA-results" }
+        - { name: ORTHANC_URL, value: "http://orthanc:8042" }
+        - { name: ORTHANC_USERNAME, value: "admin" }
+        - name: ORTHANC_PASSWORD
+          valueFrom: { secretKeyRef: { name: autoqad-secrets, key: ORTHANC_PASSWORD } }
+        - { name: S3_ENDPOINT, value: "http://object-storage:8333" }
+        - { name: S3_BUCKET, value: "qa-outputs" }
+        - name: S3_ACCESS_KEY
+          valueFrom: { secretKeyRef: { name: s3-creds, key: access-key } }
+        - name: S3_SECRET_KEY
+          valueFrom: { secretKeyRef: { name: s3-creds, key: secret-key } }
+        resources:
+          requests: { memory: "384Mi", cpu: "150m" }
+          limits:   { memory: "768Mi",   cpu: "1" }

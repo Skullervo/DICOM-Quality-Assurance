@@ -64,6 +64,13 @@ GO
 IF NOT EXISTS (SELECT 1 FROM sys.services WHERE name = N'//autoqad/CTJobService')
     CREATE SERVICE [//autoqad/CTJobService] ON QUEUE CTJobQueue ([//autoqad/QAJobContract]);
 GO
+-- ANGIO (XA, fluoroscopy/angiography — Leeds TOR-18)
+IF NOT EXISTS (SELECT 1 FROM sys.service_queues WHERE name = N'ANGIOJobQueue')
+    CREATE QUEUE ANGIOJobQueue;
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.services WHERE name = N'//autoqad/ANGIOJobService')
+    CREATE SERVICE [//autoqad/ANGIOJobService] ON QUEUE ANGIOJobQueue ([//autoqad/QAJobContract]);
+GO
 
 -- --- 3) Job-taulut (tilakone) ----------------------------------------------
 -- orthanc_id: US = Orthanc-INSTANSSI-id, XR/CT = Orthanc-SARJA-id (analyysin
@@ -149,6 +156,34 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_ct_jobs_status' AND obje
     CREATE INDEX IX_ct_jobs_status ON dbo.ct_jobs(status) INCLUDE (claimed_at);
 GO
 
+-- ANGIO: per INSTANSSI (kuten US) — yksi XA-kuva = yksi QA-mittaus.
+IF OBJECT_ID('dbo.angio_jobs','U') IS NULL
+CREATE TABLE dbo.angio_jobs (
+    id                  INT IDENTITY(1,1) PRIMARY KEY,
+    orthanc_id          NVARCHAR(128) NOT NULL,
+    resource_level      NVARCHAR(10)  NOT NULL DEFAULT 'instance',
+    modality            NVARCHAR(8)   NOT NULL DEFAULT 'XA',
+    study_instance_uid  NVARCHAR(255) NULL,
+    series_instance_uid NVARCHAR(255) NULL,
+    sop_instance_uid    NVARCHAR(255) NULL,
+    station_name        NVARCHAR(256) NULL,
+    status              NVARCHAR(20)  NOT NULL DEFAULT 'QUEUED',
+    claimed_by          NVARCHAR(128) NULL,
+    claimed_at          DATETIME2     NULL,
+    started_at          DATETIME2     NULL,
+    completed_at        DATETIME2     NULL,
+    attempts            INT           NOT NULL DEFAULT 0,
+    error_message       NVARCHAR(MAX) NULL,
+    created_at          DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
+    updated_at          DATETIME2     NULL,
+    CONSTRAINT UQ_angio_jobs_orthanc UNIQUE (orthanc_id),
+    CONSTRAINT CK_angio_jobs_status CHECK (status IN ('QUEUED','CLAIMED','RUNNING','COMPLETED','FAILED'))
+);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_angio_jobs_status' AND object_id=OBJECT_ID('dbo.angio_jobs'))
+    CREATE INDEX IX_angio_jobs_status ON dbo.angio_jobs(status) INCLUDE (claimed_at);
+GO
+
 -- --- 4) Herätystriggerit (doorbell) ----------------------------------------
 -- Vain QUEUED-rivit herättävät. Fire-and-forget: avaa dialogi, lähettää jobin
 -- id|orthanc_id -vihjeen ja PÄÄTTÄÄ keskustelun heti (initiator-puoli). Worker
@@ -220,5 +255,27 @@ BEGIN
 END;
 GO
 
-PRINT 'Event-driven schema ready: us_jobs / xray_jobs / ct_jobs + Service Broker queues.';
+IF OBJECT_ID('dbo.trg_angio_jobs_notify','TR') IS NOT NULL DROP TRIGGER dbo.trg_angio_jobs_notify;
+GO
+CREATE TRIGGER dbo.trg_angio_jobs_notify ON dbo.angio_jobs AFTER INSERT AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @h UNIQUEIDENTIFIER, @msg NVARCHAR(256);
+    DECLARE c CURSOR LOCAL FAST_FORWARD FOR
+        SELECT CAST(id AS NVARCHAR(20)) + '|' + orthanc_id FROM inserted WHERE status = 'QUEUED';
+    OPEN c; FETCH NEXT FROM c INTO @msg;
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        BEGIN DIALOG CONVERSATION @h
+            FROM SERVICE [//autoqad/ANGIOJobService] TO SERVICE N'//autoqad/ANGIOJobService'
+            ON CONTRACT [//autoqad/QAJobContract] WITH ENCRYPTION = OFF;
+        SEND ON CONVERSATION @h MESSAGE TYPE [//autoqad/QAJob] (@msg);
+        END CONVERSATION @h;
+        FETCH NEXT FROM c INTO @msg;
+    END
+    CLOSE c; DEALLOCATE c;
+END;
+GO
+
+PRINT 'Event-driven schema ready: us_jobs / xray_jobs / ct_jobs / angio_jobs + Service Broker queues.';
 GO

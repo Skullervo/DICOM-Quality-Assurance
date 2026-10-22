@@ -14,6 +14,7 @@ const MODS: { key: Modality; label: string }[] = [
   { key: 'US', label: 'Ultrasound' },
   { key: 'XR', label: 'Radiography' },
   { key: 'CT', label: 'Computed tomography' },
+  { key: 'ANGIO', label: 'Angiography' },
 ]
 
 const FIELDS = [

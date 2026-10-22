@@ -49,7 +49,7 @@ def enumerate_study(study_id: str) -> dict:
     study_tags = study.get("MainDicomTags", {})
     study_uid = study_tags.get("StudyInstanceUID", "")
 
-    out = {"study_instance_uid": study_uid, "us": [], "xray": [], "ct": []}
+    out = {"study_instance_uid": study_uid, "us": [], "xray": [], "ct": [], "angio": []}
 
     for series_id in study.get("Series", []):
         series = get_series(series_id)
@@ -85,6 +85,17 @@ def enumerate_study(study_id: str) -> dict:
                 "station_name": station,
                 "modality": "CT",
             })
+        elif modality in settings.MODALITY_ANGIO:
+            # XA: yksi job per instanssi (kukin XA-kuva = yksi QA-mittaus, kuten US)
+            for inst_id in series.get("Instances", []):
+                tags = get_instance_tags(inst_id)
+                out["angio"].append({
+                    "orthanc_id": inst_id,
+                    "series_instance_uid": series_uid,
+                    "sop_instance_uid": tags.get("SOPInstanceUID", ""),
+                    "station_name": station or tags.get("StationName", ""),
+                    "modality": "XA",
+                })
         # muut modaliteetit ohitetaan
 
     return out

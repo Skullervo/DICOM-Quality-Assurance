@@ -25,6 +25,9 @@ import XrayDeviceDetails from './pages/XrayDeviceDetails'
 import CTInstitutions from './pages/CTInstitutions'
 import CTUnits from './pages/CTUnits'
 import CTDeviceDetails from './pages/CTDeviceDetails'
+import AngioInstitutions from './pages/AngioInstitutions'
+import AngioUnits from './pages/AngioUnits'
+import AngioDeviceDetails from './pages/AngioDeviceDetails'
 import PlatformDashboard from './pages/PlatformDashboard'
 import ServiceList from './pages/ServiceList'
 import StackList from './pages/StackList'
@@ -51,12 +54,14 @@ export default function App() {
           <Route path="laitteet/us" element={<LaitteetModaliteetti modality="us" />} />
           <Route path="laitteet/xray" element={<LaitteetModaliteetti modality="xray" />} />
           <Route path="laitteet/ct" element={<LaitteetModaliteetti modality="ct" />} />
+          <Route path="laitteet/angio" element={<LaitteetModaliteetti modality="angio" />} />
 
           {/* Mittaukset — kaikki mittaukset (myös epäonnistuneet analyysit) */}
           <Route path="mittaukset" element={<Mittaukset />} />
           <Route path="mittaukset/us" element={<MittauksetModaliteetti modality="us" />} />
           <Route path="mittaukset/xray" element={<MittauksetModaliteetti modality="xray" />} />
           <Route path="mittaukset/ct" element={<MittauksetModaliteetti modality="ct" />} />
+          <Route path="mittaukset/angio" element={<MittauksetModaliteetti modality="angio" />} />
 
           {/* Hyväksyttävyysrajat */}
           <Route path="rajat" element={<Rajat />} />
@@ -79,6 +84,11 @@ export default function App() {
           <Route path="ct/institutions" element={<CTInstitutions />} />
           <Route path="ct/units" element={<CTUnits />} />
           <Route path="ct/device/:id" element={<CTDeviceDetails />} />
+
+          {/* Angiografia / läpivalaisu */}
+          <Route path="angio/institutions" element={<AngioInstitutions />} />
+          <Route path="angio/units" element={<AngioUnits />} />
+          <Route path="angio/device/:inst/:unit" element={<AngioDeviceDetails />} />
 
           {/* Hallinta */}
           <Route path="hallinta" element={<PlatformDashboard />} />

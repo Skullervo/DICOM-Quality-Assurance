@@ -66,10 +66,25 @@ const US_METRICS: MetricConfig[] = [
   { id: 'u_skew', label: 'Asymmetry (U_skew)', unit: '', nominal: 0, lowerLimit: -1.5, upperLimit: 1.5, lowerWarn: -0.5, upperWarn: 0.5, precision: 2 },
 ]
 
+// ANGIO (Leeds TOR-18) — angiografia/läpivalaisu (DICOM modality XA).
+// num_contrast_rois_seen ja PIU: enemmän = parempi (yksipuolinen alaraja).
+// CNR/kontrasti/MTF/pinta-ala ovat informatiivisia (ei rajoja).
+// TODO: vahvista fyysikon kanssa — rajat alustavia (Leeds TOR-18, STUK-konteksti).
+const ANGIO_METRICS: MetricConfig[] = [
+  { id: 'num_contrast_rois_seen', label: 'Low-contrast detail (ROIs seen)', unit: '', nominal: null, lowerLimit: 8, upperLimit: null, lowerWarn: 11, precision: 0 },
+  { id: 'percent_integral_uniformity', label: 'Uniformity', unit: '%', nominal: null, lowerLimit: 80, upperLimit: null, lowerWarn: 90, precision: 1 },
+  // Informatiiviset (ei rajoja repossa). TODO: vahvista fyysikon kanssa.
+  { id: 'median_cnr', label: 'Median CNR', unit: '', nominal: null, lowerLimit: null, upperLimit: null, precision: 2 },
+  { id: 'median_contrast', label: 'Median contrast', unit: '', nominal: null, lowerLimit: null, upperLimit: null, precision: 3 },
+  { id: 'mtf_50_percent', label: 'MTF 50%', unit: 'lp/mm', nominal: null, lowerLimit: null, upperLimit: null, precision: 2 },
+  { id: 'phantom_area', label: 'Phantom area', unit: 'mm²', nominal: null, lowerLimit: null, upperLimit: null, precision: 0 },
+]
+
 export const MODALITY_METRICS: Record<Modality, MetricConfig[]> = {
   CT: CT_METRICS,
   XR: XR_METRICS,
   US: US_METRICS,
+  ANGIO: ANGIO_METRICS,
 }
 
 export function getMetricConfig(modality: Modality, id: string): MetricConfig | undefined {

@@ -5,7 +5,7 @@ import { useAuth } from '../auth/authContext'
 
 const navItems = [
   { path: '/', label: 'Home', exact: true },
-  { path: '/modaliteetit', label: 'Modalities', match: ['/modaliteetit', '/us', '/xray', '/ct'] },
+  { path: '/modaliteetit', label: 'Modalities', match: ['/modaliteetit', '/us', '/xray', '/ct', '/angio'] },
   { path: '/laitteet', label: 'Devices', match: ['/laitteet'] },
   { path: '/mittaukset', label: 'Measurements', match: ['/mittaukset'] },
   { path: '/rajat', label: 'Tolerances', match: ['/rajat'] },
@@ -28,7 +28,7 @@ export default function Layout() {
   const { logout } = useAuth()
   const [theme, setTheme] = useState<'dark' | 'light'>(getTheme)
   const [menuOpen, setMenuOpen] = useState(false)
-  const isDevicePage = /\/(us\/device|xray\/device|ct\/device)\//.test(location.pathname)
+  const isDevicePage = /\/(us\/device|xray\/device|ct\/device|angio\/device)\//.test(location.pathname)
   const isCoverPage = location.pathname === '/' || location.pathname === '/tietoa'
 
   useEffect(() => {

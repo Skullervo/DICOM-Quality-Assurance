@@ -6,6 +6,7 @@ import { C } from '../components/DeviceShared'
 import { VerdictBar } from '../components/qa/VerdictBar'
 import { MainArea, type TabId } from '../components/qa/MainArea'
 import { DeviceInfo } from '../components/qa/DeviceInfo'
+import { MetricValues } from '../components/qa/MetricValues'
 import { ImageViewer } from '../components/qa/ImageViewer'
 import { PngViewer } from '../components/qa/PngViewer'
 import { RoiOverlay, type Roi } from '../components/qa/RoiOverlay'
@@ -170,23 +171,19 @@ export default function CTDeviceDetails() {
           </div>
         )}
 
-        {/* Laitetiedot — chipit + Lisätiedot */}
+        {/* Mittausarvot + Laitetiedot */}
         <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
+          <MetricValues metrics={metrics.filter((m) => m.value != null)} />
           {latest && (
             <DeviceInfo
               chips={[
-                { label: 'Modality', value: 'CT' },
+                { label: 'Institution', value: String(latest.institution_name ?? '') },
+                { label: 'Device', value: String(latest.station_name ?? '') },
                 { label: 'Phantom', value: String(latest.phantom_model ?? '') },
                 { label: 'kVp', value: String(latest.kvp ?? '') },
                 { label: 'mAs', value: String(latest.exposure_mAs ?? '') },
-                { label: 'Slice', value: latest.slice_thickness ? `${latest.slice_thickness} mm` : '' },
+                { label: 'Slice thickness', value: latest.slice_thickness ? `${latest.slice_thickness} mm` : '' },
                 { label: 'Date', value: formatDay(latest.content_date as string | undefined) ?? '' },
-              ]}
-              more={[
-                { label: 'Device', value: String(latest.station_name ?? '') },
-                { label: 'Institution', value: String(latest.institution_name ?? '') },
-                { label: 'Manufacturer', value: String(latest.manufacturer ?? '') },
-                { label: 'Model', value: String(latest.manufacturer_model_name ?? '') },
               ]}
             />
           )}

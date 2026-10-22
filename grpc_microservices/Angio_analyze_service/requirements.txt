@@ -1,0 +1,10 @@
+pydicom>=2.4.4
+numpy>=1.26.4
+scipy>=1.12.0
+scikit-image>=0.22.0
+matplotlib>=3.8.4
+pylinac==3.38.0
+requests
+pymssql==2.3.13
+prometheus_client>=0.20.0
+boto3

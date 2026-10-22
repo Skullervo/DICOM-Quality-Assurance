@@ -71,6 +71,14 @@ func main() {
 			r.Get("/xray/image/{instance}", handlers.XRImage)
 			r.Get("/xray/analysis-image/{instance}/{type}", handlers.XRAnalysisImage(db))
 
+			// Angio (XA — angiography/fluoroscopy)
+			r.Get("/angio/institutions", handlers.AngioInstitutions(db))
+			r.Get("/angio/units", handlers.AngioUnits(db))
+			r.Get("/angio/device/{inst}/{unit}", handlers.AngioDeviceDetail(db))
+			r.Get("/angio/api/uniformity/{station}", handlers.AngioData(db))
+			r.Get("/angio/image/{instance}", handlers.AngioImage)
+			r.Get("/angio/analysis-image/{instance}", handlers.AngioAnalysisImage(db)) // S3-served (overlay PNG)
+
 			// CT
 			r.Get("/ct/institutions", handlers.CTInstitutions(db))
 			r.Get("/ct/units", handlers.CTUnits(db))
@@ -85,6 +93,7 @@ func main() {
 			r.Get("/us/measurements", handlers.Measurements(db, "ultrasound", "instance", "Instance", []string{"US"}, ""))
 			r.Get("/xray/measurements", handlers.Measurements(db, "xray_analysis", "series_id", "Series", []string{"CR", "DX"}, ""))
 			r.Get("/ct/measurements", handlers.Measurements(db, "ct_analysis", "instance", "Series", []string{"CT"}, "_0"))
+			r.Get("/angio/measurements", handlers.Measurements(db, "angio_analysis", "instance", "Instance", []string{"XA"}, ""))
 			r.Get("/measurement-image/{id}", handlers.MeasurementImage) // esikatselu orthanc-id:llä (US instanssi / CT-XR sarja)
 
 			// Toleranssit (hyvaksyttavyysrajat) — GET kaikki + PUT yksi metriikka
@@ -95,6 +104,7 @@ func main() {
 			r.Put("/us/device-meta/{station}", handlers.UpdateDevice(db, "ultrasound", "stationname", "institutionname", "manufacturer", "manufacturermodelname"))
 			r.Put("/xray/device-meta/{station}", handlers.UpdateDevice(db, "xray_analysis", "station_name", "institution_name", "manufacturer", "manufacturer_model_name"))
 			r.Put("/ct/device-meta/{station}", handlers.UpdateDevice(db, "ct_analysis", "station_name", "institution_name", "manufacturer", "manufacturer_model_name"))
+			r.Put("/angio/device-meta/{station}", handlers.UpdateDevice(db, "angio_analysis", "station_name", "institution_name", "manufacturer", "manufacturer_model_name"))
 
 			// Admin
 			r.Get("/devices", handlers.ListDevices(db))

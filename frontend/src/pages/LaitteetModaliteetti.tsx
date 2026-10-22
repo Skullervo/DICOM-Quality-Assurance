@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom'
 import { api, type DeviceUnit } from '../api/client'
 import { BreadcrumbNav } from '../components/Breadcrumb'
 
-export type LaiteModaliteetti = 'us' | 'xray' | 'ct'
+export type LaiteModaliteetti = 'us' | 'xray' | 'ct' | 'angio'
 
 const CONFIG: Record<LaiteModaliteetti, {
   title: string
@@ -30,6 +30,11 @@ const CONFIG: Record<LaiteModaliteetti, {
     title: 'CT devices', label: 'Computed tomography',
     fetch: () => api.ctUnits(),
     deviceLink: (u) => `/ct/device/${encodeURIComponent(u.station_name)}`,
+  },
+  angio: {
+    title: 'Angiography devices', label: 'Angiography',
+    fetch: () => api.angioUnits(),
+    deviceLink: (u) => `/angio/device/${encodeURIComponent(u.institution_name)}/${encodeURIComponent(u.station_name)}`,
   },
 }
 

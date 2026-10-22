@@ -20,12 +20,14 @@ class Settings:
     PORT = int(os.getenv("PORT", "8000"))
 
     # Modaliteettikartoitus: DICOM Modality -> (job-taulu, rakeisuus)
-    #   US  -> us_jobs,  per instanssi
+    #   US  -> us_jobs,    per instanssi
     #   CR/DX -> xray_jobs, per sarja
-    #   CT  -> ct_jobs,  per sarja
+    #   CT  -> ct_jobs,     per sarja
+    #   XA  -> angio_jobs,  per instanssi (läpivalaisu/angiografia, Leeds TOR-18)
     MODALITY_US = {"US"}
     MODALITY_XR = {"CR", "DX"}
     MODALITY_CT = {"CT"}
+    MODALITY_ANGIO = {"XA"}
 
 
 settings = Settings()

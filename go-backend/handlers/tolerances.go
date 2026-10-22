@@ -51,6 +51,17 @@ var toleranceDefaults = []tolerance{
 	{Modality: "US", MetricID: "s_depth"},
 	{Modality: "US", MetricID: "u_cov", Nominal: fp(0), UpperLimit: fp(10), UpperWarn: fp(5)},
 	{Modality: "US", MetricID: "u_skew", Nominal: fp(0), LowerLimit: fp(-1.5), UpperLimit: fp(1.5), LowerWarn: fp(-0.5), UpperWarn: fp(0.5)},
+
+	// ANGIO (XA, Leeds TOR-18) — PRELIMINARY limits, pending medical-physicist review.
+	// num_contrast_rois_seen & percent_integral_uniformity are one-sided (more = better,
+	// lower-bounded, no upper). The rest are informational (no limits). mtf_50_percent is
+	// best-effort/broken, so it explicitly carries no tolerance.
+	{Modality: "ANGIO", MetricID: "num_contrast_rois_seen", LowerLimit: fp(8), LowerWarn: fp(11)},
+	{Modality: "ANGIO", MetricID: "percent_integral_uniformity", LowerLimit: fp(80), LowerWarn: fp(90)},
+	{Modality: "ANGIO", MetricID: "median_cnr"},
+	{Modality: "ANGIO", MetricID: "median_contrast"},
+	{Modality: "ANGIO", MetricID: "mtf_50_percent"},
+	{Modality: "ANGIO", MetricID: "phantom_area"},
 }
 
 // EnsureTolerances luo taulun (jos puuttuu) ja siementää oletusarvot (rivit joita ei vielä ole).

@@ -7,6 +7,7 @@ const modalities = [
   { label: 'Ultrasound', image: '/images/ultrasound_image.bmp', path: '/mittaukset/us' },
   { label: 'Radiography', image: '/images/XRAY.png', path: '/mittaukset/xray' },
   { label: 'Computed tomography', image: '/images/CT.png', path: '/mittaukset/ct' },
+  { label: 'Angiography', image: '/images/ANGIO.png', path: '/mittaukset/angio' },
 ]
 
 export default function Mittaukset() {

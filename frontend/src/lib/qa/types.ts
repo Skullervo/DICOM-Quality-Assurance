@@ -3,7 +3,7 @@
 
 export type Status = 'pass' | 'warn' | 'fail' | 'nodata'
 
-export type Modality = 'CT' | 'XR' | 'US'
+export type Modality = 'CT' | 'XR' | 'US' | 'ANGIO'
 
 export interface MetricHistoryPoint {
   date: string // ISO-päivä tai näyttömuoto
