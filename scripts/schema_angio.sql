@@ -6,10 +6,20 @@
 -- rather than DB VARBINARY. One row per XA instance (per-instance granularity).
 --
 -- Run:  sqlcmd -S <host> -d QA-results -i schema_angio.sql
+--
+-- SUOMEKSI:
+--   schema_angio.sql luo angio_analysis-tulostaulun MS SQL:ään. Taulu on
+--   angiografia-/läpivalaisukuvien (modaliteetti XA) QA-tuloksille, mitattuna
+--   Leeds TOR-18 -fantomilla. Vastaa rakenteeltaan xray_analysis-taulua, MUTTA
+--   analyysikuva tallennetaan S3-objektivarastoon (output_image_path = s3://..-osoite),
+--   ei tietokannan VARBINARY-kenttään. Yksi rivi per XA-kuva (instanssi).
+--   Ajetaan kerran kannan pystytyksen yhteydessä. SET NOCOUNT ON vaientaa
+--   "rivit käsitelty" -viestit; GO päättää komentoerän.
 -- =============================================================================
 SET NOCOUNT ON;
 GO
 
+-- Luodaan taulu vain jos sitä ei vielä ole (idempotentti, voi ajaa monta kertaa).
 IF OBJECT_ID('dbo.angio_analysis','U') IS NULL
 CREATE TABLE dbo.angio_analysis (
     id                            INT IDENTITY(1,1) PRIMARY KEY,
@@ -49,6 +59,8 @@ CREATE TABLE dbo.angio_analysis (
     processed_at                  DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
 );
 GO
+-- Indeksi laitteittain (station_name): nopeuttaa laitesivun trendihakuja, jotka
+-- hakevat yhden laitteen tulokset aikajärjestyksessä (processed_at mukana indeksissä).
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_angio_analysis_station' AND object_id=OBJECT_ID('dbo.angio_analysis'))
     CREATE INDEX IX_angio_analysis_station ON dbo.angio_analysis(station_name) INCLUDE (processed_at);
 GO

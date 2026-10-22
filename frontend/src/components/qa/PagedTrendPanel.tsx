@@ -1,3 +1,12 @@
+// =============================================================================
+// components/qa/PagedTrendPanel.tsx — Sivutettu pino trendikäyriä
+// =============================================================================
+// Näyttää kerralla vain muutaman (oletus 3) ison trendikäyrän ja tarjoaa ‹ ›-
+// napeilla loput. Näin keskialue täyttyy siististi eikä käyriä tule liikaa
+// yhdellä kertaa. Jos jokin ROI on korostettuna (highlightId), paneeli hyppää
+// automaattisesti sille sivulle, jotta ROI ja sitä vastaava käyrä näkyvät yhdessä.
+// =============================================================================
+
 // Sivutettu trendipaneeli: näyttää N (oletus 3) suurta, korkeutta täyttävää
 // trendikäyrää kerralla pinossa; ‹ › selaa loput. Täyttää keskipaneelin tyhjän
 // tilan eikä näytä liikaa käyriä yhtä aikaa. ROI-korostus (highlightId) hyppää
@@ -18,15 +27,17 @@ export function PagedTrendPanel({ title, metrics, perPage = 3, activeIndex, onSe
   chromeless?: boolean // riisu kortti-kehys (tausta/reunus/otsikkopalkki) — jätä käyrät + otsikko + sivutus
   dimTitle?: boolean // himmennä käyräotsikot
 }) {
-  const [manualPage, setManualPage] = useState(0)
-  if (metrics.length === 0) return null
+  const [manualPage, setManualPage] = useState(0)  // käyttäjän ‹ ›-napeilla valitsema sivu
+  if (metrics.length === 0) return null  // ei käyriä -> ei näytetä paneelia
 
-  const pages = Math.ceil(metrics.length / perPage)
+  const pages = Math.ceil(metrics.length / perPage)  // sivujen kokonaismäärä
   // Jos korostettu mittari on toisella sivulla, näytä sen sivu (ei erillistä efektiä)
   const hlIdx = highlightId ? metrics.findIndex((m) => m.id === highlightId) : -1
+  // Näytettävä sivu: korostetun mittarin sivu ohittaa manuaalivalinnan; rajataan sallittuun väliin.
   const page = Math.min(hlIdx >= 0 ? Math.floor(hlIdx / perPage) : manualPage, pages - 1)
-  const start = page * perPage
-  const shown = metrics.slice(start, start + perPage)
+  const start = page * perPage                       // tämän sivun ensimmäisen käyrän indeksi
+  const shown = metrics.slice(start, start + perPage) // tällä sivulla näytettävät käyrät
+  // Siirry sivulla eteen/taakse (d = +1/-1), pysyen sallitulla välillä.
   const go = (d: number) => setManualPage((p) => Math.max(0, Math.min(pages - 1, p + d)))
 
   return (
@@ -58,6 +69,7 @@ export function PagedTrendPanel({ title, metrics, perPage = 3, activeIndex, onSe
   )
 }
 
+// Sivutusnappien tyyli; disabled-tilassa himmennetty eikä osoitinta.
 const pagerBtn = (disabled: boolean): CSSProperties => ({
   display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 24,
   borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)',

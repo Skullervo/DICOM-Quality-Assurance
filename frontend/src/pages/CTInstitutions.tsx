@@ -1,14 +1,23 @@
+// =============================================================================
+// pages/CTInstitutions.tsx — TT-laitosten lista (/ct/institutions)
+// =============================================================================
+// Kuten USInstitutions, mutta tietokonetomografialle (CatPhan/Siemens-fantomit).
+// Laitoksen nimeä klikkaamalla poraudutaan laitoksen TT-laitteisiin.
+// =============================================================================
+
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api, type CTInstitution } from '../api/client'
 import { BreadcrumbNav } from '../components/Breadcrumb'
 
 export default function CTInstitutions() {
+  // Hae TT-laitokset backendiltä.
   const { data: institutions, isLoading, error } = useQuery<CTInstitution[]>({
     queryKey: ['ct', 'institutions'],
     queryFn: api.ctInstitutions,
   })
 
+  // Lataus- ja virhetilojen näyttö.
   if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Loading...</p>
 
   if (error) {
@@ -48,6 +57,7 @@ export default function CTInstitutions() {
               institutions.map((inst) => (
                 <tr key={inst.name}>
                   <td>
+                    {/* Nimilinkki vie laitoksen TT-laitteisiin. */}
                     <Link to={`/ct/units?institution=${encodeURIComponent(inst.name)}`}>
                       {inst.name}
                     </Link>

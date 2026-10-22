@@ -1,10 +1,21 @@
+// =============================================================================
+// components/qa/ContextView.tsx — Laitteen tilakonteksti taulukkona (näyttö)
+// =============================================================================
+// Näyttää saman ReportContext-datan visuaalisesti: osiot taulukkoina ja rajan
+// ulkopuolella olevat mittarit värillisin merkein. Käytetään sekä "Raportoi
+// ongelmasta"- että "Kysy tekoälyltä" -välilehdellä, jotta käyttäjä näkee minkä
+// tiedon hän lähettää eteenpäin. (Tekstiversio: contextText.ts.)
+// =============================================================================
+
 // Jaettu rakenteinen konteksti: tiiviit taulukot (DICOM-tiedot, Analyysitulokset)
 // + "Rajan ulkopuolella" -rivit. Käytössä sekä Raportoi ongelmasta- että
 // Kysy tekoälyltä -välilehdellä.
 import type { CSSProperties } from 'react'
 import type { ReportContext } from './ReportTab'
 
+// Osion otsikon tyyli.
 const labelStyle: CSSProperties = { fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 6 }
+// "Pilleri"-merkki warn/fail-tilalle; väri johdetaan statuksesta CSS-muuttujin.
 const failPill = (status: 'warn' | 'fail'): CSSProperties => ({
   fontSize: 9.5, fontWeight: 700, letterSpacing: '.03em', textTransform: 'uppercase',
   padding: '2px 7px', borderRadius: 10, whiteSpace: 'nowrap', flexShrink: 0,
@@ -13,9 +24,10 @@ const failPill = (status: 'warn' | 'fail'): CSSProperties => ({
 })
 
 export function ContextView({ context }: { context: ReportContext }) {
-  const failing = context.failing ?? []
+  const failing = context.failing ?? []  // rajan ulkopuoliset mittarit (voi puuttua)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* Jokainen osio omana otsikkonaan ja kahden sarakkeen ruudukkona. */}
       {context.sections.map((sec) => (
         <div key={sec.title}>
           <div style={labelStyle}>{sec.title}</div>
@@ -29,6 +41,7 @@ export function ContextView({ context }: { context: ReportContext }) {
           </div>
         </div>
       ))}
+      {/* Rajan ulkopuoliset mittarit näytetään vain jos niitä on. */}
       {failing.length > 0 && (
         <div>
           <div style={{ ...labelStyle, color: 'var(--warn)' }}>Out of limits</div>

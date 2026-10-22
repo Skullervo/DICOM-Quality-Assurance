@@ -1,5 +1,17 @@
 package handlers
 
+// handlers/angio.go: angiografia-QA:n (XA, läpivalaisu) HTTP-käsittelijät.
+//
+// Kyselee "angio_analysis"-taulua (Leeds TOR-18 -fantomi) ja palauttaa JSONia
+// frontendille. Rakenne vastaa tarkalleen xray.go:ta (instituutiot -> laitteet ->
+// laitteen tiedot + trendidata), mutta kaksi eroa:
+//   1. Granulariteetti on per-instanssi (kuten US), ei per-sarja.
+//   2. Analyysikuva (overlay-PNG) on S3:ssa (output_image_path = s3://bucket/key),
+//      ei tietokannan VARBINARY-sarakkeessa. Siksi analyysikuva proxataan S3:sta
+//      storage.go:n apureilla (kuten US), ei lueta DB:stä.
+//
+// Alla oleva englanninkielinen kommentti kuvaa saman asian.
+
 // Angiography/fluoroscopy (DICOM modality XA) QA data handlers. Mirrors the X-ray
 // handlers (xray.go) exactly in structure, but queries the "angio_analysis" table
 // with Leeds TOR-18 metrics. Granularity is PER-INSTANCE (like US). Analysis images
@@ -17,6 +29,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// AngioInstitutions palauttaa angio-mittauksista löytyvät instituutiot laite- ja mittausmäärineen.
 func AngioInstitutions(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rows, err := db.QueryContext(context.Background(),
@@ -53,7 +66,7 @@ func AngioInstitutions(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-// AngioUnits returns distinct devices grouped by institution.
+// AngioUnits palauttaa angio-laitteet ryhmiteltynä. Valinnainen ?institution= rajaa yhteen instituutioon.
 func AngioUnits(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		institution := r.URL.Query().Get("institution")
@@ -102,10 +115,12 @@ func AngioUnits(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+// AngioDeviceDetail palauttaa yhden laitteen ({inst}/{unit}) viimeisimmät mittaukset
+// (enintään 100, uusin ensin) Leeds TOR-18 -metriikoineen.
 func AngioDeviceDetail(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		inst := chi.URLParam(r, "inst")
-		unit := chi.URLParam(r, "unit")
+		inst := chi.URLParam(r, "inst") // instituutio
+		unit := chi.URLParam(r, "unit") // laitetunnus
 
 		rows, err := db.QueryContext(context.Background(),
 			`SELECT TOP 100 id, instance, station_name, institution_name, manufacturer,
@@ -134,6 +149,8 @@ func AngioDeviceDetail(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+// AngioData palauttaa laitteen Leeds TOR-18 -metriikkojen aikasarjan trendikuvaajia
+// varten. Reitti: /angio/api/uniformity/{station}.
 func AngioData(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		station := chi.URLParam(r, "station")

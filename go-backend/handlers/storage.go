@@ -23,6 +23,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// s3Endpoint palauttaa S3-yhteensopivan object storagen osoitteen (oletus SeaweedFS konttiverkossa).
 func s3Endpoint() string {
 	if e := os.Getenv("S3_ENDPOINT"); e != "" {
 		return e
@@ -30,8 +31,12 @@ func s3Endpoint() string {
 	return "http://object-storage:8333"
 }
 
+// s3ClientSingleton: S3-asiakas luodaan kerran ja jaetaan (ei turhaa uudelleenalustusta per pyyntö).
 var s3ClientSingleton *s3.Client
 
+// getS3Client palauttaa (tai ensimmäisellä kerralla luo) S3-asiakkaan. Tunnukset ja
+// alue luetaan ympäristöstä. UsePathStyle=true koska SeaweedFS/MinIO eivät tue
+// virtuaalihost-tyylistä bucket-DNS:ää.
 func getS3Client() (*s3.Client, error) {
 	if s3ClientSingleton != nil {
 		return s3ClientSingleton, nil

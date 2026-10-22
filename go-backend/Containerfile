@@ -1,23 +1,38 @@
-# Multi-stage build for rootless Podman
+# Go-backendin Containerfile (Podman, rootless). Kaksivaiheinen build:
+# ensin käännetään Go-binääri "builder"-vaiheessa, sitten kopioidaan vain
+# valmis binääri kevyeen ajokuvaan -> pieni ja turvallinen tuotantokuva.
+
+# --- Vaihe 1: käännös (builder) ---
+# Go-työkalut sisältävä välikuva, jota ei oteta lopulliseen kuvaan mukaan.
 FROM docker.io/library/golang:1.26-alpine AS builder
 
 WORKDIR /build
+# Kopioidaan ensin vain riippuvuustiedostot ja ladataan paketit -> Docker/Podman
+# välimuistittaa tämän kerroksen, joten paketteja ei ladata uudelleen ellei go.mod muutu.
 COPY go.mod go.sum ./
 RUN go mod download
+# Kopioidaan loput lähdekoodista ja käännetään staattinen binääri.
+# CGO_ENABLED=0 = ei C-riippuvuuksia -> binääri toimii myös minimaalisessa Alpinessa.
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o autoqad-backend .
 
-# Runtime — rootless, distroless-style
+# --- Vaihe 2: ajokuva (runtime) ---
+# Kevyt Alpine ilman Go-työkaluja; sisältää vain valmiin binäärin + frontendin.
 FROM docker.io/library/alpine:3.21
 
+# Luodaan ei-root-käyttäjä (uid 1000). Rootless Podman vaatii että prosessi EI aja roottina.
 RUN addgroup -g 1000 -S autoqad && \
     adduser -u 1000 -S autoqad -G autoqad
 
 WORKDIR /app
+# Kopioidaan builder-vaiheesta vain käännetty binääri ja rakennettu React-frontend.
+# Go-backend tarjoilee frontendin (frontend/dist) samasta prosessista.
 COPY --from=builder /build/autoqad-backend .
 COPY --from=builder /build/frontend/dist ./frontend/dist
 
+# Vaihdetaan ei-root-käyttäjään ja avataan backendin portti (8080 kontin sisällä).
 USER 1000:1000
 EXPOSE 8080
 
+# Käynnistyskomento: aja backend-binääri.
 ENTRYPOINT ["./autoqad-backend"]

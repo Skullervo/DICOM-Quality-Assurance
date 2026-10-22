@@ -19,7 +19,10 @@ import requests
 import pydicom
 
 from worker_common import EventWorker, IMAGES_PROCESSED, QA_RESULTS
-# Import soveltaa pylinac-monkey-patchin + matplotlib Agg:n (pakollinen ennen Normi13:a)
+# TÄRKEÄ: 'import xray_analyze_service' suorittaa kyseisen moduulin ylätason koodin,
+# joka SOVELTAA pakollisen pylinac 3.38 ROI-monkey-patchin JA asettaa matplotlibin
+# Agg-tilaan. Tämä pitää tapahtua ENNEN Normi13:n käyttöä. Siksi worker käyttää
+# tietoisesti pääpalvelun funktioita eikä toista logiikkaa.
 import xray_analyze_service as xr
 from xray_analyze_service import (
     extract_dicom_metadata, extract_analysis_results, insert_xray_analysis,
@@ -28,6 +31,8 @@ from xray_analyze_service import (
 
 logger = logging.getLogger("xr_worker")
 
+# Orthanc-osoite/-tunnukset. Event-worker hakee DICOMit SUORAAN Orthancin
+# REST-rajapinnasta (ei Fetch-gRPC:tä kuten polleri).
 ORTHANC_URL = os.getenv("ORTHANC_URL", "http://orthanc:8042")
 _USER = os.getenv("ORTHANC_USERNAME", "admin")
 _PASS = os.getenv("ORTHANC_PASSWORD", "")
@@ -36,6 +41,8 @@ XRAY_MODALITIES = ("CR", "DX")
 
 
 def _fetch(inst_id: str) -> bytes:
+    # Hae yhden instanssin raaka DICOM-tiedosto Orthancista. raise_for_status
+    # nostaa virheen HTTP-virhekoodilla -> process() merkitsee jobin FAILED.
     r = requests.get(f"{ORTHANC_URL}/instances/{inst_id}/file", auth=AUTH, timeout=120)
     r.raise_for_status()
     return r.content
@@ -45,24 +52,29 @@ def _analyze_instance(cur, conn, series_id, instance_id):
     """Analysoi yksi XR-instanssi. Palauttaa True jos tallennettiin/ohitettiin, nostaa virheen jos kaatui."""
     data = _fetch(instance_id)
     ds = pydicom.dcmread(io.BytesIO(data), force=True)
+    # Itse-suodatus: analysoidaan vain CR/DX-kuvat; muut ohitetaan (True ei kasvateta).
     if str(ds.get("Modality", "")) not in XRAY_MODALITIES:
         return False  # ei XR -> ohita
 
+    # Duplikaattitarkistus: jos instanssi on jo DB:ssä, pidetään onnistuneena.
     cur.execute("SELECT 1 FROM xray_analysis WHERE instance = %s", (instance_id,))
     if cur.fetchone():
         return True  # jo analysoitu
 
+    # Normi13 vaatii tiedostopolun -> kirjoitetaan väliaikaistiedostoon.
     tmp = tempfile.NamedTemporaryFile(suffix=".dcm", delete=False)
     try:
         tmp.write(data)
         tmp.close()
+        # Sama NORMI-13-analyysi kuin pollerilla (xr.Normi13 = patchattu luokka).
         t0 = time.time()
         IQ = xr.Normi13(tmp.name, plot=False, debug=False, mtf_mode="relative")
         IQ.analyze(visibility_threshold=0.0025)
         results = IQ.results_data(as_dict=True)
         processing_time = time.time() - t0
 
-        # Kuvarenderöinnit best-effort (yksittäinen epäonnistuminen -> None)
+        # Kuvarenderöinnit best-effort: pieni apufunktio _try nielaisee yhden
+        # kuvan virheen (-> None), jotta muut kuvat ja tulokset silti tallentuvat.
         def _try(fn):
             try:
                 return fn(IQ)
@@ -71,6 +83,7 @@ def _analyze_instance(cur, conn, series_id, instance_id):
                 return None
         cr, ml, mc = _try(_render_roi_map), _try(_render_mtf_lp_image), _try(_render_mtf_curve)
 
+        # Poiminta + tallennus samoilla apufunktioilla kuin pollerilla.
         metadata = extract_dicom_metadata(ds)
         analysis = extract_analysis_results(results, IQ)
         insert_xray_analysis(cur, instance_id, series_id, metadata, analysis, processing_time, cr, ml, mc)
@@ -79,6 +92,7 @@ def _analyze_instance(cur, conn, series_id, instance_id):
         QA_RESULTS.labels(modality="CR").inc()
         return True
     finally:
+        # Siivoa väliaikaistiedosto aina.
         try:
             os.unlink(tmp.name)
         except OSError:
@@ -86,13 +100,17 @@ def _analyze_instance(cur, conn, series_id, instance_id):
 
 
 def process(wk, cur, conn, job):
+    # Tämä on EventWorkerin kutsuma modaliteettikohtainen käsittelijä.
+    # job.orthanc_id = XR-SARJAN id. Analyysi tehdään per instanssi (kuva).
     series_id = job["orthanc_id"]
     wk.set_status(cur, conn, job["id"], "RUNNING")
 
+    # Haetaan sarjan kaikki instanssit Orthancista.
     insts = requests.get(f"{ORTHANC_URL}/series/{series_id}/instances", auth=AUTH, timeout=60).json()
     if not insts:
         raise RuntimeError("no instances in series")
 
+    # Käydään instanssit läpi; lasketaan onnistuneet ja kerätään virheet.
     done, errors = 0, []
     for inst in insts:
         iid = inst["ID"]
@@ -104,6 +122,8 @@ def process(wk, cur, conn, job):
             errors.append(f"{iid[:12]}: {e}")
             logger.error("XR instanssi %s epäonnistui: %s", iid, e)
 
+    # Job katsotaan epäonnistuneeksi VAIN jos yksikään instanssi ei onnistunut ja
+    # virheitä oli. Jos edes yksi onnistui (tai kaikki oli jo tehty), job COMPLETED.
     if done == 0 and errors:
         raise RuntimeError("; ".join(errors[:3]))
     wk.set_status(cur, conn, job["id"], "COMPLETED")
@@ -111,4 +131,6 @@ def process(wk, cur, conn, job):
 
 
 if __name__ == "__main__":
+    # Käynnistä worker: modality="CR", kuuntele XRJobQueue-jonoa, totuustaulu
+    # xray_jobs, käsittele process()-funktiolla. run() jää ikuiseen silmukkaan.
     EventWorker("CR", "XRJobQueue", "xray_jobs", process).run()

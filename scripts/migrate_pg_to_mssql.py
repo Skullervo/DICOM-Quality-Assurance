@@ -31,6 +31,11 @@ EXCLUDE_PREFIX = ("django_", "auth_")
 
 
 def convert(v):
+    # Muunna yksi PG-arvo MSSQL-yhteensopivaksi:
+    #   dict/list (JSONB/array) -> JSON-merkkijono
+    #   memoryview (bytea/binääri) -> tavut
+    #   bool -> 0/1 (MSSQL BIT)
+    # Muut arvot menevät läpi sellaisenaan.
     if isinstance(v, (dict, list)):
         return json.dumps(v)
     if isinstance(v, memoryview):
@@ -46,9 +51,11 @@ def main():
     ap.add_argument("--only", nargs="+", help="ETL vain nämä taulut (esim. xray_analysis)")
     args = ap.parse_args()
 
+    # Avataan yhteys molempiin kantoihin: PG = lähde, MS = kohde.
     pg = psycopg2.connect(**PG); pgc = pg.cursor()
     ms = pymssql.connect(**MS); msc = ms.cursor()
 
+    # Listaa siirrettävät taulut (Django/auth pois). --only rajaa tiettyihin tauluihin.
     pgc.execute("""SELECT table_name FROM information_schema.tables
                    WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name""")
     tables = [t for (t,) in pgc.fetchall() if not t.startswith(EXCLUDE_PREFIX)]
@@ -56,6 +63,7 @@ def main():
         tables = [t for t in tables if t in args.only]
 
     total = 0
+    # Siirretään taulu kerrallaan.
     for t in tables:
         # PG: lue sarakkeet + rivit
         pgc.execute("""SELECT column_name FROM information_schema.columns
@@ -67,10 +75,13 @@ def main():
             print(f"  {t}: 0 riviä")
             continue
 
-        # MSSQL: onko identity-sarake?
+        # MSSQL: onko taulussa identity-sarake (automaattinen id)? Jos on, se pitää
+        # erikseen sallia kirjoitettavaksi (SET IDENTITY_INSERT), jotta alkuperäiset
+        # id-arvot säilyvät eikä kanta generoi uusia.
         msc.execute("SELECT name FROM sys.columns WHERE object_id=OBJECT_ID(%s) AND is_identity=1", (t,))
         has_identity = msc.fetchone() is not None
 
+        # --truncate: tyhjennä kohdetaulu ennen siirtoa (uusi ajo puhtaalta pöydältä).
         if args.truncate:
             msc.execute(f"DELETE FROM [{t}]")
 
@@ -81,11 +92,13 @@ def main():
         if has_identity:
             msc.execute(f"SET IDENTITY_INSERT [{t}] ON")
         n = 0
+        # Lisää rivit yksitellen, muunna jokainen arvo MSSQL-yhteensopivaksi (convert).
         for row in rows:
             msc.execute(sql, tuple(convert(v) for v in row))
             n += 1
         if has_identity:
             msc.execute(f"SET IDENTITY_INSERT [{t}] OFF")
+        # Tallenna taulun siirto yhtenä eränä.
         ms.commit()
         total += n
         print(f"  {t}: {n} riviä siirretty" + ("  (identity)" if has_identity else ""))

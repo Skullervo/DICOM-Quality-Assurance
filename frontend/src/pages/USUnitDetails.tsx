@@ -1,18 +1,28 @@
+// =============================================================================
+// pages/USUnitDetails.tsx — Yhden laitoksen US-laitteet (/us/units/:id)
+// =============================================================================
+// Kuten USUnits, mutta laitos tulee URL-polun :id-parametrista (ei query-
+// parametrina). Näyttää kyseisen laitoksen US-laitteet taulukkona.
+// =============================================================================
+
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api, type USUnit } from '../api/client'
 import { BreadcrumbNav } from '../components/Breadcrumb'
 
 export default function USUnitDetails() {
+  // Laitoksen nimi tulee URL-polusta (/us/units/:id), puretaan URL-koodaus.
   const { id } = useParams<{ id: string }>()
   const institution = id ? decodeURIComponent(id) : ''
 
+  // Hae laitoksen laitteet; enabled estää haun ennen kuin laitos on tiedossa.
   const { data: units, isLoading, error } = useQuery<USUnit[]>({
     queryKey: ['us', 'units', institution],
     queryFn: () => api.usUnits(institution),
     enabled: !!institution,
   })
 
+  // Suojaukset: puuttuva laitos, lataus ja virhe.
   if (!institution) return <p style={{ color: 'var(--status-fail)' }}>Institution not found.</p>
   if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Loading...</p>
 
@@ -59,6 +69,7 @@ export default function USUnitDetails() {
               units.map((unit) => (
                 <tr key={unit.station_name}>
                   <td>
+                    {/* Laitelinkki laitteen QA-trendisivulle. */}
                     <Link to={`/us/device/${encodeURIComponent(unit.station_name)}`}>
                       {unit.station_name}
                     </Link>

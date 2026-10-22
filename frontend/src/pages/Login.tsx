@@ -1,3 +1,11 @@
+// =============================================================================
+// pages/Login.tsx — Kirjautumissivu (/login)
+// =============================================================================
+// Yksinkertainen käyttäjätunnus/salasana-lomake. Tarkistus tehdään selaimessa
+// AuthProviderin login-funktiolla (HUOM: kevyt UI-portti, ei oikea tietoturva).
+// Onnistuneen kirjautumisen jälkeen siirrytään etusivulle.
+// =============================================================================
+
 import { useState, type FormEvent } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
 import { useAuth } from '../auth/authContext'
@@ -7,21 +15,22 @@ import './auth.css'
 export default function Login() {
   const navigate = useNavigate()
   const { isAuthed, login } = useAuth()
-  const [user, setUser] = useState('')
-  const [pass, setPass] = useState('')
-  const [error, setError] = useState(false)
+  const [user, setUser] = useState('')      // käyttäjätunnuskentän arvo
+  const [pass, setPass] = useState('')       // salasanakentän arvo
+  const [error, setError] = useState(false)  // näytetäänkö virheilmoitus
 
   // Jo kirjautunut -> suoraan sovellukseen
   if (isAuthed) return <Navigate to="/" replace />
   // Tuore sivulataus (esim. selaimen päivitys) ennen kirjautumista -> aja intro uudelleen
   if (!introSeen()) return <Navigate to="/intro" replace />
 
+  // Lomakkeen lähetys: estä sivun uudelleenlataus, tarkista tunnukset.
   const onSubmit = (e: FormEvent) => {
     e.preventDefault()
     if (login(user, pass)) {
-      navigate('/', { replace: true })
+      navigate('/', { replace: true })  // onnistui -> etusivulle
     } else {
-      setError(true)
+      setError(true)                    // epäonnistui -> näytä virhe
     }
   }
 
@@ -41,6 +50,7 @@ export default function Login() {
           <p>Log in</p>
         </div>
 
+        {/* Virheilmoitus näytetään vain väärien tunnusten jälkeen. */}
         {error && <p className="login-error">Incorrect username or password.</p>}
 
         <div className="login-field">

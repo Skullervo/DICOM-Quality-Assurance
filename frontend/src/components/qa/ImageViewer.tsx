@@ -1,3 +1,13 @@
+// =============================================================================
+// components/qa/ImageViewer.tsx — CT:n DICOM-katselin (viipale + W/L + zoom/pan)
+// =============================================================================
+// Näyttää yhden CT-sarjan viipaleen ja antaa käyttäjän: selata viipaleita,
+// säätää ikkunointia (Window Center/Width), zoomata rullalla ja panoroida
+// raahaamalla. Itse kuva renderöidään PALVELIMELLA (Orthanc /rendered) ja
+// haetaan valmiina PNG:nä — selaimessa ei siis käsitellä raakaa DICOMia.
+// Zoom/pan nollautuu, kun instance vaihtuu (kutsuja antaa key={instance}).
+// =============================================================================
+
 // CT DICOM-katselin (brief 6.5, osittainen): suurennettu leike, palvelinpuolen
 // Window/Level (Orthanc /rendered), viipaleselailu, zoom & pan. ROI-overlayt: 6b-2.
 // Zoom/pan nollautuu instanssin vaihtuessa remountilla (key={instance} kutsujassa).
@@ -10,38 +20,42 @@ import { C } from '../DeviceShared'
 const sliderLabel: CSSProperties = { fontSize: 9, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--text-faint)' }
 
 export function ImageViewer({ instance }: { instance: string }) {
+  // Hae sarjan metatiedot (viipalemäärä, oletusviipale, oletusikkunointi).
   const { data: meta } = useQuery({
     queryKey: ['ct', 'series-meta', instance],
     queryFn: () => api.ctSeriesMeta(instance),
-    enabled: !!instance,
+    enabled: !!instance,  // älä hae ennen kuin instance on tiedossa
   })
 
   // Käyttäjän säädöt (null = käytä sarjan oletusta)
-  const [slice, setSlice] = useState<number | null>(null)
-  const [wc, setWc] = useState<number | null>(null)
-  const [ww, setWw] = useState<number | null>(null)
-  const [zoom, setZoom] = useState(1)
-  const [pan, setPan] = useState({ x: 0, y: 0 })
-  const [dragging, setDragging] = useState(false)
-  const drag = useRef<{ x: number; y: number } | null>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const zoomRef = useRef(1)
+  const [slice, setSlice] = useState<number | null>(null)  // valittu viipale
+  const [wc, setWc] = useState<number | null>(null)        // Window Center (taso)
+  const [ww, setWw] = useState<number | null>(null)        // Window Width (leveys)
+  const [zoom, setZoom] = useState(1)                      // zoom-kerroin (1 = ei zoomia)
+  const [pan, setPan] = useState({ x: 0, y: 0 })           // panorointisiirtymä pikseleinä
+  const [dragging, setDragging] = useState(false)          // raahataanko parhaillaan
+  const drag = useRef<{ x: number; y: number } | null>(null)  // raahauksen aloituskohta
+  const containerRef = useRef<HTMLDivElement>(null)        // kuvaikkunan DOM-elementti
+  const zoomRef = useRef(1)                                // zoom myös refinä rullakäsittelijälle
 
+  // Tehollinen arvo = käyttäjän säätö tai muuten sarjan oletus (varmoilla fallback-arvoilla).
   const effSlice = slice ?? meta?.defaultSlice ?? 0
   const effWc = wc ?? (meta ? Number(meta.windowCenter) || 40 : 40)
   const effWw = ww ?? (meta ? Number(meta.windowWidth) || 400 : 400)
 
   // Debounce W/L + viipale -> kuvapyyntö (Orthanc renderöi palvelinpuolella)
+  // Odotetaan 130 ms säädön jälkeen ennen uutta kuvapyyntöä -> ei turhia latauksia liukuria vedettäessä.
   const [q, setQ] = useState({ slice: 0, wc: 40, ww: 400 })
   useEffect(() => {
     const t = setTimeout(() => setQ({ slice: effSlice, wc: Math.round(effWc), ww: Math.round(effWw) }), 130)
-    return () => clearTimeout(t)
+    return () => clearTimeout(t)  // peru edellinen ajastin, jos arvo muuttuu uudelleen
   }, [effSlice, effWc, effWw])
 
   // Rajaa panorointi niin että kuva pysyy aina peittämässä kuvaikkunan.
   const clampPan = (px: number, py: number, z: number) => {
     const el = containerRef.current
     if (!el) return { x: px, y: py }
+    // Suurin sallittu siirtymä = puolet zoomin tuomasta ylimääräisestä koosta.
     const mx = ((z - 1) * el.clientWidth) / 2
     const my = ((z - 1) * el.clientHeight) / 2
     return { x: Math.max(-mx, Math.min(mx, px)), y: Math.max(-my, Math.min(my, py)) }
@@ -52,24 +66,30 @@ export function ImageViewer({ instance }: { instance: string }) {
     const el = containerRef.current
     if (!el) return
     const handler = (e: WheelEvent) => {
-      e.preventDefault()
+      e.preventDefault()  // estä sivun vieritys rullatessa kuvan päällä
+      // Laske uusi zoom rullan suunnasta, rajaa välille 1..6.
       const nz = Math.min(6, Math.max(1, zoomRef.current - e.deltaY * 0.0015))
       zoomRef.current = nz
       setZoom(nz)
-      setPan((p) => clampPan(p.x, p.y, nz))
+      setPan((p) => clampPan(p.x, p.y, nz))  // pidä panorointi sallituissa rajoissa
     }
     el.addEventListener('wheel', handler, { passive: false })
-    return () => el.removeEventListener('wheel', handler)
+    return () => el.removeEventListener('wheel', handler)  // siivoa kuuntelija
   }, [meta]) // uudelleen kun kuvaikkuna renderöityy (meta latautuu)
 
+  // Hiiren painallus aloittaa raahauksen (panorointi).
   const onDown = (e: React.MouseEvent) => { drag.current = { x: e.clientX - pan.x, y: e.clientY - pan.y }; setDragging(true) }
+  // Hiiren liike raahauksen aikana päivittää panoroinnin.
   const onMove = (e: React.MouseEvent) => {
     if (!drag.current) return
     setPan(clampPan(e.clientX - drag.current.x, e.clientY - drag.current.y, zoom))
   }
+  // Raahaus päättyy (painike ylös tai hiiri poistuu).
   const endDrag = () => { drag.current = null; setDragging(false) }
+  // Nollaa zoomin ja panoroinnin alkutilaan.
   const reset = () => { setZoom(1); setPan({ x: 0, y: 0 }); zoomRef.current = 1 }
 
+  // Ennen metatietojen latautumista näytetään latausilmoitus.
   if (!meta) {
     return (
       <div style={{ background: '#000', borderRadius: 6, aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -88,6 +108,7 @@ export function ImageViewer({ instance }: { instance: string }) {
           cursor: dragging ? 'grabbing' : 'grab',
         }}
       >
+        {/* Kuva haetaan palvelimelta valitun viipaleen ja ikkunoinnin mukaan; zoom/pan tehdään CSS-transformilla. */}
         <img
           src={api.ctSeriesImageUrl(instance, q.slice, q.wc, q.ww)}
           alt={`CT slice ${q.slice + 1}/${meta.sliceCount}`}
@@ -99,6 +120,7 @@ export function ImageViewer({ instance }: { instance: string }) {
             imageRendering: zoom > 2 ? 'pixelated' : 'auto',
           }}
         />
+        {/* Nollausnappi näkyy vain kun zoomattu; näyttää myös nykyisen zoom-kertoimen. */}
         {zoom > 1 && (
           <button onClick={reset} title="Reset zoom/pan"
             style={{ position: 'absolute', top: 6, right: 6, display: 'flex', alignItems: 'center', gap: 4,
@@ -110,6 +132,7 @@ export function ImageViewer({ instance }: { instance: string }) {
       </div>
 
       {/* Viipaleselailu */}
+      {/* Liukuri 0..(viipaleet-1); näytössä 1-pohjainen numerointi. */}
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', ...sliderLabel }}>
           <span>Slice</span><span className="num">{effSlice + 1} / {meta.sliceCount}</span>
@@ -119,6 +142,7 @@ export function ImageViewer({ instance }: { instance: string }) {
       </div>
 
       {/* Window/Level */}
+      {/* Kaksi liukuria: taso (WC) ja leveys (WW) — säätävät kuvan harmaasävykontrastia. */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', ...sliderLabel }}>

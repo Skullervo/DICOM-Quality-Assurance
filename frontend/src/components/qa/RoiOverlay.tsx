@@ -1,3 +1,13 @@
+// =============================================================================
+// components/qa/RoiOverlay.tsx — Interaktiivinen ROI-kartta kuvan päällä
+// =============================================================================
+// Näyttää CT-leikkeen (esim. CTP404) ja piirtää sen päälle SVG-ympyröinä
+// kiinnostavat alueet (ROI:t) statusvärein. ROI ja sitä vastaava KPI-kortti ovat
+// kytketty: kun hiiri viedään jommankumman päälle (hoverId), molemmat korostuvat.
+// Sisältää myös kirkkaus/kontrasti-säädön sekä zoomin ja panoroinnin — kuva ja
+// ROI:t ovat samassa transform-kääreessä, joten ne skaalautuvat yhdessä.
+// =============================================================================
+
 // Interaktiivinen ROI-kartta (brief 6.5): puhdas CTP404-leike + SVG-ROI-ympyrät
 // statusvärillä, kytketty KPI-kortteihin (hover korostaa molempia suuntiin).
 // Harmaasävysäätö (kirkkaus/kontrasti) + zoom/pan (kuva ja ROI:t skaalautuvat yhdessä).
@@ -5,8 +15,10 @@ import { useState, useEffect, useRef, type CSSProperties } from 'react'
 import { RotateCcw } from 'lucide-react'
 import type { Status } from '../../lib/qa/types'
 
+// Yksi ROI: tunniste, nimi ja sijainti/koko suhteellisina (0..1) kuvan mitoista.
 export interface Roi { id: string; name: string; x: number; y: number; r: number }
 
+// Statuksen ja värin kytkentä (teeman CSS-muuttujat).
 const STATUS_VAR: Record<Status, string> = {
   pass: 'var(--pass)', warn: 'var(--warn)', fail: 'var(--fail)', nodata: 'var(--neutral)',
 }
@@ -16,8 +28,8 @@ export function RoiOverlay({ src, rois, statusById, hoverId, onHover }: {
   src: string
   rois: Roi[]
   statusById: Record<string, Status>
-  hoverId: string | null
-  onHover: (id: string | null) => void
+  hoverId: string | null                 // nyt korostettuna oleva ROI (tai null)
+  onHover: (id: string | null) => void   // kutsutaan kun hiiri menee ROI:n päälle/pois
 }) {
   const [brightness, setBrightness] = useState(100)
   const [contrast, setContrast] = useState(100)
@@ -37,6 +49,7 @@ export function RoiOverlay({ src, rois, statusById, hoverId, onHover }: {
     return { x: Math.max(-mx, Math.min(mx, px)), y: Math.max(-my, Math.min(my, py)) }
   }
 
+  // Rullazoomaus (sama kuvio kuin PngViewer/ImageViewer).
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
@@ -77,13 +90,16 @@ export function RoiOverlay({ src, rois, statusById, hoverId, onHover }: {
               filter: `brightness(${brightness}%) contrast(${contrast}%)` }} />
           <svg viewBox="0 0 100 100" preserveAspectRatio="none"
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+            {/* Piirrä jokainen ROI ympyränä; aktiivinen (hover) korostetaan ja näytetään nimi. */}
             {rois.map((roi) => {
-              const color = STATUS_VAR[statusById[roi.id] ?? 'nodata']
-              const active = hoverId === roi.id
+              const color = STATUS_VAR[statusById[roi.id] ?? 'nodata']  // väri statuksen mukaan
+              const active = hoverId === roi.id  // onko tämä ROI korostettuna
               return (
                 <g key={roi.id} style={{ cursor: 'pointer' }}
                   onMouseEnter={() => onHover(roi.id)} onMouseLeave={() => onHover(null)}>
+                  {/* Läpinäkyvä hieman suurempi ympyrä laajentaa hover-osumapintaa. */}
                   <circle cx={roi.x * 100} cy={roi.y * 100} r={roi.r * 100 + 1.5} fill="transparent" />
+                  {/* Varsinainen ROI-ympyrä; aktiivisena paksumpi reuna ja kevyt täyttö. */}
                   <circle cx={roi.x * 100} cy={roi.y * 100} r={roi.r * 100}
                     fill={active ? `color-mix(in srgb, ${color} 25%, transparent)` : 'none'}
                     stroke={color} strokeWidth={active ? 1.4 : 0.7} vectorEffect="non-scaling-stroke" />

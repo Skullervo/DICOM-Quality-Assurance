@@ -1,3 +1,9 @@
+// handlers/ct.go: CT-QA:n (tietokonetomografia) HTTP-käsittelijät.
+//
+// Kyselee "ct_analysis"-taulua (Catphan-fantomi) ja palauttaa JSONia frontendille.
+// Rakenne vastaa xray.go:ta: instituutiot -> laitteet -> laitteen tarkat tiedot +
+// trendidata (Catphan-moduulien HU-arvot, tasaisuus, MTF, kohina). Kuvankatselin
+// (series-meta/series-image) on erikseen image.go:ssa. Laite yksilöidään {station}-tunnuksella.
 package handlers
 
 import (
@@ -9,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// CTInstitutions palauttaa CT-mittauksista löytyvät instituutiot laite- ja mittausmäärineen.
 func CTInstitutions(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rows, err := db.QueryContext(context.Background(),
@@ -45,7 +52,8 @@ func CTInstitutions(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-// CTUnits returns distinct CT devices grouped by institution.
+// CTUnits palauttaa CT-laitteet ryhmiteltynä. Valinnainen ?institution= rajaa yhteen
+// instituutioon (arvo parametrisoidaan -> ei SQL-injektiota).
 func CTUnits(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		institution := r.URL.Query().Get("institution")
@@ -94,10 +102,15 @@ func CTUnits(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+// CTDeviceDetail palauttaa yhden laitteen ({station}) viimeisimmät mittaukset
+// (enintään 100, uusin ensin) laitesivua varten. hu_roi_map on JSON-sarake
+// (scanMaps parsii sen rakenteeksi).
 func CTDeviceDetail(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		station := chi.URLParam(r, "station")
 
+		// [exposure_mAs] hakasuluissa, koska sarakkeen nimessä on isoja kirjaimia
+		// (MS SQL:n kirjainkoko-herkkä tunnistin).
 		rows, err := db.QueryContext(context.Background(),
 			`SELECT TOP 100 id, instance, station_name, institution_name, manufacturer,
 			        manufacturer_model_name, study_date, content_date,
@@ -125,6 +138,8 @@ func CTDeviceDetail(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+// CTData palauttaa laitteen Catphan-metriikkojen aikasarjan (HU-arvot materiaaleittain,
+// tasaisuus, MTF, kohina, leikepaksuus) trendikuvaajia varten. Reitti: /ct/api/data/{station}.
 func CTData(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		station := chi.URLParam(r, "station")

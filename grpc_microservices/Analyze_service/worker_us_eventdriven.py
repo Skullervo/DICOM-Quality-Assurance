@@ -102,6 +102,11 @@ def load_tolerances(cur) -> dict:
 
 
 def _derive_status(v, lim) -> str:
+    # Luokittele yksittäinen mittausarvo v toleranssirajoja (lim) vasten:
+    #   fail = kovien raja-arvojen (lower/upper_limit) ulkopuolella
+    #   warn = toimenpiderajan (nominal +/- action_limit) tai varoitusrajojen ulkona
+    #   pass = rajojen sisällä
+    # Sama logiikka kuin frontendin deriveStatus -> näyttö ja hälytys täsmäävät.
     if v is None:
         return "nodata"
     lo, hi = lim.get("lower_limit"), lim.get("upper_limit")
@@ -225,6 +230,9 @@ def set_status(cur, conn, job_id, status, error=None):
 
 
 def fetch_dicom(orthanc_id):
+    # Hae DICOM-tiedosto suoraan Orthancin REST-rajapinnasta (event-driven
+    # mallissa EI käytetä Fetch Servicea). raise_for_status nostaa virheen jos
+    # haku epäonnistui -> job merkitään FAILED pääsilmukassa.
     r = requests.get(f"{ORTHANC_URL}/instances/{orthanc_id}/file", auth=ORTHANC_AUTH, timeout=60)
     r.raise_for_status()
     return r.content
@@ -315,17 +323,21 @@ def straighten_and_store(analysis, image_array, orig_ds, result):
         return None
 
 
+# Yhden varatun jobin koko käsittely: hae DICOM -> analysoi -> tallenna S3 + DB.
+# Nostaa poikkeuksen virhetilanteessa (pääsilmukka merkitsee jobin FAILED).
 def process_job(cur, conn, job):
     job_id = job["id"]
     orthanc_id = job["orthanc_id"]
-    set_status(cur, conn, job_id, "RUNNING")
+    set_status(cur, conn, job_id, "RUNNING")   # merkitse työ käynnissä olevaksi
 
+    # Hae DICOM Orthancista ja lue se pydicomilla muistipuskurista.
     dicom_bytes = io.BytesIO(fetch_dicom(orthanc_id))
     try:
         ds = pydicom.dcmread(dicom_bytes, force=True)
     except InvalidDicomError as e:
         raise RuntimeError(f"InvalidDicom: {e}") from e
 
+    # Poimi DICOM-metadatasta tallennettavat kentät (puuttuva -> oletusarvo).
     meta = {
         "InstitutionName": ds.get("InstitutionName", "Unknown"),
         "InstitutionalDepartmentName": ds.get("InstitutionalDepartmentName", "Unknown"),
@@ -339,9 +351,11 @@ def process_job(cur, conn, job):
         "DeviceSerialNumber": ds.get("DeviceSerialNumber", ""),
         "ContentTime": ds.get("ContentTime", ""),
     }
+    # Varmista modaliteetti (ingestionin pitäisi reitittää oikein, tämä on suoja).
     if str(meta["Modality"]).upper() != "US":
         raise RuntimeError(f"Not US modality: {meta['Modality']}")
 
+    # Varsinainen kuva-analyysi; mitataan kesto metriikkaa varten.
     image_array = ds.pixel_array
     t0 = time.time()
     analysis = imageQualityUS(ds, dicom_bytes, image_array, "probe-LUT.xls")
@@ -349,12 +363,13 @@ def process_job(cur, conn, job):
     processing_time = time.time() - t0
     ANALYSIS_DURATION.labels(modality="US").observe(processing_time)
 
+    # Muunna numpy-tyypit (float64/ndarray) Pythonin perustyypeiksi DB/JSON-tallennusta varten.
     jr = {
         k: (float(v) if isinstance(v, np.float64) else v.tolist() if isinstance(v, np.ndarray) else v)
         for k, v in result.items()
     }
 
-    # Renderöi + tallenna analyysikuva S3:een (hierarkkinen avain)
+    # Renderöi + tallenna analyysikuva S3:een (hierarkkinen avain qa/us/<study>/<instance>.png)
     study_key = job.get("study_instance_uid") or orthanc_id
     s3_key = f"qa/us/{study_key}/{orthanc_id}.png"
     output_path = ""
@@ -366,6 +381,8 @@ def process_job(cur, conn, job):
     # Suoristettu näyttökuva (konveksi) -> SC-DICOM Orthanciin + linkki
     straightened = straighten_and_store(analysis, image_array, ds, result)
 
+    # Tallenna analyysitulokset ultrasound-tauluun (yksi rivi per kuva). Lista-/
+    # profiilikentät serialisoidaan JSON-tekstiksi (json.dumps).
     cur.execute(
         """
         INSERT INTO ultrasound (
@@ -389,7 +406,7 @@ def process_job(cur, conn, job):
         ),
     )
     conn.commit()
-    IMAGES_PROCESSED.labels(modality="US", status="success").inc()
+    IMAGES_PROCESSED.labels(modality="US", status="success").inc()   # metriikka: onnistui
     QA_RESULTS.labels(modality="US").inc()
     # QA-verdikti toleransseja vasten -> metriikka (QA-hälytyksen lähde)
     station = str(meta["StationName"]) or "Unknown"

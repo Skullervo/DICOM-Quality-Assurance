@@ -1,3 +1,12 @@
+// =============================================================================
+// lib/qa/config.ts — Metriikoiden ja toleranssirajojen OLETUSmäärittelyt
+// =============================================================================
+// Täällä määritellään jokaiselle modaliteetille (CT/XR/US/ANGIO), mitkä QA-
+// mittarit näytetään, niiden näyttönimet, yksiköt, desimaalit ja OLETUSrajat.
+// Nämä rajat ovat alkuarvoja: tietokannan tolerance_config yliajaa ne (ks.
+// adapt.ts buildMetrics). Rajat on tarkistettava fyysikon kanssa (TODO-merkinnät).
+// =============================================================================
+
 // Per-modaliteetti metriikkakonfiguraatio (redesign-brief osiot 7 & 9).
 // Toleranssit EIVÄT ole kovakoodattuja komponentteihin — ne tulevat täältä.
 //
@@ -11,13 +20,16 @@
 import type { Metric, Modality } from './types'
 
 // Metriikan staattinen määrittely (ilman mitattua arvoa / historiaa).
+// = Metric ilman niitä kenttiä, jotka täytetään vasta mittausdatasta.
 export type MetricConfig = Omit<Metric, 'value' | 'history' | 'annotations'>
 
 // CatPhan HU-lineaarisuuden materiaalit: nominaali repon HU_NOMINAL:sta,
 // yhtenäinen tol ±40 / toimintaraja ±20 (repon huStatus). TODO: vahvista
 // materiaalikohtaiset rajat fyysikon kanssa.
-const HU_TOL = 40
-const HU_ACTION = 20
+const HU_TOL = 40      // Hyväksymisraja: poikkeama nominaalista yli ±40 HU -> fail.
+const HU_ACTION = 20   // Toimintaraja: poikkeama yli ±20 HU -> warn.
+// Apufunktio, joka tekee yhdelle CatPhan-materiaalille HU-mittarin
+// symmetrisin rajoin nominaaliarvon ympärille.
 function huMetric(id: string, label: string, nominal: number): MetricConfig {
   return {
     id,
@@ -31,6 +43,8 @@ function huMetric(id: string, label: string, nominal: number): MetricConfig {
   }
 }
 
+// CT-mittarit: ensin CatPhan HU-materiaalit (rajalliset), sitten informatiiviset
+// (uniformiteetti, MTF, kohina, leikepaksuus — näille ei vielä rajoja).
 const CT_METRICS: MetricConfig[] = [
   huMetric('hu_air', 'HU Air', -1000),
   huMetric('hu_pmp', 'HU PMP', -196),
@@ -48,6 +62,7 @@ const CT_METRICS: MetricConfig[] = [
 
 // XR (NORMI-13) — repon LIMITS. Yksipuolisia: uniformiteettipoikkeama isompi = huonompi,
 // MTF/CNR pienempi = huonompi. TODO: vahvista fyysikon kanssa.
+// Huom: upperWarn/lowerWarn antavat varoituksen ennen varsinaista hylkäysrajaa.
 const XR_METRICS: MetricConfig[] = [
   { id: 'uniformity_deviation', label: 'Uniformity — deviation', unit: '%', nominal: 0, lowerLimit: null, upperLimit: 10, upperWarn: 5, precision: 2 },
   { id: 'mtf_50_percent', label: 'MTF 50%', unit: 'lp/mm', nominal: null, lowerLimit: 1.5, upperLimit: null, lowerWarn: 1.8, precision: 2 },
@@ -80,6 +95,7 @@ const ANGIO_METRICS: MetricConfig[] = [
   { id: 'phantom_area', label: 'Phantom area', unit: 'mm²', nominal: null, lowerLimit: null, upperLimit: null, precision: 0 },
 ]
 
+// Kokoava hakutaulu: modaliteetti -> sen metriikkalista.
 export const MODALITY_METRICS: Record<Modality, MetricConfig[]> = {
   CT: CT_METRICS,
   XR: XR_METRICS,
@@ -87,11 +103,13 @@ export const MODALITY_METRICS: Record<Modality, MetricConfig[]> = {
   ANGIO: ANGIO_METRICS,
 }
 
+// Hakee yhden metriikan konfiguraation modaliteetin ja id:n perusteella.
 export function getMetricConfig(modality: Modality, id: string): MetricConfig | undefined {
   return MODALITY_METRICS[modality].find((m) => m.id === id)
 }
 
 // Yhdistä staattinen konfiguraatio + mitattu arvo + historia täydeksi Metriciksi.
+// (Levitysoperaattori ...cfg kopioi kaikki konfiguraation kentät mukaan.)
 export function configToMetric(
   cfg: MetricConfig,
   value: number | null,

@@ -1,14 +1,23 @@
+// =============================================================================
+// pages/XrayInstitutions.tsx — Röntgenlaitosten lista (/xray/institutions)
+// =============================================================================
+// Kuten USInstitutions, mutta natiiviröntgenille (NORMI-13-fantomi). Laitoksen
+// nimeä klikkaamalla poraudutaan laitoksen röntgenlaitteisiin.
+// =============================================================================
+
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api, type XrayInstitution } from '../api/client'
 import { BreadcrumbNav } from '../components/Breadcrumb'
 
 export default function XrayInstitutions() {
+  // Hae röntgenlaitokset backendiltä.
   const { data: institutions, isLoading, error } = useQuery<XrayInstitution[]>({
     queryKey: ['xray', 'institutions'],
     queryFn: api.xrayInstitutions,
   })
 
+  // Lataus- ja virhetilojen näyttö.
   if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Loading...</p>
 
   if (error) {
@@ -48,6 +57,7 @@ export default function XrayInstitutions() {
               institutions.map((inst) => (
                 <tr key={inst.name}>
                   <td>
+                    {/* Nimilinkki vie laitoksen röntgenlaitteisiin. */}
                     <Link to={`/xray/units?institution=${encodeURIComponent(inst.name)}`}>
                       {inst.name}
                     </Link>

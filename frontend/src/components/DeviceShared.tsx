@@ -1,3 +1,12 @@
+// =============================================================================
+// components/DeviceShared.tsx — Laitesivujen jaetut vakiot ja apufunktiot
+// =============================================================================
+// Kokoaa yhteen paikkaan asiat, joita kaikki laitesivut (US/XR/CT/Angio)
+// tarvitsevat: väripaletin (viittaa teeman CSS-muuttujiin), päivämäärien
+// muotoilut sekä metriikkanimien (esim. s_depth) renderöinnin alaindeksein.
+// Tämä tiedosto ei sisällä varsinaisia komponentteja — ne ovat components/qa/*.
+// =============================================================================
+
 // Laitesivujen jaetut tokenit + apurit (ei komponentteja — ks. components/qa/*).
 import type { ReactNode } from 'react'
 
@@ -35,16 +44,20 @@ export function formatDateAxis(raw: string): string {
 // jälkeinen osa alaindeksinä -> s‹depth›, U‹cov›, U‹skew›. Muut labelit (ei '_')
 // palautuvat sellaisenaan. Jaettu käyräotsikoiden ja mittausarvopaneelin kesken.
 export function renderLabel(label: string): ReactNode[] {
+  // Säännöllinen lauseke: etsii "kirjain_kirjaimet" -muotoiset kohdat (esim. s_depth).
   const re = /([A-Za-z])_([A-Za-z]+)/g
-  const parts: ReactNode[] = []
-  let last = 0
+  const parts: ReactNode[] = []   // kootaan tähän teksti- ja <sub>-palat
+  let last = 0                    // mihin asti labelia on jo käsitelty
   let m: RegExpExecArray | null
-  let k = 0
+  let k = 0                       // juokseva avain React-elementeille
   while ((m = re.exec(label)) !== null) {
+    // Lisää osumaa edeltävä tavallinen teksti sellaisenaan.
     if (m.index > last) parts.push(label.slice(last, m.index))
+    // Osuma: etukirjain normaalisti, '_':n jälkeinen osa alaindeksinä (<sub>).
     parts.push(<span key={k++}>{m[1]}<sub>{m[2]}</sub></span>)
     last = m.index + m[0].length
   }
+  // Lisää viimeisen osuman jälkeen jäävä lopputeksti.
   if (last < label.length) parts.push(label.slice(last))
   return parts
 }

@@ -1,3 +1,13 @@
+// =============================================================================
+// components/qa/PngViewer.tsx — Valmiiden analyysi-PNG-kuvien katselin
+// =============================================================================
+// Näyttää palvelimen jo renderöimän PNG-kuvan (esim. MTF-käyrä, profiili,
+// ROI-kartta) ja tarjoaa zoomin (rulla), panoroinnin (raahaus) ja valinnaisen
+// kirkkaus/kontrasti-säädön. Säätö on pelkkä CSS-filtteri, EI aito HU-ikkunointi
+// (kuvat ovat tavallisia 8-bittisiä PNG:itä). Kaaviokuville annetaan
+// adjustable=false, jolloin kirkkaus/kontrasti-liukuja ei näytetä.
+// =============================================================================
+
 // Esirenderöityjen analyysikuvien katselin: zoom/pan + valinnainen harmaasävysäätö
 // (kirkkaus/kontrasti CSS-filtterillä — kuvat ovat 8-bit PNG:itä, ei aitoa HU-W/L:ää).
 // Kaaviokuville (scatter/käyrä/profiili) adjustable=false -> ei liukuja.
@@ -8,12 +18,12 @@ import { C } from '../DeviceShared'
 const sliderLabel: CSSProperties = { fontSize: 9, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--text-faint)' }
 
 export function PngViewer({ src, alt, adjustable = true }: { src: string; alt: string; adjustable?: boolean }) {
-  const [brightness, setBrightness] = useState(100)
-  const [contrast, setContrast] = useState(100)
-  const [zoom, setZoom] = useState(1)
-  const [pan, setPan] = useState({ x: 0, y: 0 })
-  const [dragging, setDragging] = useState(false)
-  const drag = useRef<{ x: number; y: number } | null>(null)
+  const [brightness, setBrightness] = useState(100)  // kirkkaus-% (CSS-filtteri)
+  const [contrast, setContrast] = useState(100)      // kontrasti-% (CSS-filtteri)
+  const [zoom, setZoom] = useState(1)                // zoom-kerroin
+  const [pan, setPan] = useState({ x: 0, y: 0 })     // panorointisiirtymä
+  const [dragging, setDragging] = useState(false)    // raahataanko parhaillaan
+  const drag = useRef<{ x: number; y: number } | null>(null)  // raahauksen aloituskohta
   const containerRef = useRef<HTMLDivElement>(null)
   const zoomRef = useRef(1)
 
@@ -26,12 +36,13 @@ export function PngViewer({ src, alt, adjustable = true }: { src: string; alt: s
     return { x: Math.max(-mx, Math.min(mx, px)), y: Math.max(-my, Math.min(my, py)) }
   }
 
+  // Rullazoomaus (ei-passiivinen kuuntelija, jotta sivu ei vieri kuvan päällä).
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
     const handler = (e: WheelEvent) => {
       e.preventDefault()
-      const nz = Math.min(6, Math.max(1, zoomRef.current - e.deltaY * 0.0015))
+      const nz = Math.min(6, Math.max(1, zoomRef.current - e.deltaY * 0.0015))  // rajaa 1..6
       zoomRef.current = nz
       setZoom(nz)
       setPan((p) => clampPan(p.x, p.y, nz))
@@ -40,6 +51,7 @@ export function PngViewer({ src, alt, adjustable = true }: { src: string; alt: s
     return () => el.removeEventListener('wheel', handler)
   }, [])
 
+  // Raahauksen hiiritapahtumat (panorointi) ja nollaus — samaa logiikkaa kuin ImageViewerissä.
   const onDown = (e: React.MouseEvent) => { drag.current = { x: e.clientX - pan.x, y: e.clientY - pan.y }; setDragging(true) }
   const onMove = (e: React.MouseEvent) => {
     if (!drag.current) return
@@ -48,6 +60,7 @@ export function PngViewer({ src, alt, adjustable = true }: { src: string; alt: s
   const endDrag = () => { drag.current = null; setDragging(false) }
   const reset = () => { setZoom(1); setPan({ x: 0, y: 0 }); zoomRef.current = 1 }
 
+  // CSS-filtteri kirkkaudelle/kontrastille; ei lainkaan jos säätö pois käytöstä.
   const filter = adjustable ? `brightness(${brightness}%) contrast(${contrast}%)` : undefined
 
   return (
@@ -57,6 +70,7 @@ export function PngViewer({ src, alt, adjustable = true }: { src: string; alt: s
         onMouseDown={onDown} onMouseMove={onMove} onMouseUp={endDrag} onMouseLeave={endDrag}
         style={{ position: 'relative', background: '#000', borderRadius: 6, aspectRatio: '1', overflow: 'hidden', cursor: dragging ? 'grabbing' : 'grab' }}
       >
+        {/* Jos kuva ei lataudu, häivytetään se näkyvistä (opacity 0). */}
         <img
           src={src} alt={alt} draggable={false}
           onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0' }}
@@ -77,6 +91,7 @@ export function PngViewer({ src, alt, adjustable = true }: { src: string; alt: s
         )}
       </div>
 
+      {/* Kirkkaus/kontrasti-liukurit vain kun säätö on sallittu (esim. kuvat, ei kaaviot). */}
       {adjustable && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <div>

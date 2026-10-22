@@ -2,6 +2,13 @@
 -- Korvaa Django-migraatiot. Aja: sqlcmd -d QA-results -i schema_mssql.sql
 -- Django/auth-taulut jätetty pois (poistetaan).
 
+-- ======================================================================
+-- ct_analysis: CT-fantomianalyysin (Catphan) tulostaulu.
+-- Yksi rivi per analysoitu CT-sarja. Sisältää DICOM-metatiedot, kuvausarvot
+-- (kVp, mAs, CTDIvol, DLP), Catphan-moduulien tulokset (HU-lineaarisuus,
+-- tasaisuus, MTF, matalakontrasti) sekä analyysikuvat VARBINARY-blobeina.
+-- IF OBJECT_ID ... IS NULL = luodaan vain jos taulua ei vielä ole (idempotentti).
+-- ======================================================================
 IF OBJECT_ID('[ct_analysis]','U') IS NULL
 CREATE TABLE [ct_analysis] (
     [id] INT IDENTITY(1,1) NOT NULL,
@@ -79,6 +86,12 @@ CREATE TABLE [ct_analysis] (
     CONSTRAINT [PK_ct_analysis] PRIMARY KEY ([id])
 );
 
+-- ======================================================================
+-- platform_* -taulut: hallinta-/platform-sovelluksen tiedot (palvelut, pinot,
+-- projektit, kerrokset ja niiden väliset yhteydet topologiakuvaa varten).
+-- Nämä EIVÄT liity QA-mittauksiin, vaan ne kuvaavat järjestelmän arkkitehtuuria
+-- hallintanäkymässä. Siirretty tänne samaan kantaan muiden taulujen kanssa.
+-- ======================================================================
 IF OBJECT_ID('[platform_connections]','U') IS NULL
 CREATE TABLE [platform_connections] (
     [id] BIGINT NOT NULL,
@@ -208,6 +221,13 @@ CREATE TABLE [platform_stack_services] (
     [order_in_layer] INT NOT NULL
 );
 
+-- ======================================================================
+-- ultrasound: ultraäänianalyysin tulostaulu. Yksi rivi per analysoitu US-kuva.
+-- HUOM: sarakenimet ovat historiallisia pienaakkosnimiä (stationname, contentdate,
+-- tranducertype) — säilytetään sellaisenaan DB-yhteensopivuuden vuoksi, ei muuteta.
+-- QA-metriikat: s_depth (syvyys), u_cov/u_skew/u_low (tasaisuus), horiz_prof/vert_prof
+-- (profiilit). straightened_instance = linkki suoristettuun kuvaan Orthancissa.
+-- ======================================================================
 IF OBJECT_ID('[ultrasound]','U') IS NULL
 CREATE TABLE [ultrasound] (
     [id] INT IDENTITY(1,1) NOT NULL,
@@ -248,6 +268,11 @@ CREATE TABLE [ultrasound] (
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID('[ultrasound]') AND name='IX_ultrasound_instance')
     CREATE INDEX IX_ultrasound_instance ON [ultrasound]([instance]);
 
+-- ======================================================================
+-- xray_analysis: röntgen-fantomianalyysin (NORMI-13) tulostaulu. Yksi rivi
+-- per analysoitu röntgensarja. Metriikat: uniformity (tasaisuus), cu_* (kupariastelma),
+-- lc_* (matalakontrasti), mtf_* (erottelukyky). Analyysikuvat VARBINARY-blobeina.
+-- ======================================================================
 IF OBJECT_ID('[xray_analysis]','U') IS NULL
 CREATE TABLE [xray_analysis] (
     [id] INT IDENTITY(1,1) NOT NULL,
@@ -321,6 +346,8 @@ CREATE TABLE [xray_analysis] (
 );
 
 -- processed_at-defaultit (idempotentti)
+-- Analyysipalvelut eivät aseta processed_at-arvoa US/XR-INSERTeissä, joten kanta
+-- täyttää sen automaattisesti nykyhetkellä (SYSDATETIME). Lisätään vain jos puuttuu.
 IF NOT EXISTS (SELECT 1 FROM sys.default_constraints WHERE name='DF_us_pa')
     ALTER TABLE [ultrasound] ADD CONSTRAINT [DF_us_pa] DEFAULT SYSDATETIMEOFFSET() FOR [processed_at];
 IF NOT EXISTS (SELECT 1 FROM sys.default_constraints WHERE name='DF_xr_pa')

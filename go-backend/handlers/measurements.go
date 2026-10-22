@@ -1,3 +1,11 @@
+// handlers/measurements.go: Mittaukset-näkymän käsittelijät (Orthanc + analyysitila).
+//
+// Ongelma: epäonnistuneet analyysit EIVÄT jää tietokantaan (vain logataan), joten
+// pelkkä analyysitaulun luku ei kertoisi epäonnistumisista. Ratkaisu: listataan
+// modaliteetin KAIKKI mittaukset Orthancista ja ristiinviitataan analyysitauluun ->
+// jokaiselle riville tila "analyzed" (rivi löytyy) tai "failed" (ei riviä). Jos
+// analysis_failures-taulu on olemassa, failed-riveille liitetään syy + traceback.
+// Lisäksi MeasurementImage tarjoilee esikatselukuvan orthanc-id:llä.
 package handlers
 
 import (
@@ -37,12 +45,17 @@ func MeasurementImage(w http.ResponseWriter, r *http.Request) {
 // Epäonnistuneet analyysit eivät jää DB:hen (vain logataan), joten "kaikki
 // mittaukset" tulee Orthancista ja tila ristiinviitataan analyysitauluun.
 
+// orthancFindResult: yksi osuma Orthancin /tools/find -hausta (id + pyydetyt DICOM-tagit).
 type orthancFindResult struct {
 	ID            string            `json:"ID"`
 	RequestedTags map[string]string `json:"RequestedTags"`
 }
 
+// orthancFind hakee Orthancista kaikki annetun modaliteetin kohteet halutulla tasolla
+// (Series/Instance) ja pyytää mukaan näyttöön tarvittavat DICOM-tagit.
 func orthancFind(level, modality string) ([]orthancFindResult, error) {
+	// Rakennetaan /tools/find -kyselyrunko: suodatetaan modaliteetilla, laajennetaan
+	// (Expand) täysiksi tietueiksi ja pyydetään tarvittavat tagit mukaan.
 	body, _ := json.Marshal(map[string]interface{}{
 		"Level":         level,
 		"Query":         map[string]string{"Modality": modality},
@@ -69,6 +82,7 @@ func orthancFind(level, modality string) ([]orthancFindResult, error) {
 	return out, nil
 }
 
+// measurement: yksi rivi Mittaukset-näkymässä (yhdistetty Orthanc-metatieto + analyysitila).
 type measurement struct {
 	Instance          string `json:"instance"` // DB-avain ({series}_0 CT/XR, orthanc-id US)
 	OrthancID         string `json:"orthanc_id"`

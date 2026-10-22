@@ -14,6 +14,9 @@ import (
 // rajoille; frontend yhdistää nämä config.ts:n metriikkamäärittelyihin ja piirtää
 // trendikuvaajien rajaviivat näistä. Seed alustaa taulun nykyisistä config.ts-arvoista.
 
+// Yhden metriikan raja-asetukset. Osoitin (*float64) jotta puuttuva raja = nil = NULL
+// (esim. yksipuolisella metriikalla vain alaraja). nominal=tavoite, lower/upper_limit=
+// fail-rajat, lower/upper_warn=varoitusrajat, action_limit=CT:n poikkeamaraja.
 type tolerance struct {
 	Modality    string   `json:"modality"`
 	MetricID    string   `json:"metric_id"`

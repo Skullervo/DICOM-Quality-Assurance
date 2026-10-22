@@ -1,3 +1,10 @@
+// =============================================================================
+// pages/Laitteet.tsx — Laitteet-aloitussivu (/laitteet)
+// =============================================================================
+// Sama korttiruudukko kuin Modaliteetit-sivulla, mutta kortit vievät kunkin
+// modaliteetin LAITETAULUKKOON (vain laitteet, joilla on onnistuneita analyysejä).
+// =============================================================================
+
 // Laitteet-aloitussivu: sama korttinäkymä kuin Modaliteetit, mutta kortit
 // ohjaavat kunkin modaliteetin laitetaulukkoon (laitteet joilla on analyysejä).
 import { Link } from 'react-router-dom'

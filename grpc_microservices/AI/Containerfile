@@ -1,15 +1,21 @@
+# AI-palvelun kontti: OpenAI GPT -integraatio QA-raporttien tekstintuotantoon
+# (FastAPI, portti 8000). Ei tarvitse järjestelmäkirjastoja eikä .proto-käännöstä.
 FROM python:3.12-slim
 WORKDIR /app
 
+# Ei-root-käyttäjä (rootless Podman).
 RUN adduser --disabled-password --gecos '' --uid 1000 appuser
 
+# Asennetaan Python-riippuvuudet.
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Kopioidaan palvelukoodi (yksi tiedosto).
 COPY gpt_api2.py .
 
 USER appuser
 
 EXPOSE 8000
 
+# Käynnistä FastAPI uvicornilla.
 CMD ["uvicorn", "gpt_api2:app", "--host", "0.0.0.0", "--port", "8000"]

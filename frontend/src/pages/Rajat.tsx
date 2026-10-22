@@ -1,3 +1,13 @@
+// =============================================================================
+// pages/Rajat.tsx — Hyväksyttävyysrajojen (toleranssien) muokkaussivu (/rajat)
+// =============================================================================
+// Modaliteettivälilehdet (US/XR/CT/Angio); kunkin metriikan rajat muokattavissa
+// rivitasolla: nominaali, ala-/yläraja, toimintaraja ja varoitusrajat. Tallennus
+// (api.updateTolerance -> PUT -> DB) ja sen jälkeen välimuistin mitätöinti
+// (['tolerances']) päivittää rajat heti myös trendikaavioihin ja laitesivuille.
+// Pohjana näytetään config.ts:n metriikkalista; DB:n arvot täyttävät solut.
+// =============================================================================
+
 // Hyväksyttävyysrajojen muokkaussivu. Modaliteettivälilehdet; kunkin metriikan
 // rajat (nominaali, ala-/yläraja, toimintaraja, varoitusrajat) muokattavissa.
 // Tallennus -> PUT -> DB -> invalidointi ['tolerances'] -> trendikuvaajien
@@ -10,6 +20,7 @@ import { MODALITY_METRICS } from '../lib/qa/config'
 import type { Modality } from '../lib/qa/types'
 import { BreadcrumbNav } from '../components/Breadcrumb'
 
+// Modaliteettivälilehdet (tunnus + näyttönimi).
 const MODS: { key: Modality; label: string }[] = [
   { key: 'US', label: 'Ultrasound' },
   { key: 'XR', label: 'Radiography' },
@@ -17,6 +28,7 @@ const MODS: { key: Modality; label: string }[] = [
   { key: 'ANGIO', label: 'Angiography' },
 ]
 
+// Muokattavat rajakentät (taulukon sarakkeet + lomakkeen kentät).
 const FIELDS = [
   { key: 'nominal', label: 'Nominal' },
   { key: 'lower_limit', label: 'Lower limit' },
@@ -25,8 +37,8 @@ const FIELDS = [
   { key: 'lower_warn', label: 'Lower warning' },
   { key: 'upper_warn', label: 'Upper warning' },
 ] as const
-type FieldKey = typeof FIELDS[number]['key']
-type Form = Record<FieldKey, string>
+type FieldKey = typeof FIELDS[number]['key']  // yksi rajakentän avain
+type Form = Record<FieldKey, string>          // lomake pitää arvot merkkijonoina (syötekentät)
 const emptyForm: Form = { nominal: '', lower_limit: '', upper_limit: '', action_limit: '', lower_warn: '', upper_warn: '' }
 
 const inp: CSSProperties = {
@@ -45,28 +57,34 @@ const tabBtn = (active: boolean): CSSProperties => ({
   borderBottom: active ? '2px solid var(--info)' : '2px solid transparent', marginBottom: -1,
 })
 
+// Muuntaa syötetyn tekstin numeroksi tai nulliksi (tyhjä = ei rajaa; pilkku -> piste).
 const numOrNull = (s: string): number | null => {
   const t = s.trim()
   if (t === '') return null
   const n = Number(t.replace(',', '.'))
   return Number.isFinite(n) ? n : null
 }
+// Näyttömuoto: null/undefined -> viiva, muuten luku tekstinä.
 const fmt = (v: number | null | undefined) => (v == null ? '—' : String(v))
 
 export default function Rajat() {
   const qc = useQueryClient()
-  const { data: tolerances, isLoading } = useTolerances()
-  const [mod, setMod] = useState<Modality>('CT')
-  const [editing, setEditing] = useState<string | null>(null)
+  const { data: tolerances, isLoading } = useTolerances()  // DB:n toleranssit
+  const [mod, setMod] = useState<Modality>('CT')           // valittu modaliteetti (välilehti)
+  const [editing, setEditing] = useState<string | null>(null)  // muokkauksessa oleva metriikka-id
   const [form, setForm] = useState<Form>(emptyForm)
 
+  // Tallennus (PUT): päivittää valitun modaliteetin yhden metriikan rajat.
   const mutation = useMutation({
     mutationFn: (vars: { metric: string; data: ToleranceUpdate }) => api.updateTolerance(mod, vars.metric, vars.data),
+    // Onnistuttua sulje muokkaus ja mitätöi toleranssivälimuisti -> kaikki näkymät päivittyvät.
     onSuccess: () => { setEditing(null); qc.invalidateQueries({ queryKey: ['tolerances'] }) },
   })
 
+  // Etsii yhden metriikan tallennetut rajat valitulle modaliteetille.
   const tolFor = (id: string) => tolerances?.find((t) => t.modality === mod && t.metric_id === id)
 
+  // Aloita muokkaus: täytä lomake DB:n nykyarvoilla (tyhjä jos arvoa ei ole).
   const startEdit = (id: string) => {
     const t = tolFor(id)
     setEditing(id)
@@ -79,7 +97,9 @@ export default function Rajat() {
       upper_warn: t?.upper_warn != null ? String(t.upper_warn) : '',
     })
   }
+  // Yleispäivittäjä yhdelle lomakekentälle.
   const upd = (k: FieldKey) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }))
+  // Tallenna: muunna tekstikentät numeroiksi/nulleiksi ja lähetä.
   const save = (id: string) => mutation.mutate({
     metric: id,
     data: {
@@ -126,14 +146,16 @@ export default function Rajat() {
               </tr>
             </thead>
             <tbody>
+              {/* Rivi per metriikka (config.ts:n lista); solut täytetään DB-arvoilla tai muokkauskentillä. */}
               {MODALITY_METRICS[mod].map((cfg) => {
-                const t = tolFor(cfg.id)
-                const isEd = editing === cfg.id
+                const t = tolFor(cfg.id)           // tämän metriikan DB-rajat (tai undefined)
+                const isEd = editing === cfg.id    // onko rivi muokkaustilassa
                 return (
                   <tr key={cfg.id}>
                     <td>
                       {cfg.label}{cfg.unit ? <span style={{ color: 'var(--text-faint)' }}> [{cfg.unit}]</span> : null}
                     </td>
+                    {/* Jokaiselle rajakentälle solu: muokkaustilassa syöte, muuten DB-arvo. */}
                     {FIELDS.map((f) => (
                       <td key={f.key} className="num" style={{ textAlign: 'right' }}>
                         {isEd

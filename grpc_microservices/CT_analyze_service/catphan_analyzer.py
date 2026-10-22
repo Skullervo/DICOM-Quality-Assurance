@@ -7,6 +7,17 @@ MTF:n (CTP528) ja matalan kontrastin (CTP515).
 Käsittelee automaattisesti:
 - Fantomi täyttää koko FOV:n (clear_borders=False)
 - Osittainen skannaus (moduulit, jotka ovat skannausalueen ulkopuolella)
+
+ROOLI PUTKESSA: tätä luokkaa (CatphanAnalyzer) kutsuu ct_analyze_service.py sekä
+event-worker. Se saa polun DICOM-kansioon (yksi CT-sarja leikkeinä), ajaa pylinac-
+analyysin ja palauttaa tulokset + PNG-kuvat + HU-ROI-kartan sanakirjana.
+
+CATPHAN-MODUULIT (pylinacin nimeämänä):
+  CTP404 = HU-lineaarisuus (materiaalit: ilma, PMP, LDPE, Poly, Acryl, Delrin, Teflon)
+           + leikepaksuuden mittaus. Tämä on origo, josta muut moduulit mitataan.
+  CTP486 = uniformiteetti / kohina (5 ROI:ta: keskus + 4 reunaa)
+  CTP528 = MTF (viivaparit, erotuskyky)
+  CTP515 = matala kontrasti (CNR, näkyvyys)
 """
 
 import json
@@ -14,15 +25,18 @@ import io
 import logging
 from pathlib import Path
 
+# Headless-renderöinti: Agg-tausta pitää asettaa ENNEN pyplotin käyttöä (ei näyttöä).
 import matplotlib
 matplotlib.use('Agg')
 
 from pylinac import CatPhan504, CatPhan600
-from pylinac.ct import z_position
+from pylinac.ct import z_position  # apu: leikkeen z-sijainti (mm) metadatasta
 
 logger = logging.getLogger(__name__)
 
-# Kaikki tuetut CatPhan-mallit moduulioffseteineen
+# Tuetut CatPhan-mallit. TÄRKEÄ ERO: malleilla on ERI moduulioffsetit (etäisyys
+# origosta mm). Esim. CTP528 on 504:ssä +30 mm, 600:ssa -70 mm origosta. Siksi
+# väärä malli johtaa siihen, että MTF jää analysoimatta -> mallintunnistus tärkeä.
 CATPHAN_MODELS = {
     'CatPhan504': CatPhan504,
     'CatPhan600': CatPhan600,
@@ -38,19 +52,24 @@ def _detect_catphan_model(dicom_folder):
     Returns:
         str: Paras malli ('CatPhan504' tai 'CatPhan600'), tai None jos ei tunnistettu.
     """
-    # Käytetään CatPhan504:ää origin-hakuun (CTP404 on yhteinen kaikille malleille)
+    # Käytetään CatPhan504:ää origon hakuun (CTP404-moduuli on yhteinen kaikille
+    # malleille, joten origo löytyy samalla tavalla mallista riippumatta).
     try:
         cat = CatPhan504(dicom_folder)
         _apply_ct_fixes(cat)
+        # Nollataan käyttäjäsäädöt (siirto/kierto/koko), jotta origon haku on
+        # deterministinen eikä nojaa oletussäätöihin.
         cat.x_adjustment = 0
         cat.y_adjustment = 0
         cat.angle_adjustment = 0
         cat.roi_size_factor = 1
         cat.scaling_factor = 1
 
+        # Etsitään fantomin akseli ja origo-leike (CTP404:n sijainti pinossa).
         cat._phantom_center_func = cat.find_phantom_axis()
         origin = cat.find_origin_slice()
 
+        # Lasketaan skannauksen z-alue (min..max mm) ja origon absoluuttinen z.
         z_positions = [z_position(m) for m in cat.dicom_stack.metadatas]
         min_z = min(z_positions)
         max_z = max(z_positions)
@@ -59,7 +78,8 @@ def _detect_catphan_model(dicom_folder):
         logger.warning("Could not detect CatPhan model: %s", e)
         return None
 
-    # Tarkista jokaisen mallin moduulien kattavuus
+    # Tarkistetaan kummankin mallin kohdalla, kuinka moni sen moduuleista osuu
+    # skannausalueelle (origon z + moduulin offset mahtuu min_z..max_z väliin).
     best_model = None
     best_count = -1
 
@@ -76,8 +96,10 @@ def _detect_catphan_model(dicom_folder):
             model_name, covered, total, origin_z, min_z, max_z
         )
 
-        # Valitaan malli jolla kaikki moduulit kattavat;
-        # jos useita täydellisiä, valitaan se jossa eniten moduuleja
+        # Valintalogiikka: suositaan mallia, jonka KAIKKI moduulit kattavat
+        # skannaus (covered == total). Jos useampi täydellinen, valitaan se jossa
+        # on eniten moduuleja. Jos mikään ei ole täydellinen, otetaan varalta malli
+        # jonka kattavuus on paras (best_model vielä None).
         if covered == total and total > best_count:
             best_model = model_name
             best_count = total
@@ -94,6 +116,12 @@ def _build_partial_catphan_class(base_class, dicom_folder):
 
     Jos skannaus ei kata kaikkia moduuleja (esim. CTP528 on FOV:n ulkopuolella),
     tämä luo räätälöidyn luokan jossa vain kattavat moduulit ovat mukana.
+
+    MIKSI: pylinac nostaa ValueError("physical scan extent does not match"), jos
+    jokin moduuli (esim. CTP528 +30 mm origosta) jää skannausalueen ulkopuolelle.
+    Tämä on yleistä osittaisissa kliinisissä skannauksissa. Ratkaisu: rakennetaan
+    DYNAAMISESTI alaluokka, jonka 'modules'-sanakirjaan jätetään vain ne moduulit,
+    jotka mahtuvat z-alueelle -> analyysi onnistuu ilman puuttuvia moduuleja.
     """
     # Alustetaan väliaikainen instanssi jotta saadaan origin_slice
     cat = base_class(dicom_folder)
@@ -113,7 +141,8 @@ def _build_partial_catphan_class(base_class, dicom_folder):
     max_z = max(z_positions)
     abs_origin_z = cat.dicom_stack[origin].z_position
 
-    # Tarkista mitkä moduulit ovat skannauksen sisällä
+    # Jaetaan moduulit kahteen: skannauksen SISÄLLÄ olevat (included) ja sen
+    # ULKOPUOLELLE jäävät (excluded). Vain included otetaan uuteen luokkaan.
     included_modules = {}
     excluded = []
     for mod, config in base_class.modules.items():
@@ -132,7 +161,9 @@ def _build_partial_catphan_class(base_class, dicom_folder):
     if not excluded:
         return None  # Kaikki moduulit kattavat, ei tarvetta räätälöidylle luokalle
 
-    # Luo dynaamisesti alaluokka rajatulla moduulilistalla
+    # type(nimi, (kantaluokka,), {attribuutit}) luo luokan AJONAIKAISESTI. Tässä
+    # peritään alkuperäinen CatPhan-luokka mutta korvataan 'modules' karsitulla
+    # listalla -> pylinac analysoi vain mahtuvat moduulit.
     partial_class = type(
         f"Partial{base_class.__name__}",
         (base_class,),
@@ -145,7 +176,14 @@ def _apply_ct_fixes(catphan):
     """Sovella CT-skannerispesifisiä korjauksia pylinac-instanssiin.
 
     - clear_borders=False kun fantomi täyttää >85% FOV:sta
+
+    MIKSI: pylinacin oletus clear_borders=True poistaa kuvan reunoihin osuvat
+    alueet. Kliinisillä CT-skannereilla fantomi (esim. 202 mm) täyttää lähes koko
+    kuva-alan (esim. 205 mm FOV), jolloin clear_borders poistaisi itse fantomin ->
+    analyysi epäonnistuisi. Siksi reunansiivous kytketään pois, kun fantomin
+    halkaisija on yli 85 % kuva-alasta.
     """
+    # FOV (mm) = sarakkeiden lkm * pikselikoko; fantomin halkaisija = 2 * säde.
     fov_mm = catphan.dicom_stack.metadata.Columns * catphan.mm_per_pixel
     phantom_diameter_mm = 2 * catphan.catphan_radius_mm
     if phantom_diameter_mm / fov_mm > 0.85:
@@ -170,6 +208,8 @@ class CatphanAnalyzer:
         """
         self.dicom_folder = str(dicom_folder)
 
+        # 'auto' = yritä tunnistaa malli automaattisesti z-positioiden perusteella.
+        # Jos tunnistus epäonnistuu, oletetaan CatPhan504 (yleisin).
         if phantom_model == 'auto':
             detected = _detect_catphan_model(dicom_folder)
             if detected is None:
@@ -197,6 +237,7 @@ class CatphanAnalyzer:
         """
         logger.info("Starting %s analysis on %s", self.phantom_model, self.dicom_folder)
 
+        # 1. YRITYS: täysi analyysi kaikilla moduuleilla (FOV-korjaus sovellettu).
         catphan = self.phantom_class(self.dicom_folder)
         _apply_ct_fixes(catphan)
 
@@ -208,17 +249,20 @@ class CatphanAnalyzer:
                 low_contrast_tolerance=low_contrast_tolerance,
             )
         except ValueError as e:
+            # Käsitellään VAIN "physical scan extent" -virhe (osittainen skannaus).
+            # Muut ValueError-virheet nostetaan edelleen (ei piiloteta oikeita bugeja).
             if "physical scan extent" in str(e):
                 logger.warning(
                     "Full %s analysis failed (scan extent): %s. "
                     "Trying with partial module set.",
                     self.phantom_model, e
                 )
+                # 2. YRITYS: rakennetaan karsittu luokka vain mahtuvilla moduuleilla.
                 partial_class = _build_partial_catphan_class(
                     self.phantom_class, self.dicom_folder
                 )
                 if partial_class is None:
-                    raise
+                    raise  # ei karsittavaa -> ei voida korjata, nostetaan virhe
 
                 catphan = partial_class(self.dicom_folder)
                 _apply_ct_fixes(catphan)
@@ -232,6 +276,8 @@ class CatphanAnalyzer:
             else:
                 raise
 
+        # Kerätään tulokset: metriikat (dict), analyysikuvat (PNG-tavut) ja HU-ROI-
+        # kartta (interaktiivista overlayta varten).
         results = catphan.results_data(as_dict=True)
         images = self._capture_images(catphan)
         hu_roi_map = self._extract_hu_rois(catphan)
@@ -266,7 +312,7 @@ class CatphanAnalyzer:
         import matplotlib.pyplot as plt
         import numpy as np
 
-        images = {}
+        images = {}  # kerätään nimi -> PNG-tavut; palautetaan lopuksi
 
         # --- CTP404: kaksi erillistä kuvaa ---
         # 1) Vain HU materiaali-ROI:t (HU-lineaarisuusvälilehti)
@@ -298,6 +344,9 @@ class CatphanAnalyzer:
         try:
             ctp404 = catphan.ctp404
             arr = ctp404.image.array.astype(float)
+            # Ikkunointi (window min/max) määrää harmaasävyalueen. Jos pylinac ei
+            # anna ikkuna-arvoja, käytetään 1.–99. prosenttipisteitä (poistaa
+            # ääripikselit). Normalisoidaan arvot välille 0..1; +1e-9 estää nollajaon.
             wmin = getattr(ctp404, 'window_min', None)
             wmax = getattr(ctp404, 'window_max', None)
             if wmin is None or wmax is None:
@@ -337,6 +386,9 @@ class CatphanAnalyzer:
             logger.warning("Could not generate thickness image: %s", e)
 
         # --- Muut leikekuvat (uniformiteetti, MTF, matala kontrasti) ---
+        # pylinacin plot_analyzed_subimage piirtää valmiiksi oikean moduulin
+        # leikkeen ROI-merkintöineen. Avaimet: 'un'=uniformiteetti, 'sp'=MTF
+        # (spatial), 'lc'=low contrast. Tallennetaan mustalla taustalla.
         slice_map = {
             'uniformity': 'un',
             'mtf': 'sp',
@@ -361,6 +413,9 @@ class CatphanAnalyzer:
                 logger.warning("Could not generate %s image: %s", image_key, e)
 
         # --- Analyysikuvaajat — tumma teema ---
+        # Nämä ovat kaavioita (ei leikekuvia): HU-lineaarisuus-scatter, MTF-käyrä,
+        # uniformiteettiprofiilit ja sivunäkymä. Piirretään dark_background-teemalla
+        # ja asetetaan taustaväri käyttöliittymän sävyyn (#1e2535).
         chart_map = {
             'hu_linearity_chart': 'lin',
             'mtf_chart': 'mtf',
@@ -395,6 +450,8 @@ class CatphanAnalyzer:
         mittoihin osuu 'hu_linearity_clean'-leikkeeseen (plt.imsave 1:1).
         Palauttaa listan {id, name, x, y, r} — id vastaa metriikka-id:tä (hu_air ...).
         """
+        # Materiaalin nimi -> metriikka-id (sama id jolla HU-arvo tallennetaan DB:hen),
+        # jotta käyttöliittymä osaa yhdistää ROI-ympyrän oikeaan mittausarvoon.
         name_to_id = {
             'Air': 'hu_air', 'PMP': 'hu_pmp', 'LDPE': 'hu_ldpe', 'Poly': 'hu_poly',
             'Acrylic': 'hu_acrylic', 'Delrin': 'hu_delrin', 'Teflon': 'hu_teflon',
@@ -402,6 +459,8 @@ class CatphanAnalyzer:
         rois = []
         try:
             ctp404 = catphan.ctp404
+            # h, w = kuvan korkeus/leveys. Koordinaatit normalisoidaan jakamalla
+            # näillä -> arvot 0..1, jotka osuvat 'hu_linearity_clean'-leikkeeseen.
             h, w = ctp404.image.array.shape[:2]
             for name, roi in ctp404.rois.items():
                 center = getattr(roi, 'center', None)
@@ -441,7 +500,11 @@ class CatphanAnalyzer:
 
         metrics = {}
 
-        # CTP404 — HU-lineaarisuus
+        # CTP404 — HU-lineaarisuus.
+        # HUOM None-turvallisuus: käytetään 'results.get(x) or {}' eikä
+        # 'results.get(x, {})'. Osittaisessa analyysissä pylinac voi palauttaa
+        # NIMENOMAAN None (ei puuttuva avain), jolloin oletusarvo {} ei auttaisi.
+        # 'or {}' korvaa myös None:n tyhjällä sanakirjalla -> .get ei kaadu.
         ctp404 = results.get('ctp404') or {}
         hu_rois = ctp404.get('hu_rois') or {}
 
@@ -477,11 +540,13 @@ class CatphanAnalyzer:
         center_std = uniformity_rois.get('Center', {}).get('stdev')
         metrics['noise_hu_std'] = safe_float(center_std)
 
-        # CTP528 — MTF (voi puuttua osittaisessa analyysissä)
+        # CTP528 — MTF. Voi puuttua kokonaan osittaisessa analyysissä (jos CTP528
+        # oli skannausalueen ulkopuolella) -> 'or {}' suojaa None-tapaukselta.
         ctp528 = results.get('ctp528') or {}
         mtf_values = ctp528.get('mtf_lp_mm', {})
 
-        # pylinac palauttaa MTF-avaimet merkkijonoina ("50", "10")
+        # MTF-avaimet voivat olla str ("50") tai int (50) pylinac-versiosta riippuen
+        # -> kokeillaan molempia. "50 %" = erotuskyky (lp/mm) 50 % MTF:n kohdalla.
         metrics['mtf_50_percent'] = safe_float(mtf_values.get('50') or mtf_values.get(50))
         metrics['mtf_10_percent'] = safe_float(mtf_values.get('10') or mtf_values.get(10))
         metrics['mtf_data'] = json.dumps(mtf_values) if mtf_values else None

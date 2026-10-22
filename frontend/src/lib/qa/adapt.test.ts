@@ -1,3 +1,11 @@
+// =============================================================================
+// lib/qa/adapt.test.ts — Yksikkötestit adapt.ts:lle (Vitest)
+// =============================================================================
+// Varmistaa, että backend-rivien muunnos Metric-listaksi toimii oikein:
+// lukujen jäsennys, DICOM-päivän muotoilu ja metriikoiden/historian rakennus.
+// Nämä testit ajetaan komennolla `npm test` (ei vaikuta tuotantoon).
+// =============================================================================
+
 import { describe, it, expect } from 'vitest'
 import { buildMetrics, numOrNull, formatDay } from './adapt'
 import { deriveStatus } from './status'

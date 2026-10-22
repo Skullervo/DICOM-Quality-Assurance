@@ -1,3 +1,9 @@
+// handlers/hallinta.go: hallinta-alustan (platform) HTTP-käsittelijät.
+//
+// Hallinta on yleiskäyttöinen palvelunhallinta-alusta (EI AutoQAD-spesifi), joka
+// visualisoi minkä tahansa konttipalvelun topologian. Nämä handlerit lukevat
+// platform_*-tauluja (palvelut, pinot, projektit) ja palauttavat rivit sellaisenaan
+// JSONina (geneerinen writeMaps/scanMaps). Reitit ovat /hallinta/*.
 package handlers
 
 import (
@@ -10,6 +16,8 @@ import (
 // GetServices palauttaa hallinnan palvelut (platform_services).
 func GetServices(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// container-sarake aliastetaan "image"-nimelle frontendille. CASE-lauseke
+		// johtaa is_active-lipusta luettavan status-tekstin (running/stopped).
 		rows, err := db.QueryContext(context.Background(),
 			`SELECT id, name, description, container AS image, host, host_port,
 			        category, layer, url, is_active,

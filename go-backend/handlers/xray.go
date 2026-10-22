@@ -1,3 +1,9 @@
+// handlers/xray.go: röntgen-QA:n (XR; modaliteetit CR/DX) HTTP-käsittelijät.
+//
+// Kyselee "xray_analysis"-taulua (NORMI-13-fantomi) ja palauttaa JSONia frontendille.
+// Rakenne vastaa ultrasound.go:ta: instituutiot -> laitteet -> laitteen tarkat tiedot
+// + trendidata. Erona US:ään sarakenimet ovat snake_casea ja laite yksilöidään
+// instituution + laitteen yhdistelmällä (inst/unit).
 package handlers
 
 import (
@@ -9,6 +15,8 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// XrayInstitutions palauttaa XR-mittauksista löytyvät instituutiot laite- ja
+// mittausmäärineen (instituutiotason yhteenveto).
 func XrayInstitutions(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rows, err := db.QueryContext(context.Background(),
@@ -45,7 +53,8 @@ func XrayInstitutions(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-// XrayUnits returns distinct devices grouped by institution.
+// XrayUnits palauttaa XR-laitteet ryhmiteltynä. Valinnainen ?institution= rajaa yhteen
+// instituutioon. Arvo parametrisoidaan (@p1) -> ei SQL-injektiota.
 func XrayUnits(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		institution := r.URL.Query().Get("institution")
@@ -94,11 +103,15 @@ func XrayUnits(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+// XrayDeviceDetail palauttaa yhden laitteen viimeisimmät mittaukset (enintään 100,
+// uusin ensin). Laite yksilöidään reitin kahdella parametrilla: {inst}/{unit}.
 func XrayDeviceDetail(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		inst := chi.URLParam(r, "inst")
-		unit := chi.URLParam(r, "unit")
+		inst := chi.URLParam(r, "inst") // instituutio
+		unit := chi.URLParam(r, "unit") // laitetunnus (station)
 
+		// exposure_mas haetaan aliaksella [exposure_mAs] (hakasulut säilyttävät kirjainkoon),
+		// jotta frontend saa kentän totutussa muodossa.
 		rows, err := db.QueryContext(context.Background(),
 			`SELECT TOP 100 id, instance, station_name, institution_name, manufacturer,
 			        manufacturer_model_name, study_date, content_date,
@@ -125,6 +138,8 @@ func XrayDeviceDetail(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+// XrayData palauttaa laitteen NORMI-13-metriikkojen aikasarjan (tasaisuus, Cu-kiila,
+// matalakontrasti, MTF) trendikuvaajia varten. Reitti: /xray/api/uniformity/{station}.
 func XrayData(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		station := chi.URLParam(r, "station")

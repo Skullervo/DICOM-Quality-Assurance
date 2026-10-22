@@ -1,19 +1,44 @@
+# =============================================================================
+# CT-ANALYYSIPALVELU (CT Analyze Service) — gRPC-palvelin portissa 50054
+# =============================================================================
+# MITÄ TÄMÄ TIEDOSTO TEKEE JA MIKÄ SEN ROOLI ON PUTKESSA:
+#
+# AutoQAD-putken tietokonetomografian (CT) laadunvalvonta-analyysipalvelu. Yksi
+# kolmesta analyysimikropalvelusta (US=50052, XR=50053, CT=50054). CT on näistä
+# RIKKAIN toteutus: se analysoi kokonaisia CT-sarjoja (kymmeniä leikkeitä) ja
+# käyttää kolmiportaista varajärjestelmää (ks. _analyze_series).
+#
+# TOIMII KAHDELLA TAVALLA:
+#   1) gRPC-palvelimena: AnalyzeAllDicomData (kaikki sarjat) ja AnalyzeDicomData
+#      (yksi sarja) — molemmat toteutettu (toisin kuin XR/US).
+#   2) Ajastettuna pollaajana (start_analyze_scheduler), kerran tunnissa.
+# Lisäksi event-worker (worker_ct_eventdriven.py) käyttää tämän apufunktioita.
+#
+# ANALYYSIN YDIN: fantomi on yleensä CatPhan (504/600), jonka analysoi pylinac
+# (catphan_analyzer.py). Jos CatPhan-analyysi ei onnistu, varalla on yksinkertainen
+# Siemens-fantomianalyysi (siemens_analyzer.py).
+#
+# PUTKI: PACS -> Orthanc -> (tämä hakee koko sarjan) -> CatPhan/Siemens-analyysi
+#        -> tulokset + analyysikuvat MS SQL Server -tauluun ct_analysis -> Go-backend.
+# =============================================================================
+
 import sys
 import os
+# Fetch_service import-polkuun gRPC-stubeja varten (DICOM-haku portista 50051).
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Fetch_service')))
 
 import grpc
 from concurrent import futures
-import ct_analyze_service_pb2
-import ct_analyze_service_pb2_grpc
+import ct_analyze_service_pb2          # generoidut viestit (ÄLÄ muokkaa)
+import ct_analyze_service_pb2_grpc     # generoidut palvelustubit (ÄLÄ muokkaa)
 import fetch_service_pb2
 import fetch_service_pb2_grpc
-import pymssql
+import pymssql                         # MS SQL Server -ajuri
 import numpy as np
 import io
 import json
-import tempfile
-import shutil
+import tempfile                        # CT-analyysi vaatii koko sarjan kansiona
+import shutil                          # temp-kansion poisto
 from pathlib import Path
 import pydicom
 from pydicom.errors import InvalidDicomError
@@ -24,6 +49,7 @@ import time
 import traceback
 import logging
 
+# Kaksi analysaattoria: CatPhan (ensisijainen) ja Siemens (fallback).
 from catphan_analyzer import CatphanAnalyzer
 from siemens_analyzer import SiemensCTAnalyzer
 
@@ -42,7 +68,8 @@ ORTHANC_USER = os.getenv("ORTHANC_USERNAME", "admin")
 ORTHANC_PASS = os.getenv("ORTHANC_PASSWORD", "")
 FETCH_SERVICE_ADDRESS = os.getenv("FETCH_SERVICE_HOST", "localhost:50051")
 
-# CT-modaliteetit
+# CT-modaliteetit. Itse-suodatus: palvelu analysoi vain Modality=CT -sarjat
+# ja ohittaa muut (US/XR), vaikka näkee kaikki Orthancin sarjat.
 CT_MODALITIES = ("CT",)
 
 # MS SQL Server (pymssql). Skeema luodaan scripts/schema_mssql.sql:ssä.
@@ -113,10 +140,14 @@ def get_fetch_stub():
 
 def extract_ct_metadata(ds):
     """Poimi CT-spesifiset DICOM-metatiedot datasetistä."""
+    # Tekstitagin luku (oletus jos puuttuu).
     def get_tag(tag_name, default=""):
         val = ds.get(tag_name, default)
         return str(val) if val else default
 
+    # Numeerisen tagin luku floatiksi. Käsittelee sekä raa'an arvon että pydicomin
+    # DataElement-olion (.value). Ei-numeeriset/puuttuvat -> oletus (None).
+    # Käytetään mm. leikepaksuudelle ja annossuureille (CTDIvol, DLP).
     def get_float_tag(tag_name, default=None):
         val = ds.get(tag_name)
         if val is not None:
@@ -160,28 +191,32 @@ def detect_phantom_type(dicom_folder):
     Palauttaa 'CatPhan504', 'CatPhan600', 'auto' (CatPhan, malli tuntematon)
     tai 'SiemensCT'.
     """
+    # Haetaan vihjeet DICOM-tekstikentistä (potilasnimi + kuvauskuvaukset).
+    # stop_before_pixels=True: luetaan vain header, ei raskasta pikseludataa.
     for dcm_file in Path(dicom_folder).glob("*.dcm"):
         try:
             ds = pydicom.dcmread(str(dcm_file), stop_before_pixels=True, force=True)
         except Exception:
             continue
 
+        # Yhdistetään kentät yhdeksi pieneksi merkkijonoksi avainsanahakua varten.
         patient_name = str(ds.get("PatientName", "")).lower()
         study_desc = str(ds.get("StudyDescription", "")).lower()
         series_desc = str(ds.get("SeriesDescription", "")).lower()
         combined = f"{patient_name} {study_desc} {series_desc}"
 
+        # Mallinumero (504/600) ratkaisee suoraan, jos se mainitaan.
         if "catphan" in combined and "600" in combined:
             return "CatPhan600"
         if "catphan" in combined and "504" in combined:
             return "CatPhan504"
         if "catphan" in combined:
-            # CatPhan tunnistettu mutta mallinumero puuttuu → automaattitunnistus
+            # CatPhan tunnistettu mutta mallinumero puuttuu → z-pos-automaattitunnistus
             return "auto"
         if "siemens" in combined and ("phantom" in combined or "qa" in combined):
             return "SiemensCT"
 
-    # Oletus: kokeile CatPhan-automaattitunnistusta
+    # Mitään ei tunnistettu metadatasta -> kokeillaan CatPhan-automaattitunnistusta.
     return "auto"
 
 
@@ -191,6 +226,12 @@ def insert_ct_analysis(cur, instance_id, series_id, metadata, analysis, processi
     if images is None:
         images = {}
 
+    # Iso INSERT: sarakelistan järjestyksen on vastattava alla olevaa %s-arvolistaa.
+    # Huomioita MSSQL:stä:
+    #   - [exposure_mAs] on hakasuluissa, koska nimi on sekakirjainkoossa (case-sensitive).
+    #   - processed_at annetaan SYSDATETIME():llä (ei ORMia, ei auto_now_add:ia).
+    #   - Lopussa on useita kuva-BLOBeja (leikekuvat + kaaviot) sekä hu_roi_map (JSON).
+    #     Kuville annetaan None jos kyseistä kuvaa ei generoitu.
     cur.execute("""
         INSERT INTO ct_analysis (
             instance, series_id, processed_at,
@@ -280,6 +321,12 @@ def insert_ct_analysis(cur, instance_id, series_id, metadata, analysis, processi
     ))
 
 
+# =============================================================================
+# gRPC-PALVELULUOKKA: toteuttaa .proto:n molemmat kutsut (toisin kuin XR/US).
+#   AnalyzeAllDicomData -> analysoi kaikki sarjat
+#   AnalyzeDicomData    -> analysoi yksi sarja (request.series_id)
+# Varsinainen työ on yhteisessä _analyze_series-metodissa.
+# =============================================================================
 class CTAnalyzeService(ct_analyze_service_pb2_grpc.CTAnalyzeServiceServicer):
     def AnalyzeAllDicomData(self, request, context):
         logger.info("Received request to analyze all CT series in Orthanc")
@@ -307,6 +354,8 @@ class CTAnalyzeService(ct_analyze_service_pb2_grpc.CTAnalyzeServiceServicer):
         cur = conn.cursor()
         analyzed_count = 0
 
+        # Käydään jokainen sarja läpi erikseen. Yhden sarjan kaatuminen ei saa
+        # kaataa koko ajoa -> peruutetaan kyseisen sarjan transaktio ja jatketaan.
         for series_id in series_list:
             try:
                 result = self._analyze_series(series_id, cur, conn, fetch_stub)

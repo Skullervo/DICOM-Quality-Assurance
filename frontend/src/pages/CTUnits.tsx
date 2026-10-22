@@ -1,17 +1,27 @@
+// =============================================================================
+// pages/CTUnits.tsx — TT-laitteiden lista (/ct/units)
+// =============================================================================
+// Kuten USUnits. Valinnainen ?institution=... rajaa laitokseen. Laitelinkki vie
+// laitteen QA-sivulle (CT tunnistetaan asemanimellä).
+// =============================================================================
+
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, type DeviceUnit } from '../api/client'
 import { BreadcrumbNav } from '../components/Breadcrumb'
 
 export default function CTUnits() {
+  // Laitossuodatin osoiterivin query-parametrista.
   const [searchParams] = useSearchParams()
   const institution = searchParams.get('institution') ?? undefined
 
+  // Hae TT-laitteet (laitoskohtaisesti välimuistitettuna).
   const { data: units, isLoading, error } = useQuery<DeviceUnit[]>({
     queryKey: ['ct', 'units', institution],
     queryFn: () => api.ctUnits(institution),
   })
 
+  // Lataus- ja virhetilojen näyttö.
   if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Loading...</p>
 
   if (error) {
@@ -55,6 +65,7 @@ export default function CTUnits() {
               units.map((unit) => (
                 <tr key={unit.station_name}>
                   <td>
+                    {/* Laitelinkki laitteen QA-sivulle (asemanimi URL-polussa). */}
                     <Link to={`/ct/device/${encodeURIComponent(unit.station_name)}`}>
                       {unit.station_name}
                     </Link>

@@ -1,5 +1,20 @@
+# =============================================================================
+# RÖNTGEN-ANALYYSIPALVELU — "timed"-variantti (vanhempi/vaihtoehtoinen versio)
+# =============================================================================
+# MITÄ TÄMÄ TIEDOSTO ON:
+#   Vaihtoehtoinen toteutus pääpalvelusta (xray_analyze_service.py). Erot:
+#     - Käyttää PostgreSQL:ää (psycopg2) MS SQL Serverin sijaan.
+#     - Antaa Normi13:lle plot=True ja lukee kirjaston itse piirtämät PNG:t
+#       väliaikaiskansiosta (contrast_rois + mtf) — EI tee kuvia itse.
+#     - Deduplikaatiotarkistus tehdään ENNEN kallista hakua/analyysiä.
+#   Se tuo pääpalvelusta yhteiset apufunktiot (metadata, mapping, insert).
+#   HUOM: tämä on historiallinen/kokeileva variantti; tuotannon pääpolku on
+#   xray_analyze_service.py + event-worker. Kommentoitu dokumentoinnin vuoksi.
+# =============================================================================
+
 import sys
 import os
+# Lisätään Fetch_service import-polkuun gRPC-stubeja varten (DICOM-haku).
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Fetch_service')))
 
 import grpc
@@ -26,7 +41,8 @@ import logging
 
 from normi13_qa.normi13 import Normi13
 
-# Tuodaan apufunktiot pääpalvelusta
+# Tuodaan apufunktiot pääpalvelusta — uudelleenkäytetään samaa logiikkaa (DB-config,
+# metadatan poiminta, tulosten mappaus, insert) jottei koodia ole kahdessa paikassa.
 from xray_analyze_service import (
     DB_CONFIG, ORTHANC_URL, FETCH_SERVICE_ADDRESS, XRAY_MODALITIES,
     connect_db, get_fetch_stub, extract_dicom_metadata,
@@ -85,7 +101,9 @@ class XrayAnalyzeService(xray_analyze_service_pb2_grpc.XrayAnalyzeServiceService
             for instance in instance_list:
                 instance_id = instance["ID"]
 
-                # Deduplikaatiotarkistus
+                # Deduplikaatiotarkistus TEHDÄÄN ENSIN (ennen hakua/analyysiä),
+                # jotta jo analysoituja instansseja ei turhaan haeta tai analysoida
+                # uudelleen — tämä on "timed"-variantin optimointi.
                 if is_instance_analyzed(cur, instance_id):
                     logger.info("Instance %s already analyzed, skipping.", instance_id)
                     continue
@@ -126,6 +144,9 @@ class XrayAnalyzeService(xray_analyze_service_pb2_grpc.XrayAnalyzeServiceService
                         tmp_path = tmp.name
 
                     start_time = timer()
+                    # Toisin kuin pääpalvelu, tämä antaa Normi13:lle plot=True ja
+                    # fig_path-kansion -> kirjasto PIIRTÄÄ kuvat itse levylle.
+                    # Kuvat luetaan sieltä takaisin tavuiksi glob-haulla.
                     with tempfile.TemporaryDirectory() as fig_dir:
                         IQ = Normi13(tmp_path, plot=True, debug=False,
                                      mtf_mode='relative', fig_path=Path(fig_dir))
@@ -133,6 +154,7 @@ class XrayAnalyzeService(xray_analyze_service_pb2_grpc.XrayAnalyzeServiceService
                         results = IQ.results_data(as_dict=True)
                         processing_time = timer() - start_time
 
+                        # Poimitaan kirjaston tuottamat PNG:t nimen päätteen mukaan.
                         for png_file in globmod.glob(os.path.join(fig_dir, "*_contrast_rois.png")):
                             with open(png_file, "rb") as f:
                                 contrast_rois_bytes = f.read()
@@ -163,6 +185,8 @@ class XrayAnalyzeService(xray_analyze_service_pb2_grpc.XrayAnalyzeServiceService
                     conn.commit()
                     analyzed_count += 1
                 except psycopg2.IntegrityError:
+                    # PostgreSQL:ssä UNIQUE-rajoite estää duplikaatin -> jos sama
+                    # rivi ehti tulla, perutaan transaktio ja jatketaan.
                     conn.rollback()
                     logger.info("Instance %s already in database, skipping.", instance_id)
                     continue

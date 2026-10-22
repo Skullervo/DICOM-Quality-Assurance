@@ -1,109 +1,176 @@
+# =============================================================================
+# RÖNTGEN-ANALYYSIPALVELU (X-ray Analyze Service) — gRPC-palvelin portissa 50053
+# =============================================================================
+# MITÄ TÄMÄ TIEDOSTO TEKEE JA MIKÄ SEN ROOLI ON PUTKESSA:
+#
+# Tämä on AutoQAD-putken natiiviröntgenin (CR/DX) laadunvalvonta-analyysipalvelu.
+# Se on yksi kolmesta "analyze"-mikropalvelusta (US=50052, XR=50053, CT=50054).
+# Palvelu toimii kahdella tavalla:
+#   1) gRPC-palvelimena (tämä tiedosto): toteuttaa AnalyzeAllDicomData-kutsun,
+#      joka käy läpi KAIKKI Orthancin sarjat ja analysoi niistä röntgenkuvat.
+#   2) Ajastettuna taustapollaajana (start_analyze_scheduler), joka ajaa saman
+#      analyysin automaattisesti kerran tunnissa.
+# Huom: event-driven-malli (worker_xr_eventdriven.py) käyttää TÄMÄN tiedoston
+# apufunktioita (analyysi + insert), joten tämä moduuli on myös "kirjasto".
+#
+# ANALYYSIN YDIN: fantomi on NORMI-13, ja analyysin tekee normi13_qa-kirjasto
+# (pylinac-pohjainen). Mitatut suureet: PIU-uniformiteetti, Cu-kiila (cu_000...
+# cu_230), matalan kontrastin CNR/SNR ja MTF (modulaation siirtofunktio).
+#
+# PUTKI KOKONAISUUDESSAAN:
+#   Sairaalan PACS -> Orthanc -> (tämä palvelu hakee DICOMit) -> normi13_qa-analyysi
+#   -> tulokset + analyysikuvat MS SQL Server -tauluun xray_analysis -> Go-backend
+#   -> React-käyttöliittymä.
+# =============================================================================
+
 import sys
 import os
+# Lisätään Fetch_service-kansio import-polkuun, koska sieltä tuodaan gRPC-stubit
+# (fetch_service_pb2*). Fetch Service (portti 50051) hakee varsinaisen DICOM-datan
+# Orthancista; tämä palvelu kutsuu sitä asiakkaana.
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Fetch_service')))
 
-import grpc
-from concurrent import futures
-import xray_analyze_service_pb2
-import xray_analyze_service_pb2_grpc
-import fetch_service_pb2
-import fetch_service_pb2_grpc
-import pymssql
-import numpy as np
-import io
-import json
-import traceback
-import glob as globmod
-import tempfile
+import grpc                              # gRPC-runko (palvelin + asiakas)
+from concurrent import futures           # säiepooli gRPC-palvelimelle
+import xray_analyze_service_pb2          # generoidut viestit (ÄLÄ muokkaa)
+import xray_analyze_service_pb2_grpc     # generoidut palvelustubit (ÄLÄ muokkaa)
+import fetch_service_pb2                 # Fetch-palvelun viestit (DICOM-haku)
+import fetch_service_pb2_grpc            # Fetch-palvelun stubit
+import pymssql                           # MS SQL Server -ajuri (tietokanta)
+import numpy as np                       # (apukirjasto; käytössä välillisesti)
+import io                                # muistipuskurit (DICOM-tavut, PNG-tavut)
+import json                              # MTF-/ROI-datan sarjallistus JSON-tekstiksi
+import traceback                         # tallennetaan epäonnistumisen pino DB:hen
+import glob as globmod                   # tiedostohaku (ei aktiivisessa käytössä tässä)
+import tempfile                          # Normi13 vaatii DICOMin levyltä -> väliaikaistiedosto
 from pathlib import Path
-import pydicom
+import pydicom                           # DICOM-tiedoston luku
 from pydicom.errors import InvalidDicomError
-from time import time as timer
-import requests
-import threading
+from time import time as timer           # analyysin keston mittaus
+import requests                          # Orthanc REST -kutsut (sarjat, instanssit)
+import threading                         # ajastettu taustapollaaja omassa säikeessä
 import time
 import logging
 
+# Matplotlib pitää asettaa "Agg"-taustajärjestelmään ENNEN pyplot-importtia:
+# palvelimella ei ole näyttöä (headless), joten kuvat renderöidään suoraan
+# tiedostoksi/muistiin ilman GUI-ikkunaa. Muuten matplotlib yrittää avata ikkunan
+# ja kaatuu kontissa.
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 
-# pylinac 3.38 muutti HighContrastDiskROI ja LowContrastDiskROI API:t —
-# normi13_qa käyttää vanhaa (array, angle, roi_radius, dist, center, ...) -kutsutapaa.
-# Korjaus: ohjataan vanhat __init__-kutsut käyttämään from_phantom_center()-laskentaa.
+# ── MONKEY-PATCH: pylinac 3.38 -yhteensopivuus ──────────────────────────────
+# MIKSI tämä tarvitaan:
+#   normi13_qa-kirjasto on kirjoitettu vanhaa pylinac-versiota vastaan ja kutsuu
+#   ROI-luokkien konstruktoreita vanhalla allekirjoituksella:
+#       (array, angle, roi_radius, dist_from_center, phantom_center, ...)
+#   pylinac 3.38 muutti konstruktorin muotoon:
+#       (array, radius, center, contrast_threshold)
+#   ja siirsi vanhan laskennan from_phantom_center()-luokkametodiin.
+#   Jos tätä ei korjata, normi13_qa kaatuu heti ROI-luonnissa.
+# KORJAUS:
+#   Kääritään alkuperäinen __init__ "compat"-versioon, joka TUNNISTAA vanhan
+#   kutsutavan ja muuntaa argumentit uuteen muotoon (laskee keskipisteen
+#   kulmasta + etäisyydestä). Tämä on monkey-patch: muokkaamme kirjaston luokkia
+#   ajonaikaisesti koskematta kirjaston omaan koodiin.
 from pylinac.planar_imaging import (
-    HighContrastDiskROI as _OrigHCROI,
-    LowContrastDiskROI as _OrigLCROI,
+    HighContrastDiskROI as _OrigHCROI,   # korkean kontrastin ROI (esim. Cu-kiila, viivaparit)
+    LowContrastDiskROI as _OrigLCROI,    # matalan kontrastin ROI (näkyvyystestit)
 )
 from pylinac.core.geometry import Point as _Point
 
 
 def _patch_roi_class(cls):
     """Luo yhteensopiva __init__ joka tunnistaa vanhan kutsutavan."""
+    # Otetaan talteen luokan alkuperäinen __init__, jotta voimme yhä kutsua sitä.
     _orig_init = cls.__init__
 
     def _compat_init(self, array, *args, **kwargs):
         # Vanha API: (array, angle, roi_radius, dist_from_center, phantom_center, ...)
-        # Tunnistus: 4+ positional arg ja 4. arg on Point/tuple (phantom_center)
+        # Tunnistus: 4+ positionaalista argumenttia JA 4. argumentti on Point/tuple
+        # (= phantom_center). Tämä erottaa vanhan kutsutavan uudesta luotettavasti.
         if len(args) >= 4 and isinstance(args[3], (_Point, tuple)):
+            # Puretaan vanhan API:n argumentit nimettyihin muuttujiin.
             angle, roi_radius, dist_from_center, phantom_center = args[:4]
+            # Lasketaan ROI:n todellinen keskipiste kulman, etäisyyden ja
+            # fantomin keskipisteen avulla — tämä on juuri se laskenta, joka
+            # pylinac 3.38:ssa siirtyi from_phantom_center()-metodiin.
             center = cls._get_shifted_center(angle, dist_from_center, phantom_center)
-            # Muut positional args → kwargs-muotoon
+            # Mahdolliset ylimääräiset positionaaliset argumentit (esim.
+            # contrast_threshold) siirretään kwargs-muotoon uutta API:a varten.
             remaining_positional = args[4:]
             if remaining_positional and 'contrast_threshold' not in kwargs:
                 kwargs['contrast_threshold'] = remaining_positional[0]
+            # Kutsutaan alkuperäistä __init__:iä UUDELLA allekirjoituksella.
             _orig_init(self, array=array, radius=roi_radius,
                        center=center, **kwargs)
         else:
+            # Kutsu tuli jo uudella API:lla -> välitetään sellaisenaan eteenpäin.
             _orig_init(self, array, *args, **kwargs)
 
+    # Korvataan luokan __init__ yhteensopivalla versiolla (varsinainen patch).
     cls.__init__ = _compat_init
 
 
+# Sovelletaan patch molempiin ROI-luokkiin ENNEN normi13_qa:n importtia, jotta
+# kirjasto saa heti korjatut luokat käyttöönsä.
 _patch_roi_class(_OrigHCROI)
 _patch_roi_class(_OrigLCROI)
 
+# Vasta nyt tuodaan Normi13 — patchin jälkeen (järjestys on kriittinen).
 from normi13_qa.normi13 import Normi13
 
-# ── Kuvien generointi normi13_qa-analyysin jälkeen ──
+# ── Kuvien generointi normi13_qa-analyysin jälkeen ──────────────────────────
+# Nämä kolme funktiota tuottavat PNG-kuvat (tavuina) suoraan analyysiolion (IQ)
+# tiedoista. Kuvat tallennetaan tietokantaan BLOB-kenttiin ja näytetään sivulla.
+# Kuvat tehdään ITSE (plot=False annetaan Normi13:lle), jotta tyyli saadaan
+# sopimaan käyttöliittymän tummaan teemaan.
 
 def _render_roi_map(IQ):
     """Renderöi tumma ROI-kartta: kaikki ROI-alueet DICOM-kuvan päälle."""
+    # Luodaan matplotlib-kuva mustalla taustalla ja piirretään DICOM-kuva harmaana.
     fig, ax = plt.subplots(figsize=(6, 6), facecolor='black')
     ax.imshow(IQ.dcm_img, cmap='gray')
     ax.set_facecolor('black')
-    ax.axis('off')
+    ax.axis('off')  # ei akseleita/asteikkoja — vain kuva + ROI-merkinnät
 
-    # Uniformiteetti-ROI:t (syaani)
+    # Uniformiteetti-ROI:t (syaani) — alueet joista mitataan tasaisuus/PIU.
     for roi in IQ.uniformity_rois.values():
         roi.plot2axes(ax, edgecolor='#00b4d8')
 
-    # Korkean kontrastin ROI:t (vihreä) — ohita 'lps' (viivapari-ROI)
+    # Korkean kontrastin ROI:t (vihreä). 'lps' = viivapari-ROI (line pair set),
+    # joka piirretään erikseen omalla funktiollaan -> ohitetaan tässä.
     for name, roi in IQ.high_contrast_rois.items():
         if name == 'lps':
             continue
         roi.plot2axes(ax, edgecolor='#4ade80')
 
-    # Matalan kontrastin ROI:t (keltainen/näkyvyysväri)
+    # Matalan kontrastin ROI:t (keltainen) — näkyvyystestin kohteet.
     for roi in IQ.low_contrast_rois.values():
         roi.plot2axes(ax, edgecolor='#fbbf24')
 
+    # Tallennetaan kuva muistipuskuriin PNG:nä ja palautetaan tavut.
+    # bbox_inches='tight' + pad_inches=0 rajaa tyhjät reunat pois.
     buf = io.BytesIO()
     fig.savefig(buf, format='png', facecolor='black',
                 bbox_inches='tight', pad_inches=0, dpi=150)
-    plt.close(fig)
+    plt.close(fig)  # vapauta kuva muistista (muuten muistivuoto pitkässä ajossa)
     buf.seek(0)
     return buf.read()
 
 
 def _render_mtf_lp_image(IQ):
     """Renderöi viivapari-alueen kuva tummalla taustalla ROI-merkinnöillä."""
+    # 'lps' = line pair set -ROI. Jos sitä ei ole (analyysi ei löytänyt), ei kuvaa.
     lps_roi = IQ.high_contrast_rois.get('lps')
     if lps_roi is None:
         return None
 
-    # Rajaa viivapari-alue (sama logiikka kuin normi13_qa._estimate_mtf)
+    # Rajataan vain viivapari-alue kuvasta (sama logiikka kuin normi13_qa:n
+    # sisäisessä _estimate_mtf:ssä). max/min-kutsut varmistavat, ettei rajaus
+    # mene kuvan reunojen ulkopuolelle (indeksivirheiden esto).
     x1 = max(0, int(lps_roi.center.x - lps_roi.diameter))
     x2 = min(IQ.dcm_img.shape[1], int(lps_roi.center.x + lps_roi.diameter))
     y1 = max(0, int(lps_roi.center.y - lps_roi.diameter))
@@ -115,7 +182,9 @@ def _render_mtf_lp_image(IQ):
     ax.set_facecolor('black')
     ax.axis('off')
 
-    # Piirrä viivapari-ROI:t (siirrettyinä rajauksen koordinaatteihin)
+    # Piirretään yksittäiset viivapari-ROI:t ympyröinä. Koordinaatit ovat koko
+    # kuvan avaruudessa, joten vähennetään rajauksen vasen/ylä-kulma (x1,y1),
+    # jotta ympyrät osuvat rajatussa kuvassa oikeaan kohtaan.
     for roi in IQ.line_pair_rois.values():
         cx = roi.center.x - x1
         cy = roi.center.y - y1
@@ -133,9 +202,12 @@ def _render_mtf_lp_image(IQ):
 
 def _render_mtf_curve(IQ):
     """Renderöi MTF-käyrä sivun dark-teemaan sopivalla tyylillä."""
+    # MTF (Modulation Transfer Function) kuvaa terävyyttä/erotuskykyä. Jos olio
+    # ei sisällä MTF-tulosta (analyysi ei saanut sitä), ei piirretä mitään.
     if not hasattr(IQ, 'mtf') or IQ.mtf is None:
         return None
 
+    # Käyttöliittymän tumman teeman värit (tausta, ruudukko, teksti, viiva).
     BG = '#0d1117'
     GRID = '#1e293b'
     TEXT = '#94a3b8'
@@ -144,15 +216,15 @@ def _render_mtf_curve(IQ):
     fig, ax = plt.subplots(figsize=(6, 3.5), facecolor=BG)
     ax.set_facecolor(BG)
 
-    # Käytetään pylinacin MTF-olion plot-metodia
+    # pylinacin MTF-olio osaa piirtää käyrän itse annettuun akseliin.
     IQ.mtf.plot(ax)
 
-    # Päivitetään viivan väri
+    # Vaihdetaan piirretyn käyrän väri teemaan sopivaksi (pylinac käyttää omia).
     for line in ax.get_lines():
         line.set_color(LINE)
         line.set_linewidth(2)
 
-    # Tummennetaan akseli ja tekstit
+    # Tummennetaan akselin viivat ja tekstit, jotta ne näkyvät tummalla taustalla.
     for spine in ax.spines.values():
         spine.set_color(GRID)
     ax.tick_params(colors=TEXT, labelsize=8)
@@ -170,7 +242,9 @@ def _render_mtf_curve(IQ):
     return buf.read()
 
 
-# Lataa ympäristömuuttujat Djangon .env-tiedostosta (paikallinen ajo)
+# Lataa ympäristömuuttujat Djangon .env-tiedostosta (paikallinen ajo). Kontissa
+# muuttujat tulevat suoraan ympäristöstä, joten .env puuttuu -> ohitetaan.
+# ImportError nielaistaan, jos python-dotenv ei ole asennettu.
 try:
     from dotenv import load_dotenv
     _env_path = os.path.join(os.path.dirname(__file__), '..', '..', 'client', '.env')
@@ -180,13 +254,15 @@ try:
 except ImportError:
     pass
 
-# Orthanc ja Fetch Service -osoitteet
+# Orthanc ja Fetch Service -osoitteet (luetaan ympäristömuuttujista, oletukset
+# sopivat paikalliseen ajoon). Orthanc = DICOM-palvelin josta kuvat haetaan.
 ORTHANC_URL = os.getenv("ORTHANC_URL", "http://localhost:8042")
 ORTHANC_USER = os.getenv("ORTHANC_USERNAME", "admin")
 ORTHANC_PASS = os.getenv("ORTHANC_PASSWORD", "")
 FETCH_SERVICE_ADDRESS = os.getenv("FETCH_SERVICE_HOST", "localhost:50051")
 
-# Natiiviröntgenin modaliteetit (CR = Computed Radiography, DX = Digital X-ray)
+# Natiiviröntgenin modaliteetit (CR = Computed Radiography, DX = Digital X-ray).
+# Palvelu itse-suodattaa: se analysoi vain nämä DICOM-modaliteetit ja ohittaa muut.
 XRAY_MODALITIES = ("CR", "DX")
 
 # MS SQL Server (pymssql). Skeema luodaan scripts/schema_mssql.sql:ssä.
@@ -207,6 +283,10 @@ def connect_db():
 
 
 def _ensure_failures_table(cur):
+    # Varmistaa, että epäonnistumisloki-taulu (analysis_failures) on olemassa.
+    # Luodaan tarvittaessa lennossa (IF ... IS NULL), jotta palvelu toimii myös
+    # ilman erillistä migraatiota. Toinen lause lisää 'detail'-sarakkeen, jos se
+    # puuttuu vanhasta taulusta (traceback-kentän jälkikäteislisäys).
     cur.execute("""
         IF OBJECT_ID('dbo.analysis_failures','U') IS NULL
         CREATE TABLE dbo.analysis_failures (
@@ -227,6 +307,9 @@ def _ensure_failures_table(cur):
 
 def record_failure(cur, orthanc_id, station, reason, detail=""):
     """Tallenna epäonnistuneen analyysin syy + traceback (upsert). orthanc_id = XR:llä series_id."""
+    # "Upsert" ilman MERGE-lausetta: poistetaan vanha rivi ja lisätään uusi, jotta
+    # saman sarjan uusin epäonnistuminen korvaa vanhan. Arvot katkaistaan
+    # sarakkeiden maksimipituuksiin ([:256] jne.), jotta INSERT ei kaadu.
     try:
         _ensure_failures_table(cur)
         cur.execute("DELETE FROM analysis_failures WHERE modality=%s AND orthanc_id=%s", ("XR", orthanc_id))
@@ -247,6 +330,8 @@ def clear_failure(cur, orthanc_id):
 
 def get_fetch_stub():
     """Yhdistetään Fetch Serviceen."""
+    # Kasvatetaan gRPC-viestin maksimikokoa (200 MB), koska DICOM-kuvat voivat
+    # olla suuria. Oletusraja (4 MB) kaataisi suurten kuvien haun.
     options = [
         ("grpc.max_send_message_length", 200 * 1024 * 1024),
         ("grpc.max_receive_message_length", 200 * 1024 * 1024),
@@ -257,6 +342,8 @@ def get_fetch_stub():
 
 def extract_dicom_metadata(ds):
     """Poimi DICOM-metatiedot datasetistä."""
+    # Apufunktio: lukee yhden DICOM-tagin merkkijonona. Jos tagi puuttuu tai on
+    # tyhjä, palautetaan oletusarvo. Näin INSERT saa aina kelvollisen arvon.
     def get_tag(tag_name, default=""):
         val = ds.get(tag_name, default)
         return str(val) if val else default
@@ -317,13 +404,18 @@ def extract_analysis_results(results, IQ=None):
         data["phantom_center_x"] = safe_float(center[0])
         data["phantom_center_y"] = safe_float(center[1])
 
-    # MTF-data (avaimet ovat merkkijonoja, esim. "50")
+    # MTF-data: pylinac antaa sanakirjan, jossa avaimet ovat prosenttitasoja
+    # merkkijonoina (esim. "50" = MTF 50 %:n kohta viivaparia/mm). Koko sanakirja
+    # tallennetaan JSON-tekstinä, ja 50 %:n arvo poimitaan omaan kenttään.
+    # mtf.get("50") or mtf.get(50): avain voi olla joko str tai int -> kokeillaan molemmat.
     mtf = results.get("mtf_lp_mm")
     if mtf:
         data["mtf_data"] = json.dumps(mtf)
         data["mtf_50_percent"] = safe_float(mtf.get("50") or mtf.get(50))
 
-    # Low-contrast ROI:t
+    # Matalan kontrastin ROI:t. Lista järjestyksessä; indeksi kertoo kohteen koon
+    # (lc_08 = 0.8 mm ... lc_56 = 5.6 mm). Mapataan indeksit DB-kenttiin + kerätään
+    # yksityiskohdat (contrast/cnr/snr/visibility/passed) JSON-listaksi.
     lc_rois = results.get("low_contrast_rois", [])
     lc_contrasts = {}
     lc_field_map = {
@@ -358,17 +450,22 @@ def extract_analysis_results(results, IQ=None):
     if lc_details:
         data["low_contrast_details"] = json.dumps(lc_details)
 
-    # IQ-oliosta poimitaan uniformiteetti, Cu mean+std
+    # IQ-oliosta poimitaan suureita, joita results_data ei suoraan anna:
+    # uniformiteetti (PIU) sekä Cu-kiilan ROI:iden keskiarvot ja keskihajonnat.
     if IQ is not None:
-        # Uniformiteetti: lasketaan PIU (Percent Integral Uniformity)
+        # Uniformiteetti: lasketaan PIU (Percent Integral Uniformity).
+        # PIU kuvaa kuvan tasaisuutta: 100 % = täysin tasainen.
         u_rois = getattr(IQ, "uniformity_rois", None)
         if u_rois and isinstance(u_rois, dict):
+            # Kerätään jokaisen uniformiteetti-ROI:n keskiarvo (vain validit arvot).
             u_means = [safe_float(getattr(r, "mean", None))
                        for r in u_rois.values()
                        if getattr(r, "mean", None) is not None]
             if u_means:
                 u_max = max(u_means)
                 u_min = min(u_means)
+                # PIU-kaava: 100*(1-(max-min)/(max+min)). Jakajan >0-tarkistus
+                # estää nollajaon (esim. jos kaikki arvot olisivat nollia).
                 if u_max + u_min > 0:
                     piu = 100.0 * (1.0 - (u_max - u_min) / (u_max + u_min))
                     data["uniformity_center"] = round(piu, 2)
@@ -378,7 +475,8 @@ def extract_analysis_results(results, IQ=None):
                 if center_roi is not None:
                     data["bg_mean"] = safe_float(getattr(center_roi, "mean", None))
 
-        # Cu-kiilan mean+std -arvot
+        # Cu-kiilan (kupariporras) ROI:iden mean + std. Nimet cu_000...cu_230
+        # vastaavat kiilan eri paksuuksia; näistä muodostuu kontrastiporras.
         hc_rois = getattr(IQ, "high_contrast_rois", None)
         if hc_rois and isinstance(hc_rois, dict):
             for cu_name in ["cu_000", "cu_030", "cu_065", "cu_100",
@@ -397,6 +495,10 @@ def insert_xray_analysis(cur, instance_id, series_id, metadata, analysis,
                          processing_time, contrast_rois_bytes=None,
                          mtf_lp_bytes=None, mtf_curve_bytes=None):
     """Tallenna analyysitulokset xray_analysis-tauluun."""
+    # Yksi iso INSERT: sarakkeiden järjestyksen on vastattava alla olevaa
+    # arvolistaa (%s-paikat). Jokaista %s kohden on tarkalleen yksi arvo samassa
+    # järjestyksessä. Kolme viimeistä (contrast_rois_image, mtf_lp_image,
+    # mtf_curve_image) ovat PNG-tavuja (BLOB), loput metatietoja/metriikoita.
     cur.execute("""
         INSERT INTO xray_analysis (
             instance, series_id, content_date, content_time, device_serial_number,
@@ -475,11 +577,19 @@ def insert_xray_analysis(cur, instance_id, series_id, metadata, analysis,
     ))
 
 
+# =============================================================================
+# gRPC-PALVELULUOKKA: toteuttaa .proto:ssa määritellyt kutsut.
+# .proto määrittelee kaksi kutsua, mutta XR:ssä vain AnalyzeAllDicomData on
+# toteutettu (yhden sarjan analyysi on tyngäksi jätetty, ks. alempana).
+# =============================================================================
 class XrayAnalyzeService(xray_analyze_service_pb2_grpc.XrayAnalyzeServiceServicer):
     def AnalyzeAllDicomData(self, request, context):
+        # Käy läpi KAIKKI Orthancin sarjat ja analysoi niistä löytyvät
+        # röntgenkuvat (CR/DX). Palauttaa yhteenvedon analysoitujen määrästä.
         logger.info("Received request to analyze all X-ray series in Orthanc")
 
-        # Haetaan kaikki sarjat Orthancista
+        # Haetaan kaikki sarjat Orthancista REST-rajapinnalla. auth annetaan vain,
+        # jos salasana on asetettu (paikallisessa ajossa voi olla ilman).
         auth = (ORTHANC_USER, ORTHANC_PASS) if ORTHANC_PASS else None
         response = requests.get(f"{ORTHANC_URL}/series", auth=auth)
         if response.status_code != 200:
@@ -497,15 +607,18 @@ class XrayAnalyzeService(xray_analyze_service_pb2_grpc.XrayAnalyzeServiceService
                 message="No series available", series_id="ALL"
             )
 
+        # Avataan yhteys Fetch-palveluun (DICOM-haku) ja tietokantaan kerran,
+        # ja käytetään samaa yhteyttä koko ajon ajan.
         fetch_stub = get_fetch_stub()
         conn = connect_db()
         cur = conn.cursor()
         analyzed_count = 0
 
+        # Käydään jokainen sarja läpi; sarja voi sisältää useita instansseja (kuvia).
         for series_id in series_list:
             logger.info("Processing series ID: %s", series_id)
 
-            # Haetaan sarjan instanssit Orthancista
+            # Haetaan sarjan instanssilista Orthancista.
             instance_response = requests.get(f"{ORTHANC_URL}/series/{series_id}/instances", auth=auth)
             if instance_response.status_code != 200:
                 logger.error("Could not fetch instances for series %s", series_id)
@@ -520,12 +633,13 @@ class XrayAnalyzeService(xray_analyze_service_pb2_grpc.XrayAnalyzeServiceService
                 instance_id = instance["ID"]
                 logger.info("Fetching instance ID: %s", instance_id)
 
-                # Haetaan DICOM-data Fetch-palvelulta
+                # Haetaan yksittäisen instanssin DICOM-data Fetch-palvelulta (gRPC).
                 try:
                     fetch_response = fetch_stub.FetchDicomData(
                         fetch_service_pb2.FetchRequest(instance_id=instance_id)
                     )
                 except grpc.RpcError as e:
+                    # Fetch-palvelun virhe ei saa kaataa koko ajoa -> ohitetaan tämä.
                     logger.error("gRPC error fetching instance %s: %s", instance_id, e)
                     continue
 
@@ -533,7 +647,8 @@ class XrayAnalyzeService(xray_analyze_service_pb2_grpc.XrayAnalyzeServiceService
                     logger.warning("No data received for instance %s", instance_id)
                     continue
 
-                # Muutetaan binääridata DICOM-muotoon
+                # Luetaan binääridata pydicom-datasetiksi. force=True sallii myös
+                # puutteellisen headerin DICOMit (ei kaadu heti).
                 dicom_bytes = fetch_response.dicom_data
                 try:
                     ds = pydicom.dcmread(io.BytesIO(dicom_bytes), force=True)
@@ -542,14 +657,17 @@ class XrayAnalyzeService(xray_analyze_service_pb2_grpc.XrayAnalyzeServiceService
                     logger.error("Error reading DICOM file: %s", e)
                     continue
 
-                # Tarkistetaan modaliteetti
+                # ITSE-SUODATUS: analysoidaan vain röntgenkuvat (CR/DX). Palvelu
+                # näkee kaikki Orthancin sarjat (myös US/CT), joten muut ohitetaan.
                 modality = str(ds.get("Modality", ""))
                 if modality not in XRAY_MODALITIES:
                     logger.info("Not an X-ray image (modality=%s). Skipping instance %s",
                                 modality, instance_id)
                     continue
 
-                # Tallennetaan väliaikaistiedostoon (Normi13 vaatii tiedostopolun)
+                # Normi13 lukee DICOMin TIEDOSTOPOLUSTA, ei muistipuskurista, joten
+                # kirjoitetaan data väliaikaistiedostoon. Tiedosto poistetaan
+                # finally-lohkossa riippumatta siitä, onnistuiko analyysi.
                 tmp_path = None
                 contrast_rois_bytes = None
                 mtf_lp_bytes = None
@@ -559,7 +677,10 @@ class XrayAnalyzeService(xray_analyze_service_pb2_grpc.XrayAnalyzeServiceService
                         tmp.write(dicom_bytes)
                         tmp_path = tmp.name
 
-                    # Analysoidaan normi13_qa:lla (plot=False — generoidaan kuvat itse)
+                    # VARSINAINEN NORMI-13-ANALYYSI normi13_qa-kirjastolla.
+                    # plot=False: emme anna kirjaston piirtää kuvia, vaan teemme ne
+                    # itse (_render_*). mtf_mode='relative': MTF suhteellisena.
+                    # visibility_threshold: matalan kontrastin näkyvyyskynnys.
                     start_time = timer()
                     IQ = Normi13(tmp_path, plot=False, debug=False,
                                  mtf_mode='relative')
@@ -567,7 +688,9 @@ class XrayAnalyzeService(xray_analyze_service_pb2_grpc.XrayAnalyzeServiceService
                     results = IQ.results_data(as_dict=True)
                     processing_time = timer() - start_time
 
-                    # Generoidaan kuvat IQ-oliosta
+                    # Generoidaan kolme analyysikuvaa IQ-oliosta. Jokainen
+                    # kääritään omaan try-lohkoonsa: yhden kuvan epäonnistuminen
+                    # ei estä muiden kuvien tai tulosten tallennusta (best-effort).
                     try:
                         contrast_rois_bytes = _render_roi_map(IQ)
                     except Exception as e:
@@ -588,22 +711,27 @@ class XrayAnalyzeService(xray_analyze_service_pb2_grpc.XrayAnalyzeServiceService
                                 "yes" if mtf_curve_bytes else "no")
 
                 except Exception as e:
+                    # Analyysi kaatui: kirjataan syy + traceback epäonnistumistauluun
+                    # (näkyy ylläpidolle), commitoidaan ja jatketaan seuraavaan.
                     logger.error("Analysis failed for instance %s: %s", instance_id, e)
                     record_failure(cur, series_id, str(ds.get("StationName", "")), str(e), traceback.format_exc())
                     conn.commit()
                     continue
                 finally:
+                    # Siivotaan väliaikaistiedosto aina (myös onnistuessa).
                     if tmp_path and os.path.exists(tmp_path):
                         os.unlink(tmp_path)
 
-                # Poimitaan DICOM-metatiedot
+                # Poimitaan DICOM-metatiedot (laite, laitos, kuvausparametrit).
                 metadata = extract_dicom_metadata(ds)
 
-                # Mapataaan analyysitulokset (IQ-olio mukaan Cu std:n poimintaa varten)
+                # Mapataan analyysitulokset DB-kenttiin. IQ-olio annetaan mukaan,
+                # koska siitä poimitaan Cu-kiilan std-arvot ja PIU (ks. funktio).
                 analysis = extract_analysis_results(results, IQ)
 
-                # Tallennetaan tietokantaan
-                # Duplikaattitarkistus (MSSQL:ssä ei UNIQUE-rajoitetta NVARCHAR(MAX):lle)
+                # Duplikaattitarkistus ennen tallennusta: jos sama instanssi on jo
+                # tietokannassa, ohitetaan. MSSQL:ssä ei voi tehdä UNIQUE-rajoitetta
+                # NVARCHAR(MAX)-sarakkeelle, joten tarkistus tehdään käsin SELECTillä.
                 cur.execute("SELECT 1 FROM xray_analysis WHERE instance = %s", (instance_id,))
                 if cur.fetchone():
                     logger.info("Instance %s already in database, skipping.", instance_id)
@@ -615,6 +743,7 @@ class XrayAnalyzeService(xray_analyze_service_pb2_grpc.XrayAnalyzeServiceService
                 clear_failure(cur, series_id)  # sarja onnistui -> poista mahdollinen epäonnistumismerkintä
                 analyzed_count += 1
 
+        # Yksi commit koko ajon lopuksi + yhteyksien sulku.
         conn.commit()
         cur.close()
         conn.close()
@@ -624,6 +753,8 @@ class XrayAnalyzeService(xray_analyze_service_pb2_grpc.XrayAnalyzeServiceService
         return xray_analyze_service_pb2.AnalyzeResponse(message=msg, series_id="ALL")
 
     def AnalyzeDicomData(self, request, context):
+        # Yhden sarjan analyysiä EI ole toteutettu XR-palvelussa (toisin kuin
+        # CT:ssä). .proto vaatii metodin olemassaolon, joten palautetaan tynkä.
         logger.info("Single series analysis not yet implemented for X-ray")
         return xray_analyze_service_pb2.AnalyzeResponse(
             message="Not implemented", series_id=request.series_id
@@ -634,27 +765,32 @@ def start_analyze_scheduler(interval_seconds=3600):
     """Käynnistä taustapollaaja joka ajaa XR-analyysin säännöllisesti."""
     service = XrayAnalyzeService()
 
+    # gRPC-kutsut tarvitsevat context-olion. Ajastetussa ajossa ei ole oikeaa
+    # gRPC-kontekstia, joten annetaan valekonteksti, jonka set_code ei tee mitään.
     class DummyContext:
         def set_code(self, code):
             pass
 
     def loop():
         logger.info("XR scheduler started (interval: %ss). Odotetaan ensimmäinen ajo...", interval_seconds)
-        time.sleep(30)  # Odota Orthancin ja Fetchin käynnistyvän
+        time.sleep(30)  # Odota Orthancin ja Fetchin käynnistyvän ennen 1. ajoa
         while True:
             try:
                 logger.info("Scheduled X-ray analysis starting...")
                 service.AnalyzeAllDicomData(None, DummyContext())
             except Exception as e:
+                # Yksittäinen epäonnistunut ajo ei saa tappaa pollaussäiettä.
                 logger.error("Scheduled X-ray analysis failed: %s", e)
             logger.info("Odotetaan %s sekuntia seuraavaan ajoon...", interval_seconds)
             time.sleep(interval_seconds)
 
+    # daemon=True: säie ei estä prosessin sulkeutumista.
     t = threading.Thread(target=loop, daemon=True)
     t.start()
 
 
 def serve():
+    # Käynnistää gRPC-palvelimen portissa 50053 ja jää odottamaan kutsuja.
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     xray_analyze_service_pb2_grpc.add_XrayAnalyzeServiceServicer_to_server(
         XrayAnalyzeService(), server
@@ -666,6 +802,8 @@ def serve():
 
 
 if __name__ == "__main__":
+    # Ohjelman käynnistys: 1) lokitus päälle, 2) ajastettu pollaaja taustalle
+    # (kerran tunnissa), 3) gRPC-palvelin kuuntelemaan (serve jää blokkaamaan).
     logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
     start_analyze_scheduler(3600)  # Ajastettu analyysi kerran tunnissa
     serve()

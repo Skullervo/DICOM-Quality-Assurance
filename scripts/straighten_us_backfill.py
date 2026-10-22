@@ -28,6 +28,9 @@ from pydicom.dataset import Dataset, FileDataset, FileMetaDataset
 from pydicom.uid import generate_uid, SecondaryCaptureImageStorage, ExplicitVRLittleEndian
 import psycopg2
 
+# Projektin juurihakemisto ja US-analyysipalvelun hakemisto. Lisätään analyysikoodin
+# polku sys.pathiin, jotta voidaan importata TÄSMÄLLEEN sama analyysiluokka jota
+# varsinainen palvelu käyttää (ei kopioida logiikkaa -> suoristus pysyy identtisenä).
 ROOT = Path(__file__).resolve().parent.parent
 ANALYZE = ROOT / "grpc_microservices" / "Analyze_service"
 sys.path.insert(0, str(ANALYZE))
@@ -36,6 +39,8 @@ from US_IQ_analysis3 import imageQualityUS  # noqa: E402
 
 
 def load_env():
+    # Lue projektin juuren .env-tiedosto yksinkertaiseksi avain->arvo-sanakirjaksi
+    # (DB- ja Orthanc-salasanat). Kommenttirivit (#) ohitetaan.
     env = {}
     f = ROOT / ".env"
     if f.exists():
@@ -74,10 +79,13 @@ def straighten(dicom_bytes):
     joten näyttö ja profiilioverlay täsmäävät. Vain konveksit (is_convex)."""
     ds = pydicom.dcmread(io.BytesIO(dicom_bytes), force=True)
     analyzer = imageQualityUS(ds, dicom_bytes, ds.pixel_array, "probe-LUT.xls")
+    # Vain konveksit (kaarevat) anturit suoristetaan; lineaarisia ei muunneta.
     if not analyzer.is_convex(ds.pixel_array):
         return ds, False, None
+    # Aja täysi analyysi ja ota siitä suoristettu kuva "im_t".
     result = analyzer.MAIN_US_analysis()
     im_t = np.asarray(result["im_t"]).astype(np.float32)
+    # Normalisoi 8-bittiseksi harmaasävykuvaksi (0..255) näyttöä/tallennusta varten.
     u8 = cv2.normalize(im_t, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
     return ds, True, u8
 
@@ -135,6 +143,7 @@ def build_sc_dicom(orig_ds, straight_u8):
 
 
 def push_to_orthanc(dicom_bytes):
+    # Lähetä valmis suoristettu SC-DICOM Orthanciin ja palauta sen uusi Orthanc-UUID.
     r = requests.post(f"{ORTHANC}/instances", data=dicom_bytes, auth=AUTH,
                       headers={"Content-Type": "application/dicom"}, timeout=30)
     r.raise_for_status()
@@ -154,6 +163,8 @@ def main():
 
     conn = psycopg2.connect(**PG)
     cur = conn.cursor()
+    # Valitaan käsiteltävät rivit ultrasound-taulusta. Joko yksi annettu instanssi,
+    # tai kaikki joilta suoristettu kuva vielä puuttuu (ellei --force anneta).
     cols = "instance, tranducertype, straightened_instance"
     if args.instance:
         cur.execute(f"SELECT {cols} FROM ultrasound WHERE instance=%s", (args.instance,))
@@ -168,9 +179,11 @@ def main():
     rows = cur.fetchall()
     print(f"Käsiteltäviä instansseja: {len(rows)}  (dry_run={args.dry_run})")
 
+    # Laskurit: suoristetut konveksit / ohitetut lineaariset / virheet.
     n_conv = n_lin = n_err = 0
     for instance, ttype, old_straight in rows:
         try:
+            # 1) Hae alkuperäinen DICOM Orthancista ja 2) suorista (jos konveksi).
             dicom_bytes = fetch_dicom(instance)
             orig_ds, conv, straight_u8 = straighten(dicom_bytes)
             if not conv:
@@ -188,6 +201,7 @@ def main():
                     requests.delete(f"{ORTHANC}/instances/{old_straight}", auth=AUTH, timeout=20)
                 except Exception:
                     pass
+            # 3) Rakenna SC-DICOM, 4) lähetä Orthanciin, 5) linkitä DB-sarakkeeseen.
             sc_bytes, new_sop = build_sc_dicom(orig_ds, straight_u8)
             new_id = push_to_orthanc(sc_bytes)
             cur.execute("UPDATE ultrasound SET straightened_instance=%s WHERE instance=%s",

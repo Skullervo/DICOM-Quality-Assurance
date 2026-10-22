@@ -1,22 +1,30 @@
+# Röntgen-analyysipalvelun kontti (NORMI-13-fantomi, gRPC portti 50053).
 FROM python:3.12-slim
 WORKDIR /app
 
+# Järjestelmäkirjastot: git (asentaa normi13_qa-paketin GitHubista pip:llä),
+# gcc + libpq-dev (C-laajennosten käännös), libgl1 + libglib2.0-0 (OpenCV).
+# Apt-välimuisti poistetaan, ei-root-käyttäjä luodaan.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git gcc libpq-dev libgl1 libglib2.0-0 && \
     rm -rf /var/lib/apt/lists/* && \
     adduser --disabled-password --gecos '' --uid 1000 appuser
 
+# Asennetaan Python-riippuvuudet.
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Kopioidaan koko palvelun lähdekoodi.
 COPY . .
 
+# Käännetään gRPC-rajapinta Python-stubeiksi.
 RUN python -m grpc_tools.protoc \
     -I. \
     --python_out=. \
     --grpc_python_out=. \
     xray_analyze_service.proto
 
+# Ajetaan ei-root-käyttäjänä; palvelu kuuntelee porttia 50053.
 USER appuser
 
 EXPOSE 50053

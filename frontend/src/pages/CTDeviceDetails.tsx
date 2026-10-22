@@ -1,3 +1,13 @@
+// =============================================================================
+// pages/CTDeviceDetails.tsx — Yhden TT-laitteen QA-sivu (/ct/device/:id)
+// =============================================================================
+// Rakenteeltaan kuten USDeviceDetails, mutta CT:lle ja rikkaammalla kuva-
+// osiolla: vasemman paneelin pudotusvalikosta valitaan näytettävä kuva —
+// interaktiivinen DICOM-leike (ImageViewer, aito W/L + zoom), ROI-kartta
+// (RoiOverlay, HU-alueet kytketty mittareihin) tai valmis analyysikuva/kaavio
+// (PngViewer). Trendikäyrät ja ROI-kartta ovat kytketty hover-korostuksella.
+// =============================================================================
+
 import { useState, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -17,6 +27,7 @@ import { hasTolerance, deriveVerdict, deriveStatus, failingDetails } from '../li
 import type { Status } from '../lib/qa/types'
 import type { ReportContext } from '../components/qa/ReportTab'
 
+// Verdiktin näyttönimet ja pyöristysapu (ei-numero -> "?").
 const VERDICT_FI = { pass: 'Pass', warn: 'Warning', fail: 'Fail', nodata: 'No data' } as const
 const rnd = (v: unknown, p = 2) => (typeof v === 'number' ? v.toFixed(p) : '?')
 
@@ -39,14 +50,16 @@ const IMAGE_OPTIONS = [
 const PLOT_KEYS = ['hu_linearity_chart', 'mtf_chart', 'uniformity_profile']
 
 export default function CTDeviceDetails() {
+  // Laitteen tunnus URL-polusta.
   const { id } = useParams<{ id: string }>()
   const station = id ? decodeURIComponent(id) : ''
-  const [imgSel, setImgSel] = useState('dicom')
-  const [hoverRoi, setHoverRoi] = useState<string | null>(null)
-  const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
+  const [imgSel, setImgSel] = useState('dicom')                 // valittu kuvatyyppi pudotusvalikosta
+  const [hoverRoi, setHoverRoi] = useState<string | null>(null) // korostettu ROI/metriikka (kytkee kartan ja käyrät)
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null)  // valittu trendipiste
   const [activeTab, setActiveTab] = useState<TabId>('analyysi')
   const panelHidden = activeTab !== 'analyysi' // piilota vasen paneeli AI-/raporttivälilehdillä
 
+  // Laitteen mittaukset ja trenddata.
   const { data: detail } = useQuery<Record<string, unknown>[]>({
     queryKey: ['ct', 'device', station], queryFn: () => api.ctDeviceDetail(station), enabled: !!station,
   })
@@ -59,17 +72,19 @@ export default function CTDeviceDetails() {
   const latest = selectedPoint
     ? detail?.find((d) => String(d.study_date) === String(selectedPoint.study_date)) ?? detail?.[0] ?? null
     : detail?.[0] ?? null
-  const instanceId = latest ? String(latest.instance ?? '') : ''
+  const instanceId = latest ? String(latest.instance ?? '') : ''  // kuvahakuun tarvittava instanssi
   // Oletuksena korosta kuvaikkunan mittaus (uusin, kun ei valittu erikseen)
   const defaultActiveIdx = latest ? (chartData?.findIndex((p) => String(p.study_date) === String(latest.study_date)) ?? -1) : -1
   const activeIdx = selectedIdx ?? (defaultActiveIdx >= 0 ? defaultActiveIdx : undefined)
+  // Trendipisteen klikkaus: valitse tai poista valinta.
   const handlePointClick = useCallback((idx: number) => setSelectedIdx((prev) => (prev === idx ? null : idx)), [])
 
   // Config-vetoiset metriikat + DB-toleranssit; verdiktiin vain toleranssilliset
   const { data: tolerances } = useTolerances()
   const metrics = buildMetrics('CT', latest, (chartData ?? []) as Record<string, unknown>[], tolerances)
   const verdictMetrics = metrics.filter(hasTolerance)
-  const rois = (latest?.hu_roi_map as Roi[] | undefined) ?? []
+  const rois = (latest?.hu_roi_map as Roi[] | undefined) ?? []  // ROI-kartan ympyrät (HU-materiaalit)
+  // ROI-id -> status, jotta kartta osaa värjätä ympyrät (vain toleranssilliset arvioidaan).
   const roiStatus: Record<string, Status> = Object.fromEntries(
     metrics.map((m) => [m.id, m.value != null && hasTolerance(m) ? deriveStatus(m) : 'nodata']),
   )
@@ -82,6 +97,7 @@ export default function CTDeviceDetails() {
 
   const v = deriveVerdict(verdictMetrics)
 
+  // Raportti-/AI-konteksti: DICOM-tiedot ja keskeiset analyysitulokset.
   const reportCtx: ReportContext = {
     sections: latest
       ? [
@@ -111,6 +127,7 @@ export default function CTDeviceDetails() {
   }
 
   // Raportin kuvaliitteet: analyysikuvat (ei interaktiivinen DICOM-leike)
+  // Jätetään 'dicom' pois (ei liitettävä); 'roi' viittaa puhtaaseen HU-leikkeeseen.
   const reportAttachments = instanceId
     ? IMAGE_OPTIONS.filter((o) => o.key !== 'dicom').map((o) => ({
         key: o.key, label: o.label,
@@ -144,6 +161,7 @@ export default function CTDeviceDetails() {
         </div>
 
         {/* Kuva — yksi pudotusvalikko + kuvaikkuna (säästää tilaa vs. välilehdet) */}
+        {/* Valittu kuvatyyppi (imgSel) ratkaisee, mikä katselin renderöidään alla. */}
         {instanceId && (
           <div style={{ flexShrink: 0, padding: '16px 10px 10px', borderBottom: `1px solid ${C.border}` }}>
             <select value={imgSel} onChange={(e) => setImgSel(e.target.value)}
@@ -201,6 +219,7 @@ export default function CTDeviceDetails() {
         reportAttachments={reportAttachments}
         breadcrumb={null}
       >
+        {/* Trendikäyrät; highlightId/onHover kytkee käyrät ja ROI-kartan yhteen korostukseen. */}
         {latest && (
           <PagedTrendPanel title="Measurement trends" metrics={metrics} perPage={3} chromeless dimTitle
             activeIndex={activeIdx} onSelect={handlePointClick}

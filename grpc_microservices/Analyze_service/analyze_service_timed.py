@@ -1,5 +1,29 @@
+# =============================================================================
+# analyze_service_timed.py — Ultraääni-QA, TUOTANTOVERSIO (gRPC, portti 50052)
+# =============================================================================
+# ROOLI PUTKESSA:  Orthanc -> Fetch Service -> [tämä palvelu] -> MS SQL
+#
+# Tämä on pollaus-mallin kehittynein US-analyysipalvelu (vrt. yksinkertainen
+# analyze_service.py). Lisäykset alkuperäiseen:
+#   - MS SQL Server (pymssql) PostgreSQL:n sijaan
+#   - Idempotenssi: jo analysoituja kuvia ei analysoida uudelleen
+#   - Työnjako rinnakkaisille replikoille KAHDELLA tavalla:
+#       * CLAIM / work-stealing (SHARD_TOTAL<=1): atominen varaus DB-taulussa +
+#         reclaim/sweep kaatuneiden workerien orpojen töiden vapauttamiseksi
+#       * index-sharding (SHARD_TOTAL>1): deterministinen hash-jako ilman DB-varausta
+#   - Prometheus-metriikat (kuvamäärät, kesto, QA-tulokset) monitorointia varten
+#   - Epäonnistumisten kirjaus analysis_failures-tauluun (syy + traceback)
+#   - Ajastin, joka ajaa analyysikierroksen säännöllisin väliajoin
+#
+# HUOM: Käyttää raakaa SQL:ää (ei ORM:ää) — tiedossa oleva tekninen velka.
+# Event-driven-mallissa tämä korvataan workerilla (worker_us_eventdriven.py),
+# mutta ajetaan toistaiseksi rinnalla (strangler fig), kunnes cutover tehdään.
+# =============================================================================
+
 import sys
 import os
+# Lisää Fetch_service-hakemisto Python-polkuun, jotta sen generoidut gRPC-moduulit
+# (fetch_service_pb2*) löytyvät importattaessa.
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Fetch_service')))
 # ...existing imports...
 
@@ -274,11 +298,14 @@ def clear_failure(cur, orthanc_id):
         logger.error("clear_failure error: %s", e)
 
 # 🔹 Tarkista onko instanssi jo analysoitu
+# Idempotenssi: jos instanssi on jo ultrasound-taulussa, sitä ei analysoida
+# uudelleen (kierros voidaan ajaa turvallisesti monta kertaa).
 def is_instance_analyzed(cur, instance_id):
     cur.execute("SELECT 1 FROM ultrasound WHERE instance = %s", (instance_id,))
     return cur.fetchone() is not None
 
 # 🔹 Yhdistetään Fetch Serviceen
+# gRPC-stub (asiakaspää) DICOM-tavujen hakuun, iso viestikoko (200 MB).
 def get_fetch_stub():
     options = [
         ("grpc.max_send_message_length", 200 * 1024 * 1024),
@@ -287,9 +314,12 @@ def get_fetch_stub():
     channel = grpc.insecure_channel(FETCH_SERVICE_ADDRESS, options=options)
     return fetch_service_pb2_grpc.FetchServiceStub(channel)
 
+# gRPC-käsittelijäluokka (analyze_service_timed.proto -rajapinta).
 class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
+    # Yksi analyysikierros: käy läpi kaikki Orthancin sarjat/instanssit, suodattaa
+    # US-kuvat, varaa työn (claim tai sharding), analysoi ja tallentaa tulokset.
     def AnalyzeAllDicomData(self, request, context):
-        ANALYSIS_ROUNDS.inc()
+        ANALYSIS_ROUNDS.inc()   # metriikka: kierrosten kokonaismäärä
         if SHARD_TOTAL > 1:
             logger.info("📡 Analyysikierros — SHARDING: pod %s = shard %s/%s (käsittelee ~1/%s kuvista)",
                         POD_NAME, SHARD_INDEX, SHARD_TOTAL, SHARD_TOTAL)
@@ -404,6 +434,9 @@ class AnalyzeService(analyze_service_timed_pb2_grpc.AnalyzeServiceServicer):
                 try:
                     result = analysis.MAIN_US_analysis()
                 except Exception as e:
+                    # Analyysi kaatui -> kirjaa epäonnistuminen (syy + traceback)
+                    # analysis_failures-tauluun ja jatka seuraavaan kuvaan.
+                    # Tällöin kuva EI päädy ultrasound-tauluun (ei tulosriviä).
                     logger.error("❌ Analysis failed for instance %s: %s", instance_id, e)
                     IMAGES_PROCESSED.labels(modality="US", status="failed").inc()
                     record_failure(cur, instance_id, str(metadata.get("StationName", "")), str(e), traceback.format_exc())
@@ -486,6 +519,9 @@ def serve():
     logger.info("🚀 Analyze Service running on port 50052")
     server.wait_for_termination()
 
+# Käynnistä taustasäie, joka ajaa analyysikierroksen säännöllisin väliajoin
+# (oletus 1 h). Näin uudet Orthanciin saapuneet kuvat analysoidaan automaattisesti
+# ilman erillistä laukaisua.
 def start_analyze_scheduler(interval_seconds=3600):
     def loop():
         while True:

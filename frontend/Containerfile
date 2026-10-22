@@ -1,23 +1,38 @@
+# React-frontendin Containerfile. Kaksivaiheinen: ensin rakennetaan staattinen
+# sivusto (Vite build) Nodella, sitten tarjoillaan se nginxillä.
+# HUOM: tuotannossa frontend tarjoillaan yleensä Go-backendin kautta (dist/ on
+# upotettu backend-kuvaan). Tätä kuvaa tarvitaan vain jos frontend halutaan ajaa
+# erillisenä konttina.
+
+# --- Vaihe 1: käännös (builder) ---
 FROM node:22-alpine AS builder
 WORKDIR /app
 
+# Kopioidaan riippuvuusmäärittelyt ensin ja asennetaan ne (npm ci = tarkka,
+# lock-tiedostoon perustuva asennus). Välimuistittuu ellei package-lock muutu.
 COPY package.json package-lock.json ./
 RUN npm ci
 
+# Kopioidaan lähdekoodi ja rakennetaan tuotantoversio (tulos -> /app/dist).
 COPY . .
 RUN npm run build
 
+# --- Vaihe 2: tarjoilu (nginx) ---
 # Production: serve via Go backend (dist/ is embedded)
 # This Containerfile is for standalone frontend serving if needed.
 FROM nginx:alpine
+# Luodaan ei-root-käyttäjä ja annetaan sille oikeudet nginxin hakemistoihin (rootless).
 RUN adduser -D -u 1000 appuser && \
     chown -R appuser:appuser /usr/share/nginx/html /var/cache/nginx /var/run
 
+# Kopioidaan käännetty sivusto nginxin juureen ja oma nginx-konfiguraatio.
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 USER appuser
 
+# nginx kuuntelee porttia 80 kontin sisällä.
 EXPOSE 80
 
+# Käynnistä nginx etualalla (daemon off) jotta kontti pysyy käynnissä.
 CMD ["nginx", "-g", "daemon off;"]

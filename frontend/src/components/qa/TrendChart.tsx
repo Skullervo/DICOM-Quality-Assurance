@@ -1,3 +1,16 @@
+// =============================================================================
+// components/qa/TrendChart.tsx — Yhden QA-mittarin trendikäyrä (Recharts)
+// =============================================================================
+// Piirtää yhden mittarin aikasarjan: viivakäyrä, nominaaliviiva, raja-viivat ja
+// pisteet värjättynä KUNKIN mittauksen oman statuksen mukaan. Käyrää voi klikata
+// (valitsee mittauksen, jolloin arvot päivittyvät sivupaneeliin) ja, jos
+// historiaa on paljon (> WINDOW), vierittää 50 mittauksen ikkunaa raahaamalla tai
+// rullalla (kaksoisklikkaus kytkee vieritystilan päälle/pois).
+//
+// Y-akselin rajat ja tickit lasketaan "nice numbers" -tyylillä (niceStep), jotta
+// luvut ovat pyöreitä eivätkä hypi vieritettäessä.
+// =============================================================================
+
 // Suurennettu trendikäyrä (yksi metriikka): akselit + toleranssikaista + nominaali +
 // rajaviivat, pisteet statusvärillä. Y-akseli ankkuroitu toleranssiin. Klikkaus valitsee
 // mittauksen (kuten sparkline).
@@ -23,19 +36,21 @@ function niceStep(range: number, divisions: number): number {
   return nice * mag
 }
 
+// Statuksen ja värin kytkentä pisteiden värjäystä varten.
 const STATUS_COLOR: Record<Status, string> = {
   pass: 'var(--pass)', warn: 'var(--warn)', fail: 'var(--fail)', nodata: 'var(--neutral)',
 }
 
+// Oma tooltip: näyttää päivän, arvon yksikköineen ja poikkeaman nominaalista (Δ).
 function DateTooltip(props: Record<string, unknown>) {
   const { active, payload, unit, nominal, precision } = props as {
     active?: boolean
     payload?: { payload: { date: string; value: number } }[]
     unit: string; nominal: number | null; precision: number
   }
-  if (!active || !payload || !payload.length) return null
+  if (!active || !payload || !payload.length) return null  // näytä vain aktiivisena
   const p = payload[0].payload
-  const d = nominal != null ? p.value - nominal : null
+  const d = nominal != null ? p.value - nominal : null  // poikkeama nominaalista (jos nominaali on)
   return (
     <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border-strong)', borderRadius: 6, padding: '6px 8px', fontSize: 11, color: 'var(--text)' }}>
       <div style={{ color: 'var(--text-muted)' }}>{formatDate(p.date)}</div>
@@ -53,12 +68,13 @@ function StatusDot(props: Record<string, unknown>) {
   if (cx == null || cy == null) return null
   // Väri PER PISTE: kunkin mittauksen oma arvo luokitellaan (pass/warn/fail), ei koko metriikkaa.
   const status = deriveStatus({ ...limits, value: payload?.value ?? null })
-  const clickIdx = payload?.idx
+  const clickIdx = payload?.idx  // alkuperäinen mittausindeksi (valintaan)
   const onClick = onSelect && clickIdx != null ? () => onSelect(clickIdx) : undefined
   const cursor = onSelect ? 'pointer' : undefined
-  const isActive = clickIdx != null && clickIdx === activeIndex
+  const isActive = clickIdx != null && clickIdx === activeIndex  // onko tämä valittu mittaus
+  // Valittu piste on suurin, viimeinen hieman suurempi, muut peruskoko.
   const r = isActive ? 6.5 : index === lastIdx ? 5 : 4
-  const fill = isActive ? '#fff' : STATUS_COLOR[status]
+  const fill = isActive ? '#fff' : STATUS_COLOR[status]           // valittu korostuu valkoisella täytöllä
   const stroke = isActive ? STATUS_COLOR[status] : 'var(--surface)'
   const sw = isActive ? 2.5 : index === lastIdx ? 1.5 : 1
   return (
@@ -89,13 +105,14 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
 
   // Vieritettävä ikkuna: näytä enintään WINDOW mittausta, oletuksena uusimmat.
   const n = history.length
-  const windowed = n > WINDOW
-  const maxOffset = Math.max(0, n - WINDOW)
-  const [offset, setOffset] = useState(maxOffset)
-  const [panOn, setPanOn] = useState(false)
+  const windowed = n > WINDOW            // tarvitaanko vieritystä (historiaa yli ikkunan)
+  const maxOffset = Math.max(0, n - WINDOW)  // suurin sallittu alkuoffset
+  const [offset, setOffset] = useState(maxOffset)  // ikkunan alkukohta, oletuksena loppu (uusimmat)
+  const [panOn, setPanOn] = useState(false)        // onko vieritystila (raahaus/rulla) päällä
   const touched = useRef(false) // seuraa uusimpia kunnes käyttäjä vierittää itse
   const chartRef = useRef<HTMLDivElement>(null)
-  const PAGE = Math.floor(WINDOW / 2)
+  const PAGE = Math.floor(WINDOW / 2)    // nuolella siirrytään puoli ikkunaa kerrallaan
+  // Siirrä ikkunaa d pisteellä ja merkitse, että käyttäjä on vierittänyt itse.
   const scrollBy = (d: number) => { touched.current = true; setOffset((o) => clamp(o + d, 0, maxOffset)) }
 
   // Datamäärän muuttuessa (refetch): seuraa uusimpia ellei käyttäjä ole vierittänyt.
@@ -147,13 +164,14 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
     return () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp) }
   }, [panOn, windowed, maxOffset])
 
-  const data = windowed ? history.slice(offset, offset + WINDOW) : history
+  const data = windowed ? history.slice(offset, offset + WINDOW) : history  // näkyvät pisteet
   const lastIdx = data.length - 1
-  const tickInterval = Math.max(0, Math.ceil(data.length / 8) - 1)
-  const shownFrom = windowed ? offset + 1 : 1
-  const shownTo = windowed ? offset + data.length : n
+  const tickInterval = Math.max(0, Math.ceil(data.length / 8) - 1)  // näytä ~8 x-akselin merkkiä
+  const shownFrom = windowed ? offset + 1 : 1          // näkyvän alueen ensimmäinen (indikaattoriin)
+  const shownTo = windowed ? offset + data.length : n  // näkyvän alueen viimeinen
 
   // Y-skaala koko historiasta (pysyy vakaana vieritettäessä, arvot eivät hyppää).
+  // Ehdokkaat: nominaali, rajat ja kaikki arvot — näistä min ja max.
   const cand = [nominal, lowerLimit, upperLimit, ...history.map((h) => h.value)].filter(
     (x): x is number => x != null,
   )
@@ -166,11 +184,12 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
     dlo -= e; dhi += e
   }
   // Pyöristä ääriarvot tasaluvuiksi: ala alas, ylä ylös lähimpään nice-askeleeseen.
-  const yStep = niceStep(dhi - dlo, 3)
-  const lo = Math.floor(dlo / yStep) * yStep
-  const hi = Math.ceil(dhi / yStep) * yStep
+  const yStep = niceStep(dhi - dlo, 3)          // sopiva "pyöreä" askel ~3 jaolle
+  const lo = Math.floor(dlo / yStep) * yStep    // alaraja alas askeleen monikertaan
+  const hi = Math.ceil(dhi / yStep) * yStep     // yläraja ylös askeleen monikertaan
   // Eksplisiittiset tickit nice-askeleella -> kaikki pyöreitä, ei Recharts-"nice"-hyppyjä
   const yTicks: number[] = []
+  // Rakenna tickit alhaalta ylös askeleen välein (0.5-marginaali pyöristysvirheille).
   for (let v = lo; v <= hi + yStep * 0.5; v += yStep) yTicks.push(Number(v.toFixed(6)))
 
   return (
@@ -225,6 +244,7 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
             <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--text-muted)', fontFamily: 'var(--mono)' }} interval={tickInterval} tickMargin={6} tickFormatter={(d) => formatDateAxis(String(d))} />
             <YAxis domain={[lo, hi]} ticks={yTicks} tickFormatter={(v) => String(Number(Number(v).toFixed(3)))}
               tick={{ fontSize: 11, fill: 'var(--text-muted)', fontFamily: 'var(--mono)' }} width={60} />
+            {/* Nominaaliviiva katkoviivana, hyväksymisrajat yhtenäisinä viivoina (jos määritelty). */}
             {nominal != null && <ReferenceLine y={nominal} stroke="var(--nominal-line)" strokeDasharray="3 3" />}
             {upperLimit != null && <ReferenceLine y={upperLimit} stroke="var(--limit-line)" />}
             {lowerLimit != null && <ReferenceLine y={lowerLimit} stroke="var(--limit-line)" />}
@@ -239,6 +259,7 @@ export function TrendChart({ metric, activeIndex, onSelect, highlighted, onHover
   )
 }
 
+// Pienen vierityspainikkeen (‹ ›) tyyli; disabled himmentää.
 const navBtn = (disabled: boolean): CSSProperties => ({
   display: 'flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 16,
   borderRadius: 4, border: 'none', background: 'transparent', color: 'inherit', padding: 0,

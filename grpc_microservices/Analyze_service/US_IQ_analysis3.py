@@ -1,12 +1,43 @@
+# =============================================================================
+# US_IQ_analysis3.py — Ultraäänikuvan laadunvalvonta-analyysi (ydinalgoritmi)
+# =============================================================================
+# ROOLI PUTKESSA:  tämä on US-palveluiden (analyze_service*.py, worker_us_*) sydän.
+# Palvelu hakee DICOM-kuvan Orthancista ja antaa sen tälle luokalle, joka laskee
+# QA-metriikat ja palauttaa ne sanakirjana tietokantaan tallennettavaksi.
+#
+# MENETELMÄ (julkaisu: van Horssen et al. 2017, "Automated quality control of
+# ultrasound based on in-air reverberation patterns"):
+# Anturista otetaan kuva ILMAA vasten (ei potilasta). Terveessä anturissa näkyy
+# säännöllinen "kaikuviivakuvio" (reverberation). Viallinen elementti näkyy
+# kuviossa katkoksena/epätasaisuutena. Analyysi mittaa tämän kuvion tasaisuutta.
+#
+# PÄÄVAIHEET (MAIN_US_analysis):
+#   1. Lue DICOM-metadata (anturityyppi, mittakaava, anturin nimi LUT:sta)
+#   2. Reititä anturin geometrian mukaan:
+#        - konveksi/kaareva -> suorista napamuunnoksella lineaariseksi
+#        - sektori/phased    -> suorista viuhkan apexin ympäri (best-effort)
+#        - lineaari          -> käytä sellaisenaan
+#   3. Rajaa kuva kaikuvyöhön (crop_US_im)
+#   4. Laske metriikat (US_air_image_analysis):
+#        S_depth = kaikukuvion syvyys, U_cov = tasaisuus (variaatiokerroin),
+#        U_skew  = vinous, U_low = heikoimmat kohdat profiilin segmenteissä
+#
+# TÄRKEÄÄ (ylläpitäjälle): u_cov/u_skew ym. ovat QA-TULOKSIA (laitteen kunto),
+# EIVÄT analyysin onnistumisen mittareita. Jos suoristus epäonnistuu, metodi
+# nostaa poikkeuksen (jäljittyy tracebackilla), eikä tulosta tallenneta.
+# =============================================================================
+
 import sys
 import matplotlib.pyplot as plt
 import pydicom
 import numpy as np
-from skimage.measure import label  
-import cv2 
+from skimage.measure import label
+import cv2
 from scipy.signal import argrelextrema
 from scipy import ndimage
 import cv2
+# Anturin tunnistuksen apufunktiot: ensisijaisesti utils-paketista, muuten
+# samasta hakemistosta (toimii sekä paketoituna että suorana ajona).
 try:
     from utils.LUT_table_codes import extract_parameters, get_name_from_df
 except:
@@ -20,8 +51,15 @@ mpl.rcParams['figure.dpi']= 72
 
 #%%
 
+# Luokka kapseloi yhden US-kuvan analyysin. Luodaan per kuva; MAIN_US_analysis()
+# tekee varsinaisen työn. Muut metodit ovat sen apuvaiheita (kuvankäsittely).
 class imageQualityUS:
-    
+
+    # Konstruktori vain tallentaa syötteet; analyysiä ei vielä ajeta.
+    #   path_data   = pydicom-dataset (DICOM-metadata + pikselit)
+    #   dicom_bytes = alkuperäiset DICOM-tavut (muistipuskuri)
+    #   image       = pikselimatriisi (numpy)
+    #   table       = LUT-taulukon (probe-LUT.xls) polku anturin tunnistukseen
     def __init__(self, path_data, dicom_bytes, image, table):
 
         
@@ -39,6 +77,8 @@ class imageQualityUS:
         self.image = image
         self.path_LUT_table = table
     
+    # Palauta binäärikuvan suurin yhtenäinen alue (connected component). Käytetään
+    # erottamaan varsinainen kaikuvyö kuvan pienemmistä roskakomponenteista.
     def getLargestCC(self, segmentation):
         '''
         Parameters
@@ -56,6 +96,8 @@ class imageQualityUS:
         return largestCC
 
     #%%
+    # Täytä binäärikuvan sisäiset reiät flood fill -menetelmällä (vain alueen
+    # sisällä olevat reiät täyttyvät). Siistii segmentoidun kaikuvyön muotoa.
     def fillhole(self, input_image):
         '''
         input gray binary image  get the filled image by floodfill method
@@ -74,6 +116,8 @@ class imageQualityUS:
         return img_out
 
     #%%
+    # Muunna värikuva (RGB) harmaasävyksi painotetulla summalla (ihmissilmän
+    # herkkyys). Osa US-kuvista tallennetaan RGB:nä vaikka sisältö on harmaa.
     def rgb2gray(self, rgb):
         '''
         Parameters
@@ -91,6 +135,9 @@ class imageQualityUS:
         return gray    
 
     #%%
+    # Rajaa US-kuva varsinaiseen kaikusisältöön: poistaa ympäröivät mustat reunat,
+    # UI-palkit ja otsikot etsimällä kuvan suurimman valoisan komponentin. Jos
+    # crop2half=True, otetaan vain yläpuolisko (kaikuviivat ovat kuvan yläosassa).
     def crop_US_im(self, im, crop2half=True):
         '''
         This function crops the ultrasound image to the image content ie. extracts the outer regions of the US dicom image.
@@ -165,6 +212,8 @@ class imageQualityUS:
 
 
     #%%
+    # Tasoita vektori liukuvalla keskiarvolla (box-konvoluutio). Vähentää kohinaa
+    # ennen huippujen/kaikuviivojen etsintää.
     def smooth(self, y, box_pts):
         '''
         smooths vector y with box convolution length box_pts
@@ -185,6 +234,9 @@ class imageQualityUS:
         return y_smooth
 
     #%%
+    # Etsi kaikuviivojen (reverberation lines) sijainnit pystyprofiilista.
+    # Idea: tasoitetaan profiili, lasketaan derivaatta (detrend) ja etsitään sen
+    # minimit -> viivojen väliset notkot. Palauttaa ensimmäiset reverb_lines kpl.
     def get_reverb_lines(self, vert_profile, reverb_lines, smooth_factor = 5):
         '''
         returns reverberation line positions from detrended vertical profile minimas
@@ -216,6 +268,9 @@ class imageQualityUS:
         return XX
 
     #%%
+    # Morfologinen "avaus" + suurimman komponentin valinta: ensin eroosio
+    # (poistaa ohuet yhteydet ja reunaan tarttuneen tekstin), sitten suurin
+    # komponentti, lopuksi valinnainen dilaatio (palauttaa koon). Siistii maskin.
     def imopen_take_largest(self, BW, dilate_f=True,  kernel=np.ones((5,5), np.uint8),  iters = 2):
         '''
         Performs erosion, largest component and dilatation

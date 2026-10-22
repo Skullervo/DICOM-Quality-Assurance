@@ -1,3 +1,16 @@
+// =============================================================================
+// components/qa/ReportTab.tsx — "Raportoi ongelmasta" -välilehti (Slack-ilmoitus)
+// =============================================================================
+// Lomake, jolla käyttäjä lähettää ongelmailmoituksen Slackiin. Mukaan menee
+// automaattisesti laitteen konteksti (mittausarvot, rajat ylittäneet) sekä
+// käyttäjän valitsemat kuvaliitteet. Kentät: vakavuus, raportoija (nimi+email),
+// vapaa kuvaus, lisätiedot. Lähetys menee api.reportIssue -> Go-backend, joka
+// reitittää oikealle Slack-kanavalle context.modalityn perusteella.
+//
+// TÄSSÄ TIEDOSTOSSA määritellään myös tyypit ReportContext/ReportSection/
+// ReportAttachment, joita AiChat ja MainArea käyttävät.
+// =============================================================================
+
 // Raportoi ongelmasta -välilehti (brief osio 6.8): vakavuus + raportoija +
 // automaattinen konteksti (read-only laatikot) + vapaa kuvaus + lisätiedot +
 // kuvaliitteet + lähetä. Kaksisarakkeinen (lomake | kuvavalinta) kun liitteitä on.
@@ -9,8 +22,11 @@ import { contextToText } from './contextText'
 
 import type { FailingItem } from '../../lib/qa/status'
 
+// Yksi valittava kuvaliite: avain, näyttönimi ja kuvan URL.
 export type ReportAttachment = { key: string; label: string; url: string }
+// Yksi kontekstiosio: otsikko + "label: value" -rivit.
 export type ReportSection = { title: string; rows: { label: string; value: string }[] }
+// Koko laitteen tilakonteksti, joka liitetään raporttiin/AI-kysymykseen.
 export type ReportContext = {
   sections: ReportSection[] // esim. DICOM-tiedot, Analyysitulokset — tiiviinä taulukkoina
   failing?: FailingItem[] // rajojen ulkopuoliset mittarit (rakenteisesti)
@@ -18,8 +34,10 @@ export type ReportContext = {
   station?: string // laitteen tunnus (lisätään viestin alkuun)
 }
 
+// Valittavat vakavuustasot.
 const SEVERITIES = ['Low', 'Moderate', 'High']
 
+// Tekee suhteellisesta URL:stä absoluuttisen (jotta Slack-viestin linkki toimii).
 const absUrl = (u: string) => {
   try { return new URL(u, window.location.origin).href } catch { return u }
 }
@@ -37,45 +55,52 @@ const textareaStyle: CSSProperties = {
 }
 
 export function ReportTab({ context, attachments = [] }: { context: ReportContext; attachments?: ReportAttachment[] }) {
-  const [sev, setSev] = useState('Moderate')
-  const [kuvaus, setKuvaus] = useState('')
-  const [extra, setExtra] = useState('')
+  const [sev, setSev] = useState('Moderate')   // valittu vakavuus (oletus keskitaso)
+  const [kuvaus, setKuvaus] = useState('')     // vapaa ongelmakuvaus
+  const [extra, setExtra] = useState('')       // lisätiedot
+  // Raportoijan nimi ja email muistetaan selaimessa seuraavaa kertaa varten.
   const [reporter, setReporter] = useState(() => localStorage.getItem('autoqad-reporter') || '')
   const [email, setEmail] = useState(() => localStorage.getItem('autoqad-reporter-email') || '')
-  const [status, setStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle')
-  const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [broken, setBroken] = useState<Set<string>>(new Set())
+  const [status, setStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle')  // lähetyksen tila
+  const [selected, setSelected] = useState<Set<string>>(new Set())  // liitteeksi valitut kuvat
+  const [broken, setBroken] = useState<Set<string>>(new Set())      // latausvirheelliset kuvat
 
+  // Nimi/email tallennetaan samalla localStorageen (muistetaan jatkossa).
   const onReporter = (v: string) => { setReporter(v); localStorage.setItem('autoqad-reporter', v) }
   const onEmail = (v: string) => { setEmail(v); localStorage.setItem('autoqad-reporter-email', v) }
 
+  // Valitsee/poistaa kuvan liitteistä.
   const toggle = (key: string) => setSelected((prev) => {
     const next = new Set(prev)
     if (next.has(key)) next.delete(key); else next.add(key)
     return next
   })
-  const markBroken = (key: string) => setBroken((prev) => new Set(prev).add(key))
+  const markBroken = (key: string) => setBroken((prev) => new Set(prev).add(key))  // merkitse kuva rikkinäiseksi
 
-  const usable = attachments.filter((a) => !broken.has(a.key))
-  const hasAtt = usable.length > 0
+  const usable = attachments.filter((a) => !broken.has(a.key))  // ehjät liitteet
+  const hasAtt = usable.length > 0  // onko liitteitä (vaikuttaa asetteluun)
 
+  // Kokoaa raporttiviestin tekstistä ja lähettää sen backendille.
   async function send() {
     setStatus('loading')
+    // Valitut ehjät kuvat; data:-URL ei ole linkitettävä, muut linkkeinä.
     const picked = attachments.filter((a) => selected.has(a.key) && !broken.has(a.key))
     const liitteet = picked.length
       ? `\n\nAttachments:\n${picked.map((a) => a.url.startsWith('data:') ? `• ${a.label} (attached image)` : `• ${a.label}: ${absUrl(a.url)}`).join('\n')}`
       : ''
+    // Raportoija-rivi vain jos nimi tai email annettu.
     const rep = (reporter.trim() || email.trim())
       ? `Reporter: ${reporter.trim()}${email.trim() ? ` <${email.trim()}>` : ''}\n` : ''
-    const ctx = contextToText(context)
+    const ctx = contextToText(context)  // laitteen konteksti tekstinä
     const kuvausBlock = kuvaus.trim() ? `\n\nDescription:\n${kuvaus.trim()}` : ''
     const extraBlock = extra.trim() ? `\n\nAdditional info:\n${extra.trim()}` : ''
     try {
+      // Lähetä koottu viesti; modality/station ohjaavat Slack-kanavan valintaa backendissä.
       const d = await api.reportIssue(
         `[Severity: ${sev}]\n${rep}${ctx}${kuvausBlock}${extraBlock}${liitteet}`,
         { modality: context.modality, station: context.station },
       )
-      setStatus(d.status === 'ok' ? 'ok' : 'error')
+      setStatus(d.status === 'ok' ? 'ok' : 'error')  // näytä onnistuminen/virhe
     } catch {
       setStatus('error')
     }
@@ -185,6 +210,7 @@ export function ReportTab({ context, attachments = [] }: { context: ReportContex
         </div>
       )}
 
+      {/* Onnistumis-/virheilmoitus lähetyksen jälkeen. */}
       {status === 'ok' && (
         <div style={{ background: 'var(--pass-bg)', border: '1px solid var(--pass)', color: 'var(--pass)', borderRadius: 8, padding: '10px 12px', fontSize: 13 }}>
           Report sent.

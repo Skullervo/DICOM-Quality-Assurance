@@ -1,3 +1,14 @@
+// =============================================================================
+// pages/MittauksetModaliteetti.tsx — Yhden modaliteetin mittaustaulukko (/mittaukset/:mod)
+// =============================================================================
+// Sama komponentti kaikille modaliteeteille (modality-prop). Listaa KAIKKI
+// Orthancin mittaukset ja näyttää kunkin analyysitilan (Analyzed/Failed).
+// Tärkeää: epäonnistuneet analyysit eivät ole tietokannassa — ne luetaan
+// Orthancista ja tila ristiinviitataan analyysitauluun. Taulukkoa voi suodattaa
+// (kaikki/analysoidut/epäonnistuneet), ja pikkukuvaa klikkaamalla avautuu suurennos,
+// joka epäonnistuneella näyttää myös teknisen virhejäljen (traceback).
+// =============================================================================
+
 // Modaliteettikohtainen mittaustaulukko: listaa KAIKKI Orthanc-mittaukset ja
 // merkitsee analyysin tilan (Analysoitu / Epäonnistui). Epäonnistuneet eivät
 // ole DB:ssä — ne tulevat Orthancista ja tila ristiinviitataan analyysitauluun.
@@ -9,6 +20,7 @@ import { BreadcrumbNav } from '../components/Breadcrumb'
 
 export type MittausModaliteetti = 'us' | 'xray' | 'ct' | 'angio'
 
+// Modaliteettikohtaiset otsikot ja laitelinkin muodostus.
 const CONFIG: Record<MittausModaliteetti, {
   title: string
   label: string
@@ -20,27 +32,32 @@ const CONFIG: Record<MittausModaliteetti, {
   angio: { title: 'Angiography measurements', label: 'Angiography', deviceLink: (m) => `/angio/device/${encodeURIComponent(m.institution_name)}/${encodeURIComponent(m.station_name)}` },
 }
 
+// Muotoilee DICOM-päivän (YYYYMMDD) muotoon DD.MM.YYYY.
 const fmtDate = (d: string) => (d && d.length >= 8 ? `${d.slice(6, 8)}.${d.slice(4, 6)}.${d.slice(0, 4)}` : (d || '—'))
 
+// "Pilleri"-merkin tyyli: vihreä onnistuneelle (ok=true), punainen epäonnistuneelle.
 const pill = (ok: boolean): CSSProperties => ({
   display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 600,
   padding: '2px 9px', borderRadius: 10, whiteSpace: 'nowrap',
   color: ok ? 'var(--pass)' : 'var(--fail)', background: ok ? 'var(--pass-bg)' : 'var(--fail-bg)',
   border: `1px solid color-mix(in srgb, ${ok ? 'var(--pass)' : 'var(--fail)'} 40%, transparent)`,
 })
+// Suodatinpainikkeen tyyli (aktiivinen korostettuna).
 const filterBtn = (active: boolean): CSSProperties => ({
   background: active ? 'var(--surface-2)' : 'transparent', border: `1px solid ${active ? 'var(--info)' : 'var(--border)'}`,
   color: active ? 'var(--text)' : 'var(--text-muted)', borderRadius: 8, padding: '5px 12px', fontSize: 13, cursor: 'pointer',
 })
 
+// Mahdolliset suodatinvalinnat.
 type Filter = 'all' | 'analyzed' | 'failed'
 
 export default function MittauksetModaliteetti({ modality }: { modality: MittausModaliteetti }) {
   const cfg = CONFIG[modality]
-  const [filter, setFilter] = useState<Filter>('all')
-  const [zoom, setZoom] = useState<Measurement | null>(null)
-  const [broken, setBroken] = useState<Set<string>>(new Set())
+  const [filter, setFilter] = useState<Filter>('all')        // aktiivinen suodatin
+  const [zoom, setZoom] = useState<Measurement | null>(null) // suurennoksessa näkyvä mittaus (tai null)
+  const [broken, setBroken] = useState<Set<string>>(new Set())  // kuvat, joiden lataus epäonnistui
 
+  // Esc-näppäin sulkee suurennoksen. Kuuntelija lisätään vain kun suurennos on auki.
   useEffect(() => {
     if (!zoom) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setZoom(null) }
@@ -48,6 +65,7 @@ export default function MittauksetModaliteetti({ modality }: { modality: Mittaus
     return () => window.removeEventListener('keydown', onKey)
   }, [zoom])
 
+  // Hae modaliteetin kaikki mittaukset (Orthanc + analyysitila).
   const { data, isLoading, error } = useQuery<Measurement[]>({
     queryKey: ['mittaukset', modality],
     queryFn: () => api.measurements(modality),
@@ -66,8 +84,9 @@ export default function MittauksetModaliteetti({ modality }: { modality: Mittaus
   }
 
   const all = data ?? []
-  const nAnalyzed = all.filter((m) => m.status === 'analyzed').length
-  const nFailed = all.length - nAnalyzed
+  const nAnalyzed = all.filter((m) => m.status === 'analyzed').length  // onnistuneiden määrä
+  const nFailed = all.length - nAnalyzed                               // loput = epäonnistuneet
+  // Näytettävät rivit: suodatettu valinnan mukaan ja järjestetty uusin ensin.
   const rows = [...all]
     .filter((m) => filter === 'all' || m.status === filter)
     .sort((a, b) => (b.study_date || '').localeCompare(a.study_date || ''))
@@ -110,6 +129,7 @@ export default function MittauksetModaliteetti({ modality }: { modality: Mittaus
               rows.map((m) => (
                 <tr key={m.orthanc_id}>
                   <td>
+                    {/* Pikkukuva; latausvirheessä viiva. Klikkaus avaa suurennoksen. */}
                     {broken.has(m.orthanc_id) ? (
                       <span style={{ color: 'var(--text-faint)', fontSize: '0.8rem' }}>—</span>
                     ) : (
@@ -120,6 +140,7 @@ export default function MittauksetModaliteetti({ modality }: { modality: Mittaus
                     )}
                   </td>
                   <td>
+                    {/* Vain onnistuneen analyysin laite on linkki QA-sivulle; muuten pelkkä nimi. */}
                     {m.status === 'analyzed'
                       ? <Link to={cfg.deviceLink(m)}>{m.station_name || '—'}</Link>
                       : (m.station_name || '—')}
@@ -159,6 +180,7 @@ export default function MittauksetModaliteetti({ modality }: { modality: Mittaus
               <span style={pill(zoom.status === 'analyzed')}>{zoom.status === 'analyzed' ? 'Analyzed' : 'Failed'}</span>
               {zoom.status === 'failed' && zoom.reason ? <span style={{ color: 'var(--text-muted)', marginLeft: 8, fontSize: '0.85rem' }}>{zoom.reason}</span> : null}
             </div>
+            {/* Epäonnistuneen mittauksen tekninen virhejälki avattavassa osiossa. */}
             {zoom.status === 'failed' && zoom.detail ? (
               <details style={{ marginTop: 8, textAlign: 'left' }}>
                 <summary style={{ cursor: 'pointer', color: 'var(--text-muted)', fontSize: '0.8rem' }}>Technical trace (traceback)</summary>

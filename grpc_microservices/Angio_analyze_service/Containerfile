@@ -1,20 +1,29 @@
 # AutoQAD Angiography/fluoroscopy (XA) analysis — Leeds TOR-18 event-driven worker.
 # No gRPC service for this modality: the event-driven worker IS the service.
+# SUOMEKSI: angiografian/läpivalaisun (XA) QA-analyysin kontti (Leeds TOR-18).
+# Tällä modaliteetilla EI ole erillistä gRPC-palvelua eikä pollerin — event-driven
+# -worker on itsessään koko palvelu (varaa jobin angio_jobs-taulusta ja analysoi).
 FROM python:3.12-slim
 WORKDIR /app
 
+# git (asentaa fantomianalyysipaketin GitHubista), gcc (C-laajennokset),
+# libgl1 + libglib2.0-0 (OpenCV). Apt-välimuisti poistetaan, ei-root luodaan.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git gcc libgl1 libglib2.0-0 && \
     rm -rf /var/lib/apt/lists/* && \
     adduser --disabled-password --gecos '' --uid 1000 appuser
 
+# Asennetaan Python-riippuvuudet.
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Kopioidaan koko palvelun lähdekoodi.
 COPY . .
 
 USER appuser
 
+# 9110 = Prometheus-metriikat (ei gRPC-porttia, koska palvelu on pelkkä worker).
 EXPOSE 9110
 
+# Käynnistä event-driven-worker: kuuntelee angio-jonoa ja analysoi XA-kuvat.
 CMD ["python", "worker_angio_eventdriven.py"]

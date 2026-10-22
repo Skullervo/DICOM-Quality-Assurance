@@ -1,3 +1,10 @@
+// handlers/db.go: tietokannan yleiset apufunktiot handlereille.
+//
+// Monet handlerit palauttavat rivit sellaisenaan JSONina tietämättä tarkkaa
+// sarakejoukkoa etukäteen. scanMaps lukee kaikki rivit map[string]any -muotoon,
+// ja reparseJSON palauttaa JSON-tekstinä tallennetut sarakkeet takaisin oikeaksi
+// rakenteeksi. Tämä korvaa aiemman pgx-pohjaisen (PostgreSQL) toteutuksen nyt kun
+// kanta on MS SQL Server.
 package handlers
 
 import (
@@ -22,6 +29,8 @@ func scanMaps(rows *sql.Rows) ([]map[string]any, error) {
 	}
 	var out []map[string]any
 	for rows.Next() {
+		// Scan vaatii osoittimet; luodaan arvotaulukko (vals) ja osoitintaulukko (ptrs)
+		// joka osoittaa siihen. Näin voidaan skannata ennalta tuntematon sarakejoukko.
 		vals := make([]any, len(cols))
 		ptrs := make([]any, len(cols))
 		for i := range vals {
@@ -34,7 +43,7 @@ func scanMaps(rows *sql.Rows) ([]map[string]any, error) {
 		for i, c := range cols {
 			v := vals[i]
 			if b, ok := v.([]byte); ok {
-				v = string(b) // NVARCHAR voi palautua []byte:nä
+				v = string(b) // NVARCHAR/teksti voi palautua []byte:nä -> muunna merkkijonoksi
 			}
 			if jsonColumns[c] {
 				v = reparseJSON(v)

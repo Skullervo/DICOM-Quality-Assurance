@@ -75,6 +75,16 @@ GO
 -- --- 3) Job-taulut (tilakone) ----------------------------------------------
 -- orthanc_id: US = Orthanc-INSTANSSI-id, XR/CT = Orthanc-SARJA-id (analyysin
 -- rakeisuus per modaliteetti). resource_level dokumentoi tämän.
+-- Sarakkeet selkokielellä (sama rakenne kaikissa neljässä job-taulussa):
+--   orthanc_id          = analysoitava Orthanc-resurssi (US/angio: instanssi, XR/CT: sarja)
+--   resource_level      = 'instance' tai 'series' (dokumentoi em. rakeisuuden)
+--   status              = tilakoneen tila (QUEUED->CLAIMED->RUNNING->COMPLETED|FAILED)
+--   claimed_by/claimed_at = kuka worker varasi jobin ja milloin
+--   started_at/completed_at = analyysin alku-/loppuaika
+--   attempts            = yrityskerrat (uudelleenyritykset virheen jälkeen)
+--   error_message       = viimeisin virheviesti jos FAILED
+--   UQ_..._orthanc UNIQUE = estää duplikaattijobin samalle resurssille (idempotenssi)
+--   CK_..._status CHECK  = sallii vain em. viisi tila-arvoa (suojaa virheelliseltä tilalta)
 IF OBJECT_ID('dbo.us_jobs','U') IS NULL
 CREATE TABLE dbo.us_jobs (
     id                  INT IDENTITY(1,1) PRIMARY KEY,
@@ -102,6 +112,8 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_us_jobs_status' AND obje
     CREATE INDEX IX_us_jobs_status ON dbo.us_jobs(status) INCLUDE (claimed_at);
 GO
 
+-- xray_jobs / ct_jobs / angio_jobs ovat rakenteeltaan identtisiä us_jobs-taulun kanssa;
+-- ero on vain oletusmodaliteetti ja rakeisuus (XR/CT = sarja, angio = instanssi).
 IF OBJECT_ID('dbo.xray_jobs','U') IS NULL
 CREATE TABLE dbo.xray_jobs (
     id                  INT IDENTITY(1,1) PRIMARY KEY,
@@ -191,6 +203,10 @@ GO
 -- worker varaa jobin taulusta, ei viestistä.
 IF OBJECT_ID('dbo.trg_us_jobs_notify','TR') IS NOT NULL DROP TRIGGER dbo.trg_us_jobs_notify;
 GO
+-- Trigger ajetaan automaattisesti aina kun us_jobs-tauluun lisätään rivejä (AFTER INSERT).
+-- Se käy läpi juuri lisätyt QUEUED-rivit (kursori "inserted"-taulusta) ja lähettää
+-- kustakin herätysviestin Service Brokerin jonoon -> worker herää ja varaa jobin.
+-- Neljä triggeriä (us/xray/ct/angio) ovat samanlaisia, vain palvelunimi eroaa.
 CREATE TRIGGER dbo.trg_us_jobs_notify ON dbo.us_jobs AFTER INSERT AS
 BEGIN
     SET NOCOUNT ON;

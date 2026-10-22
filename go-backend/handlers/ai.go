@@ -1,3 +1,9 @@
+// ai.go — AI-avusteinen QA-selitys (OpenAI GPT-4o).
+//
+// Mihin: käyttäjä voi kysyä tekoälyltä QA-tuloksista (/ask-ai). Jos pyynnössä on
+// laite (station) + modaliteetti, backend hakee laitteen viimeisimmät mittaukset
+// DB:stä ja antaa ne GPT:lle kontekstiksi, jolloin vastaus tulkitsee trendin eikä
+// vain toista lukuja. API-avain luetaan ympäristömuuttujasta OPENAI_API_KEY.
 package handlers
 
 import (
@@ -12,6 +18,7 @@ import (
 	"strings"
 )
 
+// Pyynnön runko: käyttäjän kysymys + valinnainen laitekonteksti.
 type askAIRequest struct {
 	Question string `json:"question"`
 	// Valinnainen konteksti: jos annettu, backend hakee laitteen viimeisimmät
@@ -20,11 +27,13 @@ type askAIRequest struct {
 	Modality string `json:"modality"`
 }
 
+// OpenAI Chat Completions -rajapinnan muodot (yksi viesti = rooli + sisältö).
 type openAIMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
 }
 
+// Koko OpenAI-kutsun runko: malli, viestit, lämpötila (satunnaisuus) ja token-katto.
 type openAIPayload struct {
 	Model       string          `json:"model"`
 	Messages    []openAIMessage `json:"messages"`
@@ -32,6 +41,7 @@ type openAIPayload struct {
 	MaxTokens   int             `json:"max_tokens"`
 }
 
+// Järjestelmäprompti: ohjeistaa GPT:n asiantuntijarooliin ja vastaustyyliin.
 const aiSystemPrompt = "You are an expert in medical imaging quality control. You specialize in explaining numerical QA results from ultrasound, X-ray and CT images (s_depth, u_cov, u_skew, uniformity, MTF, HU values). When measurement context is provided, interpret the trend and flag anomalies — do not merely restate the numbers. Keep your answers concise — aim for 4 to 6 sentences. Always respond in the same language as the user's question."
 
 // usMeasurementContext hakee laitteen viimeisimmät US-mittaukset ja muotoilee ne

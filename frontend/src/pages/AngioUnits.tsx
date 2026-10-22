@@ -1,17 +1,27 @@
+// =============================================================================
+// pages/AngioUnits.tsx — Angiografialaitteiden lista (/angio/units)
+// =============================================================================
+// Kuten XrayUnits. Valinnainen ?institution=... rajaa laitokseen. Laite
+// tunnistetaan laitos + asemanimi -parina (sama kuin röntgenillä).
+// =============================================================================
+
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, type DeviceUnit } from '../api/client'
 import { BreadcrumbNav } from '../components/Breadcrumb'
 
 export default function AngioUnits() {
+  // Laitossuodatin osoiterivin query-parametrista.
   const [searchParams] = useSearchParams()
   const institution = searchParams.get('institution') ?? undefined
 
+  // Hae angiografialaitteet (laitoskohtaisesti välimuistitettuna).
   const { data: units, isLoading, error } = useQuery<DeviceUnit[]>({
     queryKey: ['angio', 'units', institution],
     queryFn: () => api.angioUnits(institution),
   })
 
+  // Lataus- ja virhetilojen näyttö.
   if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Loading...</p>
 
   if (error) {
@@ -55,6 +65,7 @@ export default function AngioUnits() {
               units.map((unit) => (
                 <tr key={unit.station_name}>
                   <td>
+                    {/* Laitelinkki: polussa sekä laitos että asemanimi (angion tunniste). */}
                     <Link to={`/angio/device/${encodeURIComponent(unit.institution_name)}/${encodeURIComponent(unit.station_name)}`}>
                       {unit.station_name}
                     </Link>

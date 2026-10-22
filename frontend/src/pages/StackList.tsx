@@ -1,7 +1,15 @@
+// =============================================================================
+// pages/StackList.tsx — Hallinnan palvelupinojen lista (/hallinta/stacks)
+// =============================================================================
+// Listaa palvelupinot (stacks) korttiruudukkona. Kuten ServiceList: backend-
+// virheen sattuessa näytetään migraatioilmoitus.
+// =============================================================================
+
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { BreadcrumbNav } from '../components/Breadcrumb'
 
+// Yhden pinon muoto (backendin kenttien osajoukko).
 interface Stack {
   id: number;
   name: string;
@@ -10,6 +18,7 @@ interface Stack {
 }
 
 export default function StackList() {
+  // Hae pinot; raakavastaus tulkitaan Stack-taulukoksi.
   const { data, isLoading, error } = useQuery({
     queryKey: ['hallinta', 'stacks'],
     queryFn: async (): Promise<Stack[]> => {
@@ -33,6 +42,7 @@ export default function StackList() {
         <p>Manage service stacks and their connections.</p>
       </div>
 
+      {/* Virhe -> migraatioilmoitus; muuten pinokortit. */}
       {error ? (
         <div className="status-message" style={{ borderColor: 'var(--status-warn)' }}>
           <h4 style={{ color: 'var(--status-warn)' }}>⚠️ Backend unavailable</h4>
@@ -40,6 +50,7 @@ export default function StackList() {
         </div>
       ) : (
         <div className="card-grid">
+          {/* Kortti per pino; kuvaus ja palvelumäärä näytetään jos saatavilla. */}
           {(data ?? []).map((stack) => (
             <div key={stack.id} className="card">
               <div className="card-body">

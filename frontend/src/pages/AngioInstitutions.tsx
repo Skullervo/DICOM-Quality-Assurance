@@ -1,14 +1,23 @@
+// =============================================================================
+// pages/AngioInstitutions.tsx — Angiografialaitosten lista (/angio/institutions)
+// =============================================================================
+// Kuten USInstitutions, mutta angiografialle/läpivalaisulle (Leeds TOR-18).
+// Laitoksen nimeä klikkaamalla poraudutaan laitoksen angiografialaitteisiin.
+// =============================================================================
+
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api, type AngioInstitution } from '../api/client'
 import { BreadcrumbNav } from '../components/Breadcrumb'
 
 export default function AngioInstitutions() {
+  // Hae angiografialaitokset backendiltä.
   const { data: institutions, isLoading, error } = useQuery<AngioInstitution[]>({
     queryKey: ['angio', 'institutions'],
     queryFn: api.angioInstitutions,
   })
 
+  // Lataus- ja virhetilojen näyttö.
   if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Loading...</p>
 
   if (error) {
@@ -48,6 +57,7 @@ export default function AngioInstitutions() {
               institutions.map((inst) => (
                 <tr key={inst.name}>
                   <td>
+                    {/* Nimilinkki vie laitoksen angiografialaitteisiin. */}
                     <Link to={`/angio/units?institution=${encodeURIComponent(inst.name)}`}>
                       {inst.name}
                     </Link>

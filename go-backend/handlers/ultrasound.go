@@ -1,3 +1,10 @@
+// handlers/ultrasound.go: ultraääni-QA:n (US) HTTP-käsittelijät.
+//
+// Kyselee "ultrasound"-taulua ja palauttaa JSONia frontendille. Näkymähierarkia:
+// instituutiot -> laitteet (units) -> laitteen tarkat mittaukset + trendikuvaajien data.
+// HUOM: US-taulu käyttää vanhoja sarakenimiä ilman alaviivoja (stationname, contentdate).
+// Kukin handler on "tehdasfunktio": se saa DB-yhteyden ja palauttaa varsinaisen
+// http.HandlerFunc-sulkeuman (näin DB saadaan mukaan ilman globaalia muuttujaa).
 package handlers
 
 import (
@@ -9,9 +16,11 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// USInstitutions returns distinct institution names from the ultrasound table.
+// USInstitutions palauttaa US-mittauksista löytyvät instituutiot sekä kunkin
+// laitemäärän ja mittausmäärän (yhteenveto instituutiotason näkymään).
 func USInstitutions(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Ryhmitellään instituutioittain: lasketaan uniikit laitteet ja mittausten määrä.
 		rows, err := db.QueryContext(context.Background(),
 			`SELECT institutionname,
 			        COUNT(DISTINCT stationname) as device_count,
@@ -46,11 +55,15 @@ func USInstitutions(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-// USUnits returns distinct devices/stations grouped by institution.
+// USUnits palauttaa laitteet (stationit) ryhmiteltynä. Valinnainen ?institution=
+// -kyselyparametri rajaa yhteen instituutioon. Jokaisesta laitteesta näytetään
+// viimeisin mittauspäivä ja mittausten määrä.
 func USUnits(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		institution := r.URL.Query().Get("institution")
 
+		// Rakennetaan kysely vaiheittain, jotta instituutiorajaus voidaan lisätä vain
+		// tarvittaessa. Arvo annetaan parametrina (@p1) -> ei SQL-injektioriskiä.
 		query := `SELECT stationname, institutionname, manufacturer,
 		                 manufacturermodelname, FORMAT(MAX(processed_at), 'yyyy-MM-dd') as last_measurement,
 		                 COUNT(*) as measurement_count
@@ -95,11 +108,14 @@ func USUnits(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-// USDeviceDetail returns info and recent measurements for a US device.
+// USDeviceDetail palauttaa yhden laitteen (station URL-parametrista) viimeisimmät
+// mittaukset (enintään 100, uusin ensin) kaikkine QA-arvoineen laitesivua varten.
 func USDeviceDetail(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		station := chi.URLParam(r, "station")
+		station := chi.URLParam(r, "station") // laitetunnus reitiltä /us/device/{station}
 
+		// TOP 100 = MS SQL:n tapa rajata rivimäärä (vastaa LIMIT 100). u_low ym. ovat
+		// JSON-sarakkeita; scanMaps + jsonColumns parsivat ne takaisin rakenteeksi.
 		rows, err := db.QueryContext(context.Background(),
 			`SELECT TOP 100 id, instance, stationname, institutionname, manufacturer,
 			        manufacturermodelname, tranducertype, studydate, contentdate,
@@ -125,11 +141,13 @@ func USDeviceDetail(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-// USData returns QA metric time series for charts.
+// USData palauttaa laitteen QA-metriikkojen aikasarjan (järjestetty tutkimuspäivän
+// mukaan) trendikuvaajia varten. Reitti: /us/api/s_depth/{station}.
 func USData(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		station := chi.URLParam(r, "station")
 
+		// Haetaan vain kuvaajiin tarvittavat sarakkeet, aikajärjestyksessä.
 		rows, err := db.QueryContext(context.Background(),
 			`SELECT studydate, s_depth, u_cov, u_skew, tranducertype, instance
 			 FROM ultrasound
@@ -164,7 +182,9 @@ func USData(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-// Device name mapping: station name -> (manufacturer, model)
+// deviceNameMap: laitetunnus -> [valmistaja, malli]. DICOMin laitetunnukset ovat
+// kryptisiä (esim. "LS7226747SU4"), joten tässä ne käännetään yhteenvetonäkymässä
+// luettavaan virallisen laitteen nimeen.
 var deviceNameMap = map[string][2]string{
 	"LOGIQE9US2":    {"GE Healthcare", "LOGIQ E9"},
 	"LS7-209507SU3": {"GE Healthcare", "LOGIQ S7"},
@@ -174,7 +194,8 @@ var deviceNameMap = map[string][2]string{
 	"SAMAVO1":       {"Samsung", "RS85 Prestige"},
 }
 
-// USSummary returns a full summary table of all US measurements with QA metrics.
+// USSummary palauttaa koko yhteenvetotaulukon KAIKISTA US-mittauksista QA-arvoineen
+// (US-taulukkonäkymä). Lisää jokaiseen riviin virallisen laitteen nimen deviceNameMapista.
 func USSummary(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rows, err := db.QueryContext(context.Background(),
@@ -194,7 +215,7 @@ func USSummary(db *sql.DB) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		// Add official device names
+		// Rikastetaan rivit virallisilla laitenimillä (jos tunnus löytyy kartasta).
 		for _, row := range results {
 			if station, ok := row["stationname"].(string); ok {
 				if names, exists := deviceNameMap[station]; exists {

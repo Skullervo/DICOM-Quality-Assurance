@@ -5,10 +5,15 @@ import requests
 from ..config import settings, orthanc_auth
 
 logger = logging.getLogger(__name__)
+# Aikakatkaisu (sekunteina) jokaiselle Orthanc-HTTP-kutsulle, ettei jumiutunut
+# Orthanc jätä ingestionia roikkumaan loputtomiin.
 _TIMEOUT = 30
 
 
 def _get(path: str):
+    # Sisäinen apufunktio: tee GET-kutsu Orthancin REST-API:n polkuun ja palauta JSON.
+    # raise_for_status heittää poikkeuksen jos vastaus on virhe (4xx/5xx),
+    # jolloin koko ingestion epäonnistuu ja webhook palauttaa 502:n.
     url = f"{settings.ORTHANC_URL}{path}"
     r = requests.get(url, auth=orthanc_auth(), timeout=_TIMEOUT)
     r.raise_for_status()
@@ -45,15 +50,19 @@ def enumerate_study(study_id: str) -> dict:
         "ct":   [ {orthanc_id(sarja), series_uid, station, modality} ... ],
       }
     """
+    # Hae study-resurssi ja sen Study-tason tunniste (StudyInstanceUID).
     study = get_study(study_id)
     study_tags = study.get("MainDicomTags", {})
     study_uid = study_tags.get("StudyInstanceUID", "")
 
+    # Tuloslista per modaliteetti. Täytetään alla käymällä studyn sarjat läpi.
     out = {"study_instance_uid": study_uid, "us": [], "xray": [], "ct": [], "angio": []}
 
+    # Käydään studyn jokainen sarja (series) läpi ja reititetään se modaliteetin mukaan.
     for series_id in study.get("Series", []):
         series = get_series(series_id)
         s_tags = series.get("MainDicomTags", {})
+        # Modality ratkaisee mihin analyysiin sarja kuuluu. .upper() normalisoi (us->US).
         modality = (s_tags.get("Modality") or "").upper()
         series_uid = s_tags.get("SeriesInstanceUID", "")
         station = s_tags.get("StationName", "")
@@ -70,6 +79,7 @@ def enumerate_study(study_id: str) -> dict:
                     "modality": "US",
                 })
         elif modality in settings.MODALITY_XR:
+            # XR (CR/DX): yksi job per SARJA (orthanc_id = sarjan id).
             out["xray"].append({
                 "orthanc_id": series_id,
                 "series_instance_uid": series_uid,
@@ -78,6 +88,8 @@ def enumerate_study(study_id: str) -> dict:
                 "modality": modality,
             })
         elif modality in settings.MODALITY_CT:
+            # CT: yksi job per SARJA (orthanc_id = sarjan id); CT-analyysi käsittelee
+            # koko fantomisarjan (Catphan-moduulit eri leikkeissä).
             out["ct"].append({
                 "orthanc_id": series_id,
                 "series_instance_uid": series_uid,
@@ -96,6 +108,6 @@ def enumerate_study(study_id: str) -> dict:
                     "station_name": station or tags.get("StationName", ""),
                     "modality": "XA",
                 })
-        # muut modaliteetit ohitetaan
+        # muut modaliteetit ohitetaan (esim. MR, PT) — niille ei ole QA-analyysiä
 
     return out

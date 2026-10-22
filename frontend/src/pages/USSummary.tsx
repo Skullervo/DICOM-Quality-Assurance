@@ -1,8 +1,19 @@
+// =============================================================================
+// pages/USSummary.tsx — Ultraäänen koostenäkymä (/us/summary)
+// =============================================================================
+// Kokoaa KAIKKI US-mittaukset yhteenvedoksi: ryhmittelee laite+anturi-
+// yhdistelmittäin, luokittelee jokaisen mittauksen PASS/WARNING/FAIL ja näyttää
+// kustakin ryhmästä mediaaniarvot sekä tulosjakauman. HUOM: tämä sivu käyttää
+// omaa kovakoodattua LIMITS-rajataulukkoa (ei DB:n toleransseja) — tarkoitettu
+// julkaisua/koontia varten.
+// =============================================================================
+
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { BreadcrumbNav } from '../components/Breadcrumb'
 
 // Tolerance limits (Aljahdali et al. 2021, van Horssen et al. 2017, IPEM 102)
+// Rajat: u_cov (uniformiteetin vaihtelu, %) ja u_skew (epäsymmetria, itseisarvo).
 const LIMITS = {
   u_cov:  { warn: 5.0, fail: 10.0 },  // %
   u_skew: { warn: 0.5, fail: 1.5 },   // absolute
@@ -10,19 +21,23 @@ const LIMITS = {
 
 type QAResult = 'PASS' | 'WARNING' | 'FAIL'
 
+// Luokittelee yhden mittauksen rajojen perusteella. Fail voittaa warnin.
 function classify(u_cov: number, u_skew: number): QAResult {
   if (u_cov > LIMITS.u_cov.fail || Math.abs(u_skew) > LIMITS.u_skew.fail) return 'FAIL'
   if (u_cov > LIMITS.u_cov.warn || Math.abs(u_skew) > LIMITS.u_skew.warn) return 'WARNING'
   return 'PASS'
 }
 
+// Siistii anturin nimen luettavaan muotoon, esim. "CURVED LINEAR_3500" -> "C (3.5 MHz)".
 function cleanProbe(raw: string): string {
   if (!raw) return '—'
-  const name = raw.replace(/_$/, '')
+  const name = raw.replace(/_$/, '')        // poista mahdollinen loppuviiva
   const parts = name.split('_')
+  // Odotettu muoto: "<tyyppi>_<taajuus-Hz>".
   if (parts.length === 2 && /^\d+$/.test(parts[1])) {
-    const mhz = parseInt(parts[1]) / 1000
+    const mhz = parseInt(parts[1]) / 1000    // Hz -> MHz
     const ptype = parts[0]
+    // Lyhennä yleisimmät anturityypit (C = kaareva, L = lineaari).
     if (ptype === 'CURVED LINEAR' || ptype === 'LINEAR') {
       const short = ptype === 'CURVED LINEAR' ? 'C' : 'L'
       return `${short} (${Number.isInteger(mhz) ? mhz : mhz.toFixed(1)} MHz)`
@@ -32,6 +47,7 @@ function cleanProbe(raw: string): string {
   return name
 }
 
+// Laskee lukujoukon mediaanin (parillisella määrällä kahden keskimmäisen keskiarvo).
 function median(vals: number[]): number {
   if (vals.length === 0) return 0
   const sorted = [...vals].sort((a, b) => a - b)
@@ -39,6 +55,7 @@ function median(vals: number[]): number {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
 }
 
+// Yksi koosterivi: laite+anturi-yhdistelmän tunnistetiedot, määrät ja mediaanit.
 interface AggRow {
   manufacturer: string
   model: string
@@ -54,6 +71,7 @@ interface AggRow {
 }
 
 export default function USSummary() {
+  // Hae kaikkien US-mittausten koostedata backendiltä.
   const { data, isLoading, error } = useQuery({
     queryKey: ['us', 'summary'],
     queryFn: api.usSummary,
@@ -70,29 +88,34 @@ export default function USSummary() {
   }
 
   // Group by manufacturer + model + transducer
+  // Kerää mittaukset ryhmiin avaimella valmistaja|malli|anturi.
   const groups = new Map<string, {
     mfr: string; model: string; dept: string; probe: string
-    sds: number[]; ucs: number[]; uss: number[]
-    pass: number; warn: number; fail: number
+    sds: number[]; ucs: number[]; uss: number[]  // kerätyt arvot mediaania varten
+    pass: number; warn: number; fail: number     // tuloslaskurit
   }>()
 
   for (const d of (data ?? [])) {
+    // Kentät voivat esiintyä eri nimillä -> otetaan ensimmäinen löytyvä.
     const mfr = String(d.device_manufacturer ?? d.manufacturer ?? '')
     const model = String(d.device_model ?? d.stationname ?? '')
     const dept = String(d.institutionaldepartmentname ?? '')
     const probe = cleanProbe(String(d.tranducertype ?? ''))
     const key = `${mfr}|${model}|${probe}`
 
+    // Luo ryhmä ensimmäisellä osumalla.
     if (!groups.has(key)) {
       groups.set(key, { mfr, model, dept, probe, sds: [], ucs: [], uss: [], pass: 0, warn: 0, fail: 0 })
     }
     const g = groups.get(key)!
     const uc = typeof d.u_cov === 'number' ? d.u_cov : null
     const us = typeof d.u_skew === 'number' ? d.u_skew : null
+    // Kerää arvot (vain numeeriset) mediaanilaskua varten.
     if (typeof d.s_depth === 'number') g.sds.push(d.s_depth)
     if (uc !== null) g.ucs.push(uc)
     if (us !== null) g.uss.push(us)
 
+    // Luokittele mittaus vain jos molemmat luokitteluarvot löytyvät.
     if (uc !== null && us !== null) {
       const r = classify(uc, us)
       if (r === 'PASS') g.pass++
@@ -101,6 +124,7 @@ export default function USSummary() {
     }
   }
 
+  // Muunna ryhmät taulukkoriveiksi: mediaanit ja määrät; järjestä nimen mukaan.
   const rows: AggRow[] = Array.from(groups.values()).map(g => ({
     manufacturer: g.mfr,
     model: g.model,
@@ -115,6 +139,7 @@ export default function USSummary() {
     u_skew: g.uss.length ? median(g.uss) : null,
   })).sort((a, b) => a.manufacturer.localeCompare(b.manufacturer) || a.model.localeCompare(b.model) || a.transducer.localeCompare(b.transducer))
 
+  // Kokonaissummat otsikkoyhteenvetoa varten.
   const totalPass = rows.reduce((s, r) => s + r.passCount, 0)
   const totalWarn = rows.reduce((s, r) => s + r.warnCount, 0)
   const totalFail = rows.reduce((s, r) => s + r.failCount, 0)
@@ -162,6 +187,7 @@ export default function USSummary() {
             </tr>
           </thead>
           <tbody>
+            {/* Rivi per laite+anturi-ryhmä; u_cov/u_skew-sarakkeet värjätään rajojen mukaan. */}
             {rows.map((r, i) => (
               <tr key={i}>
                 <td>{r.manufacturer}, {r.model}</td>

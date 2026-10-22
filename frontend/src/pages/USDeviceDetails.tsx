@@ -1,3 +1,16 @@
+// =============================================================================
+// pages/USDeviceDetails.tsx — Yhden ultraäänilaitteen QA-sivu (/us/device/:station)
+// =============================================================================
+// Laitesivun kokoava komponentti US:lle. Hakee Go-backendiltä laitteen
+// mittaukset (usDeviceDetail) ja trenddatan (usData), rakentaa niistä yhtenäiset
+// metriikat (buildMetrics + DB-toleranssit) ja näyttää:
+//   - vasen paneeli: DICOM-näyttökuva + vaaka-/pystyprofiili, mitatut arvot,
+//     laitetiedot ja kompakti verdiktti,
+//   - pääalue: välilehdet (Analyysi/AI/Raportti), joista Analyysissä trendikäyrät.
+// Trendikäyrän pisteen valinta (selectedIdx) vaihtaa, minkä mittauksen kuva ja
+// arvot näytetään. Vasen paneeli piilotetaan AI-/raporttivälilehdillä.
+// =============================================================================
+
 import { useState, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -13,10 +26,12 @@ import { useTolerances } from '../lib/qa/useTolerances'
 import { hasTolerance, deriveVerdict, failingDetails } from '../lib/qa/status'
 import type { ReportContext } from '../components/qa/ReportTab'
 
+// Verdiktin näyttönimet ja pieni pyöristysapu (ei-numero -> "?").
 const VERDICT_FI = { pass: 'Pass', warn: 'Warning', fail: 'Fail', nodata: 'No data' } as const
 const rnd = (v: unknown, p = 2) => (typeof v === 'number' ? v.toFixed(p) : '?')
 
 /* Vertikaalinen profiili — kapea palkki kuvan oikealla puolella, täyttää parent-korkeuden */
+// Piirtää US-kuvan pystyprofiilin (intensiteetti korkeuden funktiona) SVG-viivana.
 function VertProfileSVG({ data }: { data: number[] }) {
   if (!data || data.length === 0) return (
     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -24,6 +39,7 @@ function VertProfileSVG({ data }: { data: number[] }) {
     </div>
   )
   const W = 56, H = 1000 // viewBox coordinates, SVG stretches to fill parent
+  // Normalisoi arvot min..max -> jokainen piste: y = sijainti pystyssä, x = intensiteetti.
   const min = Math.min(...data), max = Math.max(...data), range = max - min || 1
   const pts = data.map((v, i) => {
     const y = (i / (data.length - 1)) * H
@@ -39,6 +55,7 @@ function VertProfileSVG({ data }: { data: number[] }) {
 }
 
 /* Horisontaalinen profiili — kuvan alla, 5 segmenttiä (full width × 48px) */
+// Piirtää US-kuvan vaakaprofiilin ja merkitsee kunkin segmentin minimikohdan punaisella.
 function HorizProfileSVG({ data }: { data: number[] }) {
   if (!data || data.length === 0) return (
     <div style={{ height: 48, background: '#020608', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', gridColumn: 1 }}>
@@ -46,11 +63,13 @@ function HorizProfileSVG({ data }: { data: number[] }) {
     </div>
   )
   const W = 400, H = 48
+  // Normalisoi arvot; norm kääntää akselin niin että suuri arvo on ylhäällä.
   const min = Math.min(...data), max = Math.max(...data), range = max - min || 1
   const norm = (v: number) => 1 - (v - min) / range
   const pts = data.map((v, i) => `${(i / (data.length - 1)) * W},${norm(v) * (H - 8) + 4}`).join(' ')
-  const divFracs = [0.1, 0.3, 0.7, 0.9]
-  const segFracs = [0, 0.1, 0.3, 0.7, 0.9, 1.0]
+  const divFracs = [0.1, 0.3, 0.7, 0.9]              // pystyjakoviivojen kohdat (5 segmenttiä)
+  const segFracs = [0, 0.1, 0.3, 0.7, 0.9, 1.0]      // segmenttien rajat (osuuksina)
+  // Etsi jokaisen segmentin minimiarvo ja sen sijainti (merkitään pisteellä).
   const segMins = segFracs.slice(0, -1).map((start, si) => {
     const end = segFracs[si + 1]
     const s = Math.floor(start * data.length), e = Math.floor(end * data.length)
@@ -72,12 +91,14 @@ function HorizProfileSVG({ data }: { data: number[] }) {
 }
 
 export default function USDeviceDetails() {
+  // Laitteen asemanimi URL-polusta.
   const { station } = useParams<{ station: string }>()
   const s = station ? decodeURIComponent(station) : ''
-  const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null)  // valittu trendipiste (null = uusin)
   const [activeTab, setActiveTab] = useState<TabId>('analyysi')
   const panelHidden = activeTab !== 'analyysi' // piilota vasen paneeli AI-/raporttivälilehdillä
 
+  // Laitteen kaikki mittaukset (yksityiskohdat) ja erikseen trenddata.
   const { data: detail } = useQuery<Record<string, unknown>[]>({
     queryKey: ['us', 'device', s], queryFn: () => api.usDeviceDetail(s), enabled: !!s,
   })
@@ -86,11 +107,13 @@ export default function USDeviceDetails() {
   })
 
   // Selected point determines which instance to show
+  // Valittu piste määrää näytettävän instanssin; ilman valintaa käytetään uusinta (detail[0]).
   const selectedPoint = selectedIdx !== null ? chartData?.[selectedIdx] ?? null : null
   const activeInstanceId = selectedPoint?.instance
     ?? (detail?.[0] ? String(detail[0].instance ?? '') : '')
 
   // Find detail row matching the active instance
+  // Etsi aktiivista instanssia vastaava detail-rivi (tai uusin, jos ei löydy).
   const latest = activeInstanceId
     ? detail?.find(d => String(d.instance) === activeInstanceId) ?? detail?.[0] ?? null
     : detail?.[0] ?? null
@@ -99,27 +122,33 @@ export default function USDeviceDetails() {
   const defaultActiveIdx = chartData?.findIndex((p) => String(p.instance) === activeInstanceId) ?? -1
   const activeIdx = selectedIdx ?? (defaultActiveIdx >= 0 ? defaultActiveIdx : undefined)
 
+  // Hae aktiivisen instanssin näyttökuva (+ profiilit). retry:false -> ei toisteta jos kuvaa ei ole.
   const { data: imageData } = useQuery<USImageResponse>({
     queryKey: ['us', 'image', activeInstanceId],
     queryFn: () => api.usImage(activeInstanceId),
     enabled: !!activeInstanceId, retry: false,
   })
 
+  // Trendikäyrän pisteen klikkaus: valitse tai poista valinta (sama piste uudelleen = pois).
   const handlePointClick = useCallback((idx: number) => {
     setSelectedIdx(prev => prev === idx ? null : idx) // toggle: click again to deselect
   }, [])
 
   // Check if DB has real profile data (not empty arrays from Go fallback)
+  // Onko oikeaa profiilidataa (ei tyhjiä taulukoita) -> näytetäänkö profiilit.
   const hasProfiles = !!(imageData?.vert_prof?.length && imageData?.horiz_prof?.length)
 
   // Use selected point values for chips, or latest from detail
+  // Näytettävät arvot: ensisijaisesti valitusta pisteestä, muuten uusimmasta rivistä.
   const chipSDepth = selectedPoint?.s_depth ?? (latest?.s_depth as number | null)
   const chipUCov = selectedPoint?.u_cov ?? (latest?.u_cov as number | null)
   const chipUSkew = selectedPoint?.u_skew ?? (latest?.u_skew as number | null)
 
   // Config-vetoiset metriikat + DB-toleranssit; verdiktiin vain toleranssilliset
   const { data: tolerances } = useTolerances()
+  // Rakenna metriikat (uusin arvo + trendihistoria + DB-rajat).
   const metrics = buildMetrics('US', latest, (chartData ?? []) as unknown as Record<string, unknown>[], tolerances)
+  // Verdikttiin lasketaan vain ne metriikat, joille on toleranssi määritelty.
   const verdictMetrics = metrics.filter(hasTolerance)
   const v = deriveVerdict(verdictMetrics)
   const verdictDevice = {
@@ -129,6 +158,7 @@ export default function USDeviceDetails() {
   }
 
 
+  // Kokoa raportti-/AI-konteksti: DICOM-tiedot + analyysitulokset taulukoina.
   const reportCtx: ReportContext = {
     sections: latest
       ? [
@@ -162,6 +192,7 @@ export default function USDeviceDetails() {
     : []
 
   return (
+    // device-shell on kaksisarakkeinen; AI-/raporttivälilehdillä vasen paneeli piilotetaan (1 sarake).
     <div className="device-shell" style={panelHidden ? { gridTemplateColumns: '1fr', gridTemplateRows: '1fr' } : undefined}>
 
       {/* === VASEN PANEELI (piilotettu AI-/raporttivälilehdillä) === */}
@@ -247,6 +278,7 @@ export default function USDeviceDetails() {
         </div>
 
         {/* Verdiktti — kompakti, vasemman paneelin alakulmassa */}
+        {/* Näytetään vain kun dataa on (uusin rivi tai valittu piste). */}
         {(latest || selectedPoint) && <VerdictBar device={verdictDevice} metrics={verdictMetrics} compact card />}
       </div>
       )}
@@ -258,6 +290,7 @@ export default function USDeviceDetails() {
         reportAttachments={reportAttachments}
         breadcrumb={null}
       >
+        {/* Analyysi-välilehden sisältö: trendikäyrät; pisteen klikkaus valitsee mittauksen. */}
         {(latest || selectedPoint) && (
           <PagedTrendPanel title="Measurement trends" metrics={metrics} perPage={3} chromeless dimTitle
             activeIndex={activeIdx} onSelect={handlePointClick} />

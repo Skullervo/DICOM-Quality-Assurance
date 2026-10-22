@@ -1,3 +1,10 @@
+// =============================================================================
+// pages/Tietoa.tsx — "Tietoa järjestelmästä" -sivu (/tietoa)
+// =============================================================================
+// Staattinen esittelysivu: kertoo mitä järjestelmä tekee ja mitä modaliteetteja
+// se kattaa. Ei datahakuja.
+// =============================================================================
+
 export default function Tietoa() {
   return (
     <div className="cover-page" style={{ marginTop: 'var(--navbar-height)' }}>

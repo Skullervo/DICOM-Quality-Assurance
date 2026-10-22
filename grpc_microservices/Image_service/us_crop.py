@@ -1,5 +1,17 @@
-# Irrotettu client/qa_core/utils.py:sta (modifyUS) image-servicen itsenäistämiseksi.
-# django.conf.settings poistettu — sita kaytettiin vain kommentoidussa konstruktorissa.
+# ============================================================================
+# modifyUS — ultraäänikuvan rajaus ja esikäsittely (image-servicen moottori).
+#
+# Mihin tätä käytetään: US-ilmakuvan (in-air reverberation) QA tarvitsee pelkän
+# kaikukuva-alueen ilman annotaatioita. Tämä luokka tunnistaa kuva-alueen,
+# rajaa sen, ja konveksilla (kaarevalla) anturilla "suoristaa" kuvan lineaariseksi
+# polaarimuunnoksella, jotta analyysi onnistuu samalla tavalla kuin lineaarianturilla.
+#
+# Analyysimenetelmä perustuu julkaisuun: van Horssen P. et al. "Automated quality
+# control of ultrasound based on in-air reverberation patterns." Ultrasound 2017.
+#
+# Irrotettu alun perin Djangon client/qa_core/utils.py:stä, jotta image-service on
+# itsenäinen (django.conf.settings poistettu — sitä käytettiin vain konstruktorissa).
+# ============================================================================
 import os
 import matplotlib
 matplotlib.use("Agg")  # ei näyttöä kontissa
@@ -59,6 +71,10 @@ class modifyUS:
     
     def getLargestCC(self, segmentation):
         '''
+        Palauttaa binäärikuvan SUURIMMAN yhtenäisen alueen (connected component).
+        Käytetään kuva-alueen tunnistuksessa: suurin "valkoinen" möykky on yleensä
+        varsinainen kaikukuva, eivät reunojen pienet annotaatiot.
+
         Parameters
         ----------
         segmentation: binary image
@@ -66,7 +82,6 @@ class modifyUS:
         Returns
         -------
         largestCC: Largest connected component
-
         '''
         labels = label(segmentation)
         largestCC = labels == np.argmax(np.bincount(labels.flat))
@@ -77,6 +92,9 @@ class modifyUS:
     #%%
     def rgb2gray(self, rgb):
         '''
+        Muunna RGB-värikuva harmaasävyksi painotetulla summalla (ihmissilmän
+        herkkyyden mukaiset kertoimet 0.2989/0.5870/0.1140).
+
         Parameters
         ----------
         rgb : RGB - image
@@ -94,7 +112,11 @@ class modifyUS:
     #%%
     def crop_US_im(self, im, crop2half=True):
         '''
-        This function crops the ultrasound image to the image content ie. extracts the outer regions of the US dicom image.
+        Rajaa ultraäänikuvan varsinaiseen kuvasisältöön eli poistaa DICOM-kuvan
+        reuna-alueet (mustat reunukset, annotaatiot). Toimintaperiaate: kynnystä
+        kuva, etsi suurin yhtenäinen alue (= kaikukuva), varmistu ettei valittu
+        aluetta ole yläreunan palkki, ja leikkaa kuva sen ympärille. Jos
+        crop2half=True, otetaan vielä yläpuolisko (ilmareverberaatiot ovat siellä).
 
         Parameters
         ----------
@@ -170,8 +192,11 @@ class modifyUS:
     #%%
     def transform_convex_image2linear(self, im):
         '''
-        This function transforms the convex transducer image to linear using
-        polar transform.
+        "Suoristaa" konveksin (kaarevan) anturin viuhkamaisen kuvan lineaariseksi
+        polaarimuunnoksella (cv2.linearPolar). Tämä on monimutkaisin osa: se etsii
+        anturin kaaren keskipisteen ja säteen (blob-detektiolla valiten oikean
+        alueen lähimpänä kuvan yläreunaa), täydentää kuvan ympyräksi ja tekee
+        polaarimuunnoksen, jolloin kaareva reverberaatiokuvio suoristuu riveiksi.
 
         Parameters
         ----------
@@ -490,7 +515,11 @@ class modifyUS:
     #%%
     def US_air_image_analysis(self, im_crop, reverb_lines = 4 ):
         '''
-        Ultrasound air image analysis on cropped image im_crop
+        Laskee QA-metriikat rajatusta ilmakuvasta (im_crop). Pystyprofiili (medianit
+        riveittäin) antaa signaalisyvyyden S_depth; vaakaprofiili (keskiarvot
+        reverberaatioviivojen alueelta) antaa uniformiteetin U_cov (variaatiokerroin),
+        vinouden U_skew ja segmenttikohtaiset matalakohdat U_low. Nämä ovat US-QA:n
+        varsinaiset tulokset.
 
         Parameters
         ----------
@@ -578,7 +607,11 @@ class modifyUS:
 
     #%%
     def is_convex(self, image):
-        ''' Determines if image is from a convex transducer  and returns boolean value'''
+        ''' Päättelee onko kuva konveksilta (kaarevalta) anturilta -> True/False.
+        Toiminta: rajaa kuva, ota ylin 20 %, katso valkoisten pikselien jakauma
+        vaakasuunnassa; kaarevalla anturilla jakauma kapenee reunoilta (suhdeluku
+        pienenee), lineaarisella se on tasainen. Kynnys 0.98 on käsin valittu.
+        Käytetään modify():ssä päättämään tarvitaanko polaarimuunnos. '''
        # import pdb; pdb.set_trace()
         im = self.crop_US_im(image)
         BW = im > 0
@@ -604,8 +637,13 @@ class modifyUS:
     #%%
     def modify(self):
         '''
+        PÄÄFUNKTIO (image-service kutsuu tätä): lukee DICOMin, tunnistaa anturityypin
+        (TransducerType-tagista tai is_convex()-päättelyllä), ja palauttaa rajatun/
+        suoristetun kuvan: konveksille tehdään polaarimuunnos + rajaus, lineaariselle
+        pelkkä rajaus. Palautettua kuvaa käytetään näytöllä ja analyysissä.
+
         Main function to perform air scan analysis on image defined on
-        path path_data. 
+        path path_data.
 
         The analysis is based on publication:
         van Horssen P, Schilham A, Dickerscheid D, et al. Automated quality control of ultrasound based on in-air reverberation patterns. 

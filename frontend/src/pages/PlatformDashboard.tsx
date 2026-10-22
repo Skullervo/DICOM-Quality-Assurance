@@ -1,6 +1,15 @@
+// =============================================================================
+// pages/PlatformDashboard.tsx — Hallintaportaalin etusivu (/hallinta)
+// =============================================================================
+// Yleisnäkymä alustan hallintaan: kortit palveluihin, pinoihin ja projekteihin.
+// Alareunassa varoitus, että hallinnan backend on vielä migraatiossa (SQLite ->
+// PostgreSQL), joten osa toiminnoista ei ole vielä käytössä. Staattinen sivu.
+// =============================================================================
+
 import { Link } from 'react-router-dom'
 import { BreadcrumbNav } from '../components/Breadcrumb'
 
+// Portaalin osiot (kortit): otsikko, kuvaus, kohde ja ikoni.
 const sections = [
   {
     title: 'Services',
@@ -53,6 +62,7 @@ export default function PlatformDashboard() {
         borderRadius: 'var(--border-radius)', fontSize: '0.85rem',
         color: 'var(--status-warn)',
       }}>
+        {/* Muistutus keskeneräisestä migraatiosta. */}
         ⚠️ The platform backend is currently being migrated from SQLite to PostgreSQL.
         Some features are not yet available.
       </div>

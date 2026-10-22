@@ -26,6 +26,15 @@
 
 
 
+# =============================================================================
+# test_analyze_service.py — Analyze Servicen manuaalinen laukaisin/testi
+# =============================================================================
+# Pieni apuskripti, joka ottaa yhteyden paikalliseen Analyze Serviceen
+# (portti 50052) ja pyytää koko analyysikierroksen (AnalyzeAllDicomData).
+# Käytetään analyysin käsin käynnistämiseen kehityksessä. Tiedoston alussa on
+# kommentoituna aiempi versio, joka kutsui yhtä sarjaa (AnalyzeDicomData).
+# =============================================================================
+
 import grpc
 import analyze_service_timed_pb2
 import analyze_service_timed_pb2_grpc
@@ -34,13 +43,17 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+# HUOM: sisennys on tabeilla (alkuperäinen tyyli) — älä muuta välilyönneiksi.
 def main():
+	# Yhteys Analyze Serviceen (ei TLS:ää, paikallinen kehityskäyttö).
 	channel = grpc.insecure_channel("localhost:50052")
 	stub = analyze_service_timed_pb2_grpc.AnalyzeServiceStub(channel)
 
+	# Pyydä palvelua analysoimaan kaikki Orthancin sarjat.
 	logger.info("📡 Requesting analysis for all series in Orthanc")
 	response = stub.AnalyzeAllDicomData(analyze_service_timed_pb2.AnalyzeAllRequest())
 
+	# Tulosta palvelun palauttama tilaviesti.
 	logger.info("✅ Response: %s", response.message)
 
 

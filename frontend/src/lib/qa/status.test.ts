@@ -1,3 +1,12 @@
+// =============================================================================
+// lib/qa/status.test.ts — Yksikkötestit status.ts:lle (Vitest)
+// =============================================================================
+// Testaa toleranssilogiikan ydinkohdat: statuksen johtaminen symmetrisistä ja
+// yksipuolisista rajoista, kokonaisverdiktin "korkein vakavuus voittaa" -sääntö
+// sekä lukujen muotoiluapurit. Testit dokumentoivat samalla rajatapaukset
+// (esim. arvo tasan rajalla ei vielä hylkää).
+// =============================================================================
+
 import { describe, it, expect } from 'vitest'
 import { deriveStatus, deriveVerdict, symmetricLimits, fmt, fmtDelta, type StatusInput } from './status'
 

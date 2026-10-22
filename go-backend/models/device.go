@@ -1,8 +1,17 @@
+// models/device.go: laite- ja hallintorekisterien tietuerakenteet.
+//
+// Kokoaa yhteen "aputaulut", jotka eivät ole varsinaisia mittaustuloksia:
+//   Transducer      — ultraäänianturien hakutaulu (ROI-koordinaatit analyysiä varten)
+//   Institution     — terveydenhuolto-organisaatiot
+//   Device          — kuvantamislaiterekisteri (viittaa instituutioon)
+//   ToleranceConfig — QA-metriikkojen hyväksyttävyysrajat per laite (vrt. handlers/tolerances.go)
+//   AuditLog        — muutosloki (kuka muutti mitä ja milloin)
+// Osaa näistä käytetään admin-handlereissa (admin.go), osa on skeeman dokumentaatiota.
 package models
 
 import "time"
 
-// Transducer maps to the "transducers" table.
+// Transducer vastaa "transducers"-taulua (ultraäänianturin lookup: nimi + ROI-koordinaatit).
 type Transducer struct {
 	RowIndex       int     `json:"row_index" db:"row_index"`
 	ModelName      string  `json:"model_name" db:"model_name"`
@@ -18,7 +27,7 @@ type Transducer struct {
 	TransducerName string  `json:"transducer_name" db:"transducer_name"`
 }
 
-// Institution maps to the "institutions" table.
+// Institution vastaa "institutions"-taulua (terveydenhuolto-organisaation rekisteri).
 type Institution struct {
 	ID          int    `json:"id" db:"id"`
 	Name        string `json:"name" db:"name"`
@@ -28,7 +37,7 @@ type Institution struct {
 	IsActive    bool   `json:"is_active" db:"is_active"`
 }
 
-// Device maps to the "devices" table.
+// Device vastaa "devices"-taulua (kuvantamislaite; InstitutionID viittaa instituutioon).
 type Device struct {
 	ID               int        `json:"id" db:"id"`
 	StationName      string     `json:"station_name" db:"station_name"`
@@ -42,7 +51,9 @@ type Device struct {
 	IsActive         bool       `json:"is_active" db:"is_active"`
 }
 
-// ToleranceConfig maps to the "tolerance_configs" table.
+// ToleranceConfig vastaa "tolerance_configs"-taulua (per laite + metriikka: varoitus- ja
+// toimintarajat). HUOM: eri taulu kuin handlers/tolerances.go:n käyttämä tolerance_config
+// (per modaliteetti). Tämä on laitekohtainen rekisterimalli.
 type ToleranceConfig struct {
 	ID             int        `json:"id" db:"id"`
 	DeviceID       int        `json:"device_id" db:"device_id"`
@@ -56,7 +67,7 @@ type ToleranceConfig struct {
 	Notes          string     `json:"notes" db:"notes"`
 }
 
-// AuditLog maps to the "audit_log" table.
+// AuditLog vastaa "audit_log"-taulua (muutosloki: kenttäkohtainen vanha/uusi arvo + tekijä).
 type AuditLog struct {
 	ID        int       `json:"id" db:"id"`
 	User      string    `json:"user" db:"user"`

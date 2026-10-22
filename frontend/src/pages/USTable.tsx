@@ -1,9 +1,17 @@
+// =============================================================================
+// pages/USTable.tsx — Ultraäänilaitteiden taulukko (/us/taulukko)
+// =============================================================================
+// Yksinkertainen taulukkonäkymä kaikista US-laitteista (asema, laitos, valmistaja,
+// malli, mittausmäärä, viimeisin mittaus) + "Open" -linkki laitteen QA-sivulle.
+// =============================================================================
+
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import { BreadcrumbNav } from '../components/Breadcrumb'
 
 export default function USTable() {
+  // Hae kaikki US-laitteet.
   const { data: units, isLoading } = useQuery({
     queryKey: ['us', 'units'],
     queryFn: () => api.usUnits(),
@@ -50,6 +58,7 @@ export default function USTable() {
                   {unit.last_measurement ? unit.last_measurement.slice(0, 10) : '—'}
                 </td>
                 <td>
+                  {/* Avaa laitteen QA-trendisivun. */}
                   <Link to={`/us/device/${encodeURIComponent(unit.station_name)}`}>
                     Open →
                   </Link>

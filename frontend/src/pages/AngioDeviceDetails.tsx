@@ -1,3 +1,12 @@
+// =============================================================================
+// pages/AngioDeviceDetails.tsx — Yhden angiografialaitteen QA-sivu (/angio/device/:inst/:unit)
+// =============================================================================
+// Käytännössä identtinen XrayDeviceDetails-sivun kanssa, mutta angiografialle/
+// läpivalaisulle (DICOM modality XA, Leeds TOR-18 -fantomi). Laite tunnistetaan
+// laitos (inst) + yksikkö (unit) -parilla, metriikat rakennetaan 'ANGIO'-
+// konfiguraatiolla, ja kuvat haetaan angio-API:n kautta.
+// =============================================================================
+
 import { useState, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -14,6 +23,7 @@ import { useTolerances } from '../lib/qa/useTolerances'
 import { hasTolerance, deriveVerdict, failingDetails } from '../lib/qa/status'
 import type { ReportContext } from '../components/qa/ReportTab'
 
+// Verdiktin näyttönimet ja pyöristysapu.
 const VERDICT_FI = { pass: 'Pass', warn: 'Warning', fail: 'Fail', nodata: 'No data' } as const
 const rnd = (v: unknown, p = 2) => (typeof v === 'number' ? v.toFixed(p) : '?')
 
@@ -28,14 +38,16 @@ const IMAGE_OPTIONS = [
 const PLOT_KEYS = ['mtf_curve'] // kaaviokuvat -> ei harmaasävysäätöä
 
 export default function AngioDeviceDetails() {
+  // Laitos (inst) ja yksikkö (unit) URL-polusta — laitteen tunniste.
   const { inst, unit } = useParams<{ inst: string; unit: string }>()
   const dInst = inst ? decodeURIComponent(inst) : ''
   const dUnit = unit ? decodeURIComponent(unit) : ''
-  const [imgSel, setImgSel] = useState('dicom')
-  const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
+  const [imgSel, setImgSel] = useState('dicom')                       // valittu kuvatyyppi
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null) // valittu trendipiste
   const [activeTab, setActiveTab] = useState<TabId>('analyysi')
   const panelHidden = activeTab !== 'analyysi' // piilota vasen paneeli AI-/raporttivälilehdillä
 
+  // Laitteen mittaukset ja trenddata.
   const { data: detail } = useQuery<Record<string, unknown>[]>({
     queryKey: ['angio', 'device', dInst, dUnit],
     queryFn: () => api.angioDeviceDetail(dInst, dUnit), enabled: !!(dInst && dUnit),
@@ -46,6 +58,7 @@ export default function AngioDeviceDetails() {
   })
 
   // Selected trend point -> which instance/measurement to show
+  // Valittu piste määrää näytettävän instanssin; muuten uusin.
   const selectedPoint = selectedIdx !== null ? chartData?.[selectedIdx] ?? null : null
   const activeInstanceId = (selectedPoint?.instance as string | undefined)
     ?? (detail?.[0] ? String(detail[0].instance ?? '') : '')
@@ -57,17 +70,20 @@ export default function AngioDeviceDetails() {
   const defaultActiveIdx = chartData?.findIndex((p) => String(p.instance) === activeInstanceId) ?? -1
   const activeIdx = selectedIdx ?? (defaultActiveIdx >= 0 ? defaultActiveIdx : undefined)
 
+  // DICOM-kuva haetaan vain DICOM-näkymässä.
   const { data: dicomImg } = useQuery<ImageResponse>({
     queryKey: ['angio', 'image', activeInstanceId],
     queryFn: () => api.angioImage(activeInstanceId),
     enabled: !!activeInstanceId && imgSel === 'dicom', retry: false,
   })
 
+  // Trendipisteen klikkaus: valitse/poista valinta.
   const handlePointClick = useCallback((idx: number) => {
     setSelectedIdx(prev => prev === idx ? null : idx)
   }, [])
 
   // Chip-arvot: valittu piste tai uusin
+  // Sivupaneelin pikkuarvot valitusta pisteestä tai uusimmasta.
   const num = (v: unknown) => (typeof v === 'number' ? v : null)
   const chipUnif = num(selectedPoint?.percent_integral_uniformity ?? latest?.percent_integral_uniformity)
   const chipRois = num(selectedPoint?.num_contrast_rois_seen ?? latest?.num_contrast_rois_seen)
@@ -86,6 +102,7 @@ export default function AngioDeviceDetails() {
   }
 
 
+  // Raportti-/AI-konteksti.
   const reportCtx: ReportContext = {
     sections: latest
       ? [
@@ -156,6 +173,7 @@ export default function AngioDeviceDetails() {
               {IMAGE_OPTIONS.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
             </select>
 
+            {/* DICOM-näkymä: base64-kuva data-URL:na; muut: suora analyysikuva-URL. */}
             {imgSel === 'dicom' ? (
               dicomImg?.image
                 ? <PngViewer key={activeInstanceId} src={`data:${dicomImg.mime ?? 'image/jpeg'};base64,${dicomImg.image}`} alt="DICOM" />
@@ -163,6 +181,7 @@ export default function AngioDeviceDetails() {
                     <span style={{ color: C.muted, fontSize: 11 }}>Image not available</span>
                   </div>
             ) : (
+              // Kaaviokuville ei kirkkaus/kontrasti-säätöä.
               <PngViewer key={imgSel} src={api.angioAnalysisImageUrl(activeInstanceId, imgSel)} alt={imgSel}
                 adjustable={!PLOT_KEYS.includes(imgSel)} />
             )}

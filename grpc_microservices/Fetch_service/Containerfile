@@ -1,17 +1,25 @@
+# Fetch Service -kontti (gRPC, portti 50051). Hakee DICOM-sarjat Orthancista
+# ja välittää ne analyysipalveluille. Pollausmallin palvelu (säilytetään rinnalla).
 FROM python:3.12-slim
 WORKDIR /app
 
+# protobuf-compiler tarvitaan .proto-tiedoston kääntämiseen Python-koodiksi.
+# Samalla rivillä poistetaan apt-välimuisti (pienempi kuva) ja luodaan ei-root-käyttäjä.
 RUN apt-get update && apt-get install -y protobuf-compiler && \
     rm -rf /var/lib/apt/lists/* && \
     adduser --disabled-password --gecos '' --uid 1000 appuser
 
+# Asennetaan Python-riippuvuudet (välimuistittuu ellei requirements muutu).
 COPY requirements_service.txt .
 RUN pip install --no-cache-dir -r requirements_service.txt
 
+# Kopioidaan palvelukoodi ja gRPC-rajapintamäärittely.
 COPY fetch_service.py fetch_service.proto ./
 
+# Käännetään .proto -> Python-stubit (fetch_service_pb2*.py), joita palvelu importtaa.
 RUN python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. fetch_service.proto
 
+# Vaihdetaan ei-root-käyttäjään ja käynnistetään gRPC-palvelin.
 USER appuser
 
 CMD ["python", "fetch_service.py"]

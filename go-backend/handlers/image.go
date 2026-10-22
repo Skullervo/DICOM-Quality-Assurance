@@ -1,3 +1,13 @@
+// handlers/image.go: kuvien haku ja tarjoilu (Orthanc-PACS + DB-BLOBit).
+//
+// Tämä tiedosto vastaa kaikesta kuvanäytöstä paitsi S3-pohjaisista (ks. storage.go):
+//   - Näyttökuvat (preview/rendered) haetaan Orthancista proxaamalla.
+//   - XR/CT-analyysikuvat haetaan tietokannan binäärisarakkeista (VARBINARY).
+//   - CT-kuvankatselin: DB:n instance-kenttä on muotoa "{series}_0"; puretaan
+//     siitä sarja-id, haetaan sarjan viipaleet ja renderöidään aito Window/Level
+//     Orthancin /rendered-endpointilla.
+// Kaikki Orthanc-kutsut käyttävät ympäristömuuttujista luettua perus-URLia ja
+// mahdollista HTTP Basic -autentikointia.
 package handlers
 
 import (
@@ -19,8 +29,10 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// Jaettu HTTP-asiakas Orthanc-kutsuille, 15 s aikakatkaisulla (ettei roikota pyyntöä ikuisesti).
 var orthancClient = &http.Client{Timeout: 15 * time.Second}
 
+// orthancBaseURL palauttaa Orthancin osoitteen ympäristöstä (oletus konttiverkon http://orthanc:8042).
 func orthancBaseURL() string {
 	u := os.Getenv("ORTHANC_URL")
 	if u == "" {
@@ -29,14 +41,16 @@ func orthancBaseURL() string {
 	return u
 }
 
-// fetchOrthancPreviewRaw returns the raw image bytes and base64 string.
-// Uses /frames/0/preview for cleaner output (no DICOM overlays if available).
+// fetchOrthancPreviewRaw hakee instanssin esikatselukuvan Orthancista ja palauttaa
+// sekä raakatavut että base64-koodatun merkkijonon. Käyttää /frames/0/preview-polkua
+// (siistimpi tulos ilman DICOM-overlayta jos saatavilla).
 func fetchOrthancPreviewRaw(instanceID string) ([]byte, string, error) {
 	url := fmt.Sprintf("%s/instances/%s/frames/0/preview", orthancBaseURL(), instanceID)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, "", err
 	}
+	// Orthanc vaatii usein HTTP Basic -autentikoinnin; lisätään jos käyttäjä on asetettu.
 	user := os.Getenv("ORTHANC_USERNAME")
 	pass := os.Getenv("ORTHANC_PASSWORD")
 	if user != "" {
@@ -58,6 +72,7 @@ func fetchOrthancPreviewRaw(instanceID string) ([]byte, string, error) {
 	return data, base64.StdEncoding.EncodeToString(data), nil
 }
 
+// imageServiceURL palauttaa Python-kuvapalvelun osoitteen (oletus http://image-service:8090).
 func imageServiceURL() string {
 	u := os.Getenv("IMAGE_SERVICE_URL")
 	if u == "" {
@@ -66,8 +81,8 @@ func imageServiceURL() string {
 	return u
 }
 
-// fetchCroppedUSImage calls the Python image service for a cropped US DICOM image.
-// Falls back to Orthanc preview if the image service is unavailable.
+// fetchCroppedUSImage pyytää Python-kuvapalvelulta rajatun (cropattu) US-kuvan.
+// Jos kuvapalvelu ei vastaa tai palauttaa virheen, palataan Orthancin esikatseluun.
 func fetchCroppedUSImage(instance string) (string, string, error) {
 	url := fmt.Sprintf("%s/us/image/%s", imageServiceURL(), instance)
 	resp, err := orthancClient.Get(url)
@@ -92,14 +107,16 @@ func fetchCroppedUSImage(instance string) (string, string, error) {
 	return result.Image, result.Mime, nil
 }
 
-// USImage returns the US display image and profiles.
-// Convex probes: a straightened (DERIVED Secondary Capture) image is pre-rendered
-// and stored in Orthanc; we serve that. Linear/missing: fall back to the cropped
-// image from the Python image service (or raw Orthanc preview).
+// USImage palauttaa US-näyttökuvan sekä profiilit (vaaka/pysty) ja syvyyden.
+// Konveksit anturit: kuvasta on esirenderöity "suoristettu" versio (DERIVED Secondary
+// Capture) ja tallennettu Orthanciin -> tarjoillaan se. Lineaariset/puuttuvat: haetaan
+// rajattu kuva Python-kuvapalvelusta (tai viime kädessä raaka Orthanc-esikatselu).
 func USImage(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		instance := chi.URLParam(r, "instance")
 
+		// Haetaan profiilit, syvyys ja mahdollinen suoristetun kuvan instanssi-id.
+		// Virhe sivuutetaan tarkoituksella (_ =): jos riviä ei ole, jatketaan ilman dataa.
 		var horizStr, vertStr *string
 		var sDepth *float64
 		var straightened *string
@@ -111,7 +128,7 @@ func USImage(db *sql.DB) http.HandlerFunc {
 		var imgB64, mime string
 		var imgErr error
 		if straightened != nil && *straightened != "" {
-			// Straightened convex image already in Orthanc as an SC instance.
+			// Suoristettu konveksikuva on jo Orthancissa SC-instanssina -> tarjoillaan se.
 			_, imgB64, imgErr = fetchOrthancPreviewRaw(*straightened)
 			mime = "image/jpeg"
 		} else {
@@ -143,7 +160,7 @@ func USImage(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-// XRImage proxies the Orthanc preview for X-ray.
+// XRImage proxaa röntgenin näyttökuvan (Orthanc-esikatselu) base64-JSONina.
 func XRImage(w http.ResponseWriter, r *http.Request) {
 	instance := chi.URLParam(r, "instance")
 	_, imgB64, err := fetchOrthancPreviewRaw(instance)
@@ -158,7 +175,11 @@ func XRImage(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// XRAnalysisImage returns a stored analysis image (bytea) from the xray_analysis table.
+// XRAnalysisImage palauttaa tietokantaan tallennetun analyysikuvan (VARBINARY)
+// xray_analysis-taulusta. Reitin {type}-parametri valitsee kuvan, ja validFields
+// kääntää sen oikeaksi sarakenimeksi. Tämä sallittujen arvojen kartta on TÄRKEÄ
+// turvan vuoksi: koska sarakenimi upotetaan SQL-kyselyyn, vain kartassa olevat
+// (ei käyttäjän vapaa teksti) kelpaavat -> ei SQL-injektiota.
 func XRAnalysisImage(db *sql.DB) http.HandlerFunc {
 	validFields := map[string]string{
 		"contrast_rois": "contrast_rois_image",
@@ -190,6 +211,8 @@ func XRAnalysisImage(db *sql.DB) http.HandlerFunc {
 // DB:n instance-kenttä on muotoa "{orthanc_series_id}_0". Puretaan series-id ja
 // haetaan viipaleet, jotta voidaan renderöidä aito W/L Orthancin /rendered:llä.
 
+// seriesIDFromDBInstance purkaa sarja-id:n DB:n instance-kentästä ("{series}_0" -> "{series}").
+// Jos alaviivaa ei ole, palautetaan syöte sellaisenaan.
 func seriesIDFromDBInstance(s string) string {
 	if i := strings.LastIndex(s, "_"); i > 0 {
 		return s[:i]
@@ -197,6 +220,7 @@ func seriesIDFromDBInstance(s string) string {
 	return s
 }
 
+// atoiSafe muuntaa merkkijonon kokonaisluvuksi; virhetilanteessa palauttaa 0 (ei paniikkia).
 func atoiSafe(s string) int { n, _ := strconv.Atoi(strings.TrimSpace(s)); return n }
 
 // firstNum: DICOM voi antaa moniarvoisen ikkunan ("-600\\50") -> ota ensimmäinen.
@@ -210,6 +234,7 @@ func firstNum(s string) string {
 	return strings.TrimSpace(s)
 }
 
+// orthancAuthGet tekee GET-pyynnön Orthancin annettuun polkuun Basic-autentikoinnilla.
 func orthancAuthGet(path string) (*http.Response, error) {
 	req, err := http.NewRequest("GET", orthancBaseURL()+path, nil)
 	if err != nil {
@@ -240,6 +265,8 @@ func seriesOrderedInstances(seriesID string) ([]string, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&arr); err != nil {
 		return nil, err
 	}
+	// Järjestetään viipaleet InstanceNumberin mukaan, jotta katselin näyttää ne oikeassa
+	// anatomisessa järjestyksessä (Orthanc ei takaa järjestystä).
 	sort.SliceStable(arr, func(i, j int) bool {
 		return atoiSafe(arr[i].MainDicomTags.InstanceNumber) < atoiSafe(arr[j].MainDicomTags.InstanceNumber)
 	})
@@ -316,7 +343,7 @@ func CTSeriesImage(w http.ResponseWriter, r *http.Request) {
 	io.Copy(w, resp.Body) //nolint:errcheck
 }
 
-// CTImage proxies the Orthanc preview for CT.
+// CTImage proxaa CT:n näyttökuvan (Orthanc-esikatselu) base64-JSONina.
 func CTImage(w http.ResponseWriter, r *http.Request) {
 	instance := chi.URLParam(r, "instance")
 	_, imgB64, err := fetchOrthancPreviewRaw(instance)
@@ -331,7 +358,9 @@ func CTImage(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// CTAnalysisImage returns a stored analysis image (bytea) from the ct_analysis table.
+// CTAnalysisImage palauttaa DB:hen tallennetun analyysikuvan (VARBINARY) ct_analysis-
+// taulusta. Kuten XRAnalysisImage: {type} valitaan vain sallittujen sarakkeiden
+// kartasta (validFields) -> turvallinen sarakenimen upotus kyselyyn.
 func CTAnalysisImage(db *sql.DB) http.HandlerFunc {
 	validFields := map[string]string{
 		"hu_linearity":       "hu_linearity_image",

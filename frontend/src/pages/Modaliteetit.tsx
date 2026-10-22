@@ -1,5 +1,14 @@
+// =============================================================================
+// pages/Modaliteetit.tsx — Modaliteettien valintasivu (/modaliteetit)
+// =============================================================================
+// Näyttää korttiruudukon neljästä modaliteetista (US, röntgen, TT, angio).
+// Jokainen kortti vie kyseisen modaliteetin laitoslistaan. Puhtaasti staattinen
+// sivu — ei datahakuja.
+// =============================================================================
+
 import { Link } from 'react-router-dom'
 
+// Korteissa näytettävät modaliteetit: nimi, kuva ja kohdepolku (laitoslista).
 const modalities = [
   {
     label: 'Ultrasound',
@@ -31,6 +40,7 @@ export default function Modaliteetit() {
         <p>Select an imaging modality</p>
       </div>
 
+      {/* Yksi kortti per modaliteetti. */}
       <div className="card-grid">
         {modalities.map((m) => (
           <div key={m.path} className="card">

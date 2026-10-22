@@ -23,18 +23,22 @@ DST_AUTH = ("admin", "alice")
 
 
 def get_all_instances(base_url: str, auth) -> list[str]:
+    # Hae lista kaikkien instanssien (yksittäisten DICOM-kuvien) Orthanc-tunnisteista.
     r = requests.get(f"{base_url}/instances", auth=auth, timeout=10)
     r.raise_for_status()
     return r.json()
 
 
 def download_instance(base_url: str, auth, instance_id: str) -> bytes:
+    # Lataa yhden instanssin raaka DICOM-tiedosto (tavut) Orthancista.
     r = requests.get(f"{base_url}/instances/{instance_id}/file", auth=auth, timeout=30)
     r.raise_for_status()
     return r.content
 
 
 def upload_instance(base_url: str, auth, dicom_bytes: bytes) -> dict:
+    # Lähetä DICOM-tiedosto (tavut) kohde-Orthanciin. Palauttaa JSONin, jossa mm.
+    # Status-kenttä ("Success" / "AlreadyStored").
     r = requests.post(
         f"{base_url}/instances",
         data=dicom_bytes,
@@ -57,7 +61,8 @@ def main(src_url: str, dst_url: str, src_auth, dst_auth, dry_run: bool = False):
     print(f"Lahde:  {src_url}")
     print(f"Kohde:  {dst_url}")
 
-    # Yhteystesti
+    # Yhteystesti: varmistetaan että sekä lähde- että kohde-Orthanc vastaavat,
+    # ennen kuin aletaan siirtää. Jos jompikumpi ei vastaa, lopetetaan heti.
     try:
         r = requests.get(f"{src_url}/system", auth=src_auth, timeout=5)
         r.raise_for_status()
@@ -74,6 +79,8 @@ def main(src_url: str, dst_url: str, src_auth, dst_auth, dry_run: bool = False):
         print(f"VIRHE: Ei yhteyttä kohteeseen: {e}")
         sys.exit(1)
 
+    # Vertaa lähteen ja kohteen instansseja: siirretään vain ne, joita kohteessa
+    # ei vielä ole (erotus). Näin skriptin voi ajaa turvallisesti monta kertaa.
     src_instances = get_all_instances(src_url, src_auth)
     dst_instances = get_existing_instances(dst_url, dst_auth)
 
@@ -83,14 +90,18 @@ def main(src_url: str, dst_url: str, src_auth, dst_auth, dry_run: bool = False):
     to_migrate = [i for i in src_instances if i not in dst_instances]
     print(f"Siirrettävä: {len(to_migrate)} uutta instanssia\n")
 
+    # --dry-run: näytä vain mitä siirrettäisiin, älä kirjoita mitään.
     if dry_run:
         print("[DRY RUN] Ei siirretä oikeasti.")
         return
 
+    # Laskurit: onnistuneet / ohitetut (jo olemassa) / virheelliset.
     ok = 0
     skip = 0
     err = 0
 
+    # Siirretään instanssit yksitellen: lataa lähteestä -> lähetä kohteeseen.
+    # Yksittäisen kuvan virhe ei keskeytä koko siirtoa, vaan lasketaan virheeksi.
     for idx, inst_id in enumerate(to_migrate, 1):
         try:
             dicom_bytes = download_instance(src_url, src_auth, inst_id)

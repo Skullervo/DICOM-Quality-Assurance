@@ -1,3 +1,12 @@
+// =============================================================================
+// pages/XrayDeviceDetails.tsx — Yhden röntgenlaitteen QA-sivu (/xray/device/:inst/:unit)
+// =============================================================================
+// Rakenteeltaan kuten CTDeviceDetails, mutta natiiviröntgenille (NORMI-13).
+// Röntgenlaite tunnistetaan laitos (inst) + yksikkö (unit) -parilla. Vasemman
+// paneelin pudotusvalikosta valitaan DICOM-kuva tai valmis analyysikuva/kaavio
+// (kaikki näytetään PngViewerillä — ei erillistä W/L-katselinta kuten CT:llä).
+// =============================================================================
+
 import { useState, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -14,6 +23,7 @@ import { useTolerances } from '../lib/qa/useTolerances'
 import { hasTolerance, deriveVerdict, failingDetails } from '../lib/qa/status'
 import type { ReportContext } from '../components/qa/ReportTab'
 
+// Verdiktin näyttönimet ja pyöristysapu.
 const VERDICT_FI = { pass: 'Pass', warn: 'Warning', fail: 'Fail', nodata: 'No data' } as const
 const rnd = (v: unknown, p = 2) => (typeof v === 'number' ? v.toFixed(p) : '?')
 
@@ -28,14 +38,16 @@ const IMAGE_OPTIONS = [
 const PLOT_KEYS = ['mtf_curve'] // kaaviokuvat -> ei harmaasävysäätöä
 
 export default function XrayDeviceDetails() {
+  // Laitos (inst) ja yksikkö (unit) URL-polusta — yhdessä laitteen tunniste.
   const { inst, unit } = useParams<{ inst: string; unit: string }>()
   const dInst = inst ? decodeURIComponent(inst) : ''
   const dUnit = unit ? decodeURIComponent(unit) : ''
-  const [imgSel, setImgSel] = useState('dicom')
-  const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
+  const [imgSel, setImgSel] = useState('dicom')                       // valittu kuvatyyppi
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null) // valittu trendipiste
   const [activeTab, setActiveTab] = useState<TabId>('analyysi')
   const panelHidden = activeTab !== 'analyysi' // piilota vasen paneeli AI-/raporttivälilehdillä
 
+  // Laitteen mittaukset ja trenddata.
   const { data: detail } = useQuery<Record<string, unknown>[]>({
     queryKey: ['xray', 'device', dInst, dUnit],
     queryFn: () => api.xrayDeviceDetail(dInst, dUnit), enabled: !!(dInst && dUnit),
@@ -46,6 +58,7 @@ export default function XrayDeviceDetails() {
   })
 
   // Selected trend point -> which instance/measurement to show
+  // Valittu trendipiste määrää näytettävän instanssin; muuten uusin (detail[0]).
   const selectedPoint = selectedIdx !== null ? chartData?.[selectedIdx] ?? null : null
   const activeInstanceId = (selectedPoint?.instance as string | undefined)
     ?? (detail?.[0] ? String(detail[0].instance ?? '') : '')
@@ -57,17 +70,20 @@ export default function XrayDeviceDetails() {
   const defaultActiveIdx = chartData?.findIndex((p) => String(p.instance) === activeInstanceId) ?? -1
   const activeIdx = selectedIdx ?? (defaultActiveIdx >= 0 ? defaultActiveIdx : undefined)
 
+  // Hae DICOM-kuva vain kun DICOM-näkymä on valittuna (muille käytetään analyysikuva-URLia).
   const { data: dicomImg } = useQuery<ImageResponse>({
     queryKey: ['xray', 'image', activeInstanceId],
     queryFn: () => api.xrayImage(activeInstanceId),
     enabled: !!activeInstanceId && imgSel === 'dicom', retry: false,
   })
 
+  // Trendipisteen klikkaus: valitse/poista valinta.
   const handlePointClick = useCallback((idx: number) => {
     setSelectedIdx(prev => prev === idx ? null : idx)
   }, [])
 
   // Chip-arvot: valittu piste tai uusin
+  // Sivupaneelin pikkuarvot: ensisijaisesti valitusta pisteestä, muuten uusimmasta.
   const num = (v: unknown) => (typeof v === 'number' ? v : null)
   const chipUnif = num(selectedPoint?.uniformity_deviation ?? latest?.uniformity_deviation)
   const chipMtf = num(selectedPoint?.mtf_50_percent ?? latest?.mtf_50_percent)
@@ -86,6 +102,7 @@ export default function XrayDeviceDetails() {
   }
 
 
+  // Raportti-/AI-konteksti.
   const reportCtx: ReportContext = {
     sections: latest
       ? [
@@ -156,6 +173,7 @@ export default function XrayDeviceDetails() {
               {IMAGE_OPTIONS.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
             </select>
 
+            {/* DICOM-näkymä: base64-kuva data-URL:na; muut: suora analyysikuva-URL. */}
             {imgSel === 'dicom' ? (
               dicomImg?.image
                 ? <PngViewer key={activeInstanceId} src={`data:${dicomImg.mime ?? 'image/jpeg'};base64,${dicomImg.image}`} alt="DICOM" />
@@ -163,6 +181,7 @@ export default function XrayDeviceDetails() {
                     <span style={{ color: C.muted, fontSize: 11 }}>Image not available</span>
                   </div>
             ) : (
+              // Kaaviokuville (PLOT_KEYS) ei kirkkaus/kontrasti-säätöä.
               <PngViewer key={imgSel} src={api.xrayAnalysisImageUrl(activeInstanceId, imgSel)} alt={imgSel}
                 adjustable={!PLOT_KEYS.includes(imgSel)} />
             )}

@@ -1,9 +1,18 @@
+// =============================================================================
+// pages/USOverview.tsx — Ultraäänilaitteiden yleiskatsaus (/us)
+// =============================================================================
+// Hakee kaikki US-laitteet ja ryhmittelee ne laitoksen mukaan. Jokainen laitos
+// näkyy omana korttinaan, jossa laitteet ovat klikattavina "napeina". Laitetta
+// klikkaamalla avautuu laitteen QA-trendisivu.
+// =============================================================================
+
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api, type USUnit } from '../api/client'
 import { BreadcrumbNav } from '../components/Breadcrumb'
 
 export default function USOverview() {
+  // Hae kaikki US-laitteet (ilman laitossuodatinta).
   const { data: units, isLoading, error } = useQuery<USUnit[]>({
     queryKey: ['us', 'units'],
     queryFn: () => api.usUnits(),
@@ -19,8 +28,9 @@ export default function USOverview() {
     )
   }
 
+  // Ryhmittele laitteet laitoksittain: { laitos -> [laitteet] }.
   const grouped = (units ?? []).reduce<Record<string, USUnit[]>>((acc, unit) => {
-    const inst = unit.institution_name || 'Unknown'
+    const inst = unit.institution_name || 'Unknown'  // tuntematon laitos saa oletusnimen
     if (!acc[inst]) acc[inst] = []
     acc[inst].push(unit)
     return acc
@@ -40,6 +50,7 @@ export default function USOverview() {
       </div>
 
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        {/* Yksi kortti per laitos; sisällä laitteet klikattavina linkkeinä. */}
         {Object.entries(grouped).map(([institution, devices]) => (
           <div key={institution} style={{
             background: 'var(--bg-card)',
@@ -72,6 +83,7 @@ export default function USOverview() {
                     fontSize: '0.85rem',
                     transition: 'border-color 0.2s',
                   }}
+                  // Hover korostaa reunan sinisellä (ja palauttaa poistuttaessa).
                   onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--accent-blue)'}
                   onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border-color)'}
                 >
@@ -87,6 +99,7 @@ export default function USOverview() {
           </div>
         ))}
 
+        {/* Ei yhtään laitosta/laitetta -> tyhjä-viesti. */}
         {Object.keys(grouped).length === 0 && (
           <p style={{ color: 'var(--text-secondary)' }}>No devices available.</p>
         )}

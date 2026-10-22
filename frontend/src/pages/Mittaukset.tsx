@@ -1,3 +1,11 @@
+// =============================================================================
+// pages/Mittaukset.tsx — Mittaukset-aloitussivu (/mittaukset)
+// =============================================================================
+// Korttiruudukko (kuten Modaliteetit/Laitteet); kortit vievät kunkin modaliteetin
+// MITTAUSTAULUKKOON. Mittaukset-näkymä näyttää kaikki mittaukset (data luetaan myös
+// Orthancista), joten mukana ovat myös ne, joiden analyysi epäonnistui.
+// =============================================================================
+
 // Mittaukset-aloitussivu: korttinäkymä (kuten Modaliteetit/Laitteet); kortit
 // ohjaavat kunkin modaliteetin mittaustaulukkoon (kaikki mittaukset, myös
 // epäonnistuneet analyysit).

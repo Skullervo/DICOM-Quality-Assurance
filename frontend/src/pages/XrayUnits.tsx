@@ -1,17 +1,27 @@
+// =============================================================================
+// pages/XrayUnits.tsx — Röntgenlaitteiden lista (/xray/units)
+// =============================================================================
+// Kuten USUnits. Valinnainen ?institution=... rajaa laitokseen. Laitelinkki vie
+// laitteen QA-sivulle; röntgenlaite tunnistetaan laitos + asemanimi -parina.
+// =============================================================================
+
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, type DeviceUnit } from '../api/client'
 import { BreadcrumbNav } from '../components/Breadcrumb'
 
 export default function XrayUnits() {
+  // Laitossuodatin osoiterivin query-parametrista.
   const [searchParams] = useSearchParams()
   const institution = searchParams.get('institution') ?? undefined
 
+  // Hae laitteet (laitoskohtaisesti välimuistitettuna).
   const { data: units, isLoading, error } = useQuery<DeviceUnit[]>({
     queryKey: ['xray', 'units', institution],
     queryFn: () => api.xrayUnits(institution),
   })
 
+  // Lataus- ja virhetilojen näyttö.
   if (isLoading) return <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>Loading...</p>
 
   if (error) {
@@ -55,6 +65,7 @@ export default function XrayUnits() {
               units.map((unit) => (
                 <tr key={unit.station_name}>
                   <td>
+                    {/* Laitelinkki: polussa sekä laitos että asemanimi (röntgenin tunniste). */}
                     <Link to={`/xray/device/${encodeURIComponent(unit.institution_name)}/${encodeURIComponent(unit.station_name)}`}>
                       {unit.station_name}
                     </Link>

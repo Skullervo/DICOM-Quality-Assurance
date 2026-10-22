@@ -12,8 +12,10 @@ from pathlib import Path
 import psycopg2
 
 ROOT = Path(__file__).resolve().parent.parent
+# Lopputulos kirjoitetaan tähän tiedostoon (valmis T-SQL-skeema).
 OUT = ROOT / "scripts" / "schema_mssql.sql"
 
+# Lue .env ja muodosta PostgreSQL-yhteysasetukset (lähdekanta, josta skeema luetaan).
 env = {}
 for line in (ROOT / ".env").read_text(encoding="utf-8", errors="ignore").splitlines():
     if "=" in line and not line.strip().startswith("#"):
@@ -21,6 +23,7 @@ for line in (ROOT / ".env").read_text(encoding="utf-8", errors="ignore").splitli
 PG = dict(host="localhost", port=15432, dbname="QA-results",
           user="postgres", password=env.get("DATABASE_PASSWORD", ""))
 
+# Nämä etuliitteet ohitetaan: Djangon omat taulut poistuvat migraation myötä.
 EXCLUDE_PREFIX = ("django_", "auth_")
 
 
@@ -56,6 +59,8 @@ def map_type(col):
 def main():
     conn = psycopg2.connect(**PG)
     cur = conn.cursor()
+    # Hae kaikkien taulujen nimet PostgreSQLin metatietokannasta (information_schema)
+    # ja suodata Django/auth-taulut pois.
     cur.execute("""
         SELECT table_name FROM information_schema.tables
         WHERE table_schema='public' AND table_type='BASE TABLE'
@@ -69,6 +74,7 @@ def main():
         "-- Django/auth-taulut jätetty pois (poistetaan).",
         "",
     ]
+    # Käydään jokainen taulu läpi ja luetaan sen sarakkeiden tyypit metatiedoista.
     for t in tables:
         cur.execute("""
             SELECT column_name, data_type, character_maximum_length, udt_name,
@@ -86,6 +92,7 @@ def main():
         pk = None
         for c in cols:
             tsql = map_type(c)
+            # PG:n serial-sarake (default nextval) -> MSSQL:n IDENTITY (automaattinen juokseva id).
             is_serial = c["default"] and "nextval" in str(c["default"])
             if is_serial:
                 tsql += " IDENTITY(1,1)"
