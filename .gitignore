@@ -46,3 +46,6 @@ projects/
 
 
 go-backend/frontend/
+
+# SeaweedFS S3 config generoidaan .env:st‰ (sis‰lt‰‰ secretin)
+object-storage/s3config.json
