@@ -1,19 +1,17 @@
 # AutoQAD / Radiqa — lokaalin version tiedostokartta ja asennusopas
 
-> Tämä dokumentti kuvaa **lokaalin version** (podman-konteilla pyörivä kehitys-/testiympäristö)
-> koko sisällön: jokaisen tiedoston polun ja sen, mihin sitä käytetään palvelussa. Lopussa
-> **asennusmuistilista sairaalaan**. Tarkoitettu ylläpitäjälle, joka haluaa ymmärtää ja korjata
-> järjestelmää. Koodi on kommentoitu suomeksi tiedostotasolla — tämä on karttanäkymä kokonaisuuteen.
+Dokumentti kuvaa **lokaalin version** (podman-konteilla pyörivä kehitys-/testiympäristö) koko sisällön: jokaisen tiedoston polun ja sen, mihin sitä käytetään palvelussa. Lopussa **asennusmuistilista sairaalaan**. Tarkoitettu ylläpitäjälle, joka haluaa ymmärtää ja korjata järjestelmää. Koodi on kommentoitu suomeksi tiedostotasolla — tämä on karttanäkymä kokonaisuuteen.
 
 ## 1. Mitä järjestelmä tekee
 
-AutoQAD (tuotenimi **Radiqa**) on automaattinen lääketieteellisen kuvantamisen laadunvalvonta (QA):
-sairaalan PACS lähettää QA-kuvat Orthanc-DICOM-palvelimelle → modaliteettikohtainen analyysi →
-tulokset MS SQL Serveriin → Go-backend tarjoilee REST-API:n + React-käyttöliittymän, jossa trendit,
-hyväksyttävyysrajat ja AI-avusteinen raportointi.
+Radiqa on automaattinen lääketieteellisen kuvantamisen laadunvalvonta (QA):
+sairaalan PACS lähettää QA-kuvat Orthanc-DICOM-palvelimelle → modaliteettikohtainen analyysi → tulokset MS SQL Serveriin → Go-backend tarjoilee REST-API:n + React-käyttöliittymän, jossa trendit, hyväksyttävyysrajat ja AI-avusteinen raportointi.
 
-**Modaliteetit:** Ultraääni (US), Röntgen (XR = CR/DX, NORMI-13-fantomi), CT (CatPhan-fantomi),
-Angiografia/läpivalaisu (XA, Leeds TOR-18 -fantomi — uusin).
+**Modaliteetit:** 
+- Ultraääni (US) 
+- Röntgen (XR = CR/DX, NORMI-13-fantomi) 
+- CT (CatPhan-fantomi)
+- Angiografia/läpivalaisu (XA, Leeds TOR-18 -fantomi — uusin)
 
 ```
 Sairaalan PACS
@@ -39,25 +37,26 @@ React SPA  (tuotannossa Go tarjoilee; kehityksessä Vite :5174)
 Selain
 ```
 
-> **Tärkeää:** lokaalisti pyörii tällä hetkellä **(A) legacy-malli** (us/xr/ct-analyze-kontit).
-> **(B) event-driven** (ingestion + Service Broker + worker_*_eventdriven) on toteutettu muttei
-> käynnissä lokaalisti. **Angio toimii vain event-driven-mallilla** (sille ei ole legacy-polleria).
+> **Tärkeää (päivitetty):** lokaali stäkki ajaa nyt **(B) EVENT-DRIVEN-mallia** — `start-podman.sh`
+> käynnistää ingestionin, SeaweedFS:n (S3), Orthanc-webhookin ja event-workerit (us/xr/ct/angio),
+> ja legacy-pollerit on poistettu. **Angio toimii vain event-driven-mallilla** (sille ei ole legacy-
+> polleria). Validoitu päästä päähän: study → Orthanc-webhook → ingestion → worker → DB + S3-kuva.
 
 ## 2. Portit (lokaali)
 
-| Palvelu | Kontin portti | Host-portti |
-|---|---|---|
-| Orthanc (DICOM/REST) | 4242 / 8042 | 14242 / 18042 |
-| MS SQL Server | 1433 | 11433 |
-| Fetch service (gRPC) | 50051 | 50051 |
-| US Analyze (gRPC) | 50052 | 50052 |
-| XR Analyze (gRPC) | 50053 | 50053 |
-| CT Analyze (gRPC) | 50054 | 50054 |
-| Image service | 8090 | 8090 |
-| Go-backend | 8080 | 8081 |
-| React (Vite dev) | 5174 | 5174 |
-| Worker-metriikat (Prometheus) | 9110 | — |
-| SeaweedFS S3 (ei lokaalisti päällä) | 8333 | — |
+| Palvelu                             | Kontin portti | Host-portti   |
+|-------------------------------------|---------------|---------------|
+| Orthanc (DICOM/REST)                | 4242 / 8042   | 14242 / 18042 |
+| MS SQL Server                       | 1433          | 11433         |
+| Fetch service (gRPC)                | 50051         | 50051         |
+| US Analyze (gRPC)                   | 50052         | 50052         |
+| XR Analyze (gRPC)                   | 50053         | 50053         |
+| CT Analyze (gRPC)                   | 50054         | 50054         |
+| Image service                       | 8090          | 8090          |
+| Go-backend                          | 8080          | 8081          |
+| React (Vite dev)                    | 5174          | 5174          |
+| Worker-metriikat (Prometheus)       | 9110          | —             |
+| SeaweedFS S3 (ei lokaalisti päällä) | 8333          | —             |
 
 ---
 
@@ -66,14 +65,14 @@ Selain
 ### 3.1 Ingestion-palvelu — `ingestion-service/` (event-driven-mallin sisääntulo)
 FastAPI-palvelu: ottaa Orthancin webhookin uudesta tutkimuksesta ja luo QA-jobit job-tauluihin.
 
-| Tiedosto | Käyttö |
-|---|---|
-| `app/main.py` | FastAPI-sovellus + `/health`; käynnistyspiste. |
-| `app/config.py` | Asetukset ( env): DB/Orthanc + **modaliteettikartoitus** `MODALITY_US/XR/CT/ANGIO` (DICOM-koodi → kind). |
-| `app/routes/webhook.py` | `POST /webhook/study`: Orthancin StableStudy-heräte → enumeroi + luo jobit. |
-| `app/services/orthanc.py` | Orthanc REST: `enumerate_study` purkaa study→series→instances ja bucketoi us/xray/ct/angio (US+angio per instanssi, XR/CT per sarja). |
-| `app/services/database.py` | `JOB_TABLES` (kind→taulu) + `create_job` (idempotentti INSERT, laukaisee Service Broker -triggerin). |
-| `orthanc/autoqad_ingest.py` | Orthanc-plugin/Lua-vastine joka POSTaa webhookin ingestioniin. |
+| Tiedosto                    | Käyttö                                                                                                                                |
+|-----------------------------|---------------------------------------------------------------------------------------------------------------------------------------|
+| `app/main.py`               | FastAPI-sovellus + `/health`; käynnistyspiste.                                                                                        |
+| `app/config.py`             | Asetukset ( env): DB/Orthanc + **modaliteettikartoitus** `MODALITY_US/XR/CT/ANGIO` (DICOM-koodi → kind).                              |
+| `app/routes/webhook.py`     | `POST /webhook/study`: Orthancin StableStudy-heräte → enumeroi + luo jobit.                                                           |
+| `app/services/orthanc.py`   | Orthanc REST: `enumerate_study` purkaa study→series→instances ja bucketoi us/xray/ct/angio (US+angio per instanssi, XR/CT per sarja). |
+| `app/services/database.py`  | `JOB_TABLES` (kind→taulu) + `create_job` (idempotentti INSERT, laukaisee Service Broker -triggerin).                                  |
+| `orthanc/autoqad_ingest.py` | Orthanc-plugin/Lua-vastine joka POSTaa webhookin ingestioniin.                                                                        |
 
 ### 3.2 Koordinaatio + tietokantaskeemat — `scripts/`
 | Tiedosto | Käyttö |
