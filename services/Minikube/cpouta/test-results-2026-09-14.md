@@ -126,7 +126,7 @@ läpimenoa (eräaika), ei per-kuva-latenssia (0,184 s pysyy samana).
 
 ---
 
-## 4. Koodimuutokset (`grpc_microservices/Analyze_service/analyze_service_timed.py`)
+## 4. Koodimuutokset (`services/Analyze_service/analyze_service_timed.py`)
 
 1. **`processing_time`-instrumentointi** — per-kuva keston mittaus/tallennus (kuten XR/CT:ssä).
 2. **Työnjako (claim):** `analysis_claims`-taulu + `claim_instance()` — kukin kuva varataan atomisesti (PRIMARY KEY), joten se analysoidaan tasan kerran → mahdollistaa horisontaalisen skaalauksen.

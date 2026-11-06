@@ -11,7 +11,7 @@ This document describes **what the system is and how the pieces fit together**. 
 hands-on install guide see [`README.md`](readme.md); for the rationale behind the
 event-driven pipeline see [`EVENT_DRIVEN_ARCHITECTURE.md`](EVENT_DRIVEN_ARCHITECTURE.md).
 
-> **Note on naming.** The analysis services still live under `grpc_microservices/` for
+> **Note on naming.** The analysis services still live under `services/` for
 > historical reasons — the original design used gRPC. The current system is **event-driven
 > and uses Orthanc REST**, and the directory holds the event workers alongside the legacy
 > gRPC pollers (kept intact during the strangler-fig migration). The directory is a
@@ -134,15 +134,15 @@ Ports are shown as `host → container`. Everything runs on the `autoqad-net` Po
 
 | Component | Tech | Path | Port |
 |---|---|---|---|
-| **Orthanc** (DICOM server + ingest plugin) | Orthanc [1] (`jodogne/orthanc-python`) | `grpc_microservices/Orthanc/`, plugin in `ingestion-service/orthanc/` | 14242→4242 (DICOM), 18042→8042 (REST) |
+| **Orthanc** (DICOM server + ingest plugin) | Orthanc [1] (`jodogne/orthanc-python`) | `services/Orthanc/`, plugin in `ingestion-service/orthanc/` | 14242→4242 (DICOM), 18042→8042 (REST) |
 | **Ingestion service** | FastAPI [2] / Python | `ingestion-service/` | 8070→8000 |
 | **MS SQL Server** | SQL Server 2022 + Service Broker [3] | schemas in `scripts/` | 11433→1433 |
 | **Object storage** | SeaweedFS [4] (S3-compatible) | config generated from `.env` | 8333 |
-| **US event worker** | Python, custom analysis | `grpc_microservices/Analyze_service/worker_us_eventdriven.py` | internal |
-| **XR event worker** | Python, `normi13_qa` [14] / pylinac [13] | `grpc_microservices/Xray_analyze_service/worker_xr_eventdriven.py` | internal |
-| **CT event worker** | Python, pylinac CatPhan [13] | `grpc_microservices/CT_analyze_service/worker_ct_eventdriven.py` | internal |
-| **Angio event worker** | Python, pylinac Leeds TOR [13] | `grpc_microservices/Angio_analyze_service/worker_angio_eventdriven.py` | internal |
-| **Image service** | Python (US straighten/crop) | `grpc_microservices/Image_service/` | 8090→8090 |
+| **US event worker** | Python, custom analysis | `services/Analyze_service/worker_us_eventdriven.py` | internal |
+| **XR event worker** | Python, `normi13_qa` [14] / pylinac [13] | `services/Xray_analyze_service/worker_xr_eventdriven.py` | internal |
+| **CT event worker** | Python, pylinac CatPhan [13] | `services/CT_analyze_service/worker_ct_eventdriven.py` | internal |
+| **Angio event worker** | Python, pylinac Leeds TOR [13] | `services/Angio_analyze_service/worker_angio_eventdriven.py` | internal |
+| **Image service** | Python (US straighten/crop) | `services/Image_service/` | 8090→8090 |
 | **Go backend** | Go [5], Chi [5], go-mssqldb [6], aws-sdk-go-v2 [7] | `go-backend/` | 8081→8080 |
 | **React SPA** | React [8] + Vite + TypeScript, TanStack Query [9], Recharts [10], Tailwind [11] | `frontend/` (built into the Go image) | 5174 (dev) |
 | **Caddy** | Caddy 2 [17] (reverse proxy, TLS) | `caddy/Caddyfile` | 8080 HTTP / 8443 HTTPS |
@@ -214,7 +214,7 @@ they are preliminary and remain under physicist review.
   whole stack is brought up by `start-podman.sh` (on Windows via the `start-autoqad.ps1`
   wrapper, which runs it inside the Podman machine). See `README.md`.
 - **Cloud (CSC cPouta / OpenStack):** Kubernetes manifests under
-  `grpc_microservices/Minikube/cpouta/` (event schema, Service Broker, object storage,
+  `services/Minikube/cpouta/` (event schema, Service Broker, object storage,
   workers). Used for the scalability/fault-tolerance experiments.
 - **Hospital:** Orthanc installed on the hospital server; the stack behind the hospital's
   outer proxy (F5), with Caddy proxying `/Laadunhallinta/*` to the Go backend. The exact

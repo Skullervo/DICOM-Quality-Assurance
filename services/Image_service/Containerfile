@@ -1,6 +1,6 @@
 # Image Service -kontti: tarjoaa US-kuvien suoristuksen/rajauksen (FastAPI, portti 8090).
 # HUOM: build-konteksti on projektin juuri (ks. start-podman.sh), siksi COPY-polut
-# alkavat grpc_microservices/Image_service/... -muodossa.
+# alkavat services/Image_service/... -muodossa.
 FROM python:3.12-slim
 
 WORKDIR /app
@@ -13,13 +13,13 @@ RUN apt-get update && \
 
 # Install Python deps
 # Asennetaan Python-riippuvuudet.
-COPY grpc_microservices/Image_service/requirements.txt .
+COPY services/Image_service/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy image service code (image-service on itsenäinen, ei riipu client/-Djangosta)
 # Kopioidaan palvelukoodi (kuvapalvelin + US-rajaus).
-COPY grpc_microservices/Image_service/image_service.py .
-COPY grpc_microservices/Image_service/us_crop.py .
+COPY services/Image_service/image_service.py .
+COPY services/Image_service/us_crop.py .
 
 # Ei-root-käyttäjä omistaa tiedostot, ja vaihdetaan siihen.
 RUN chown -R appuser:appuser /app

@@ -176,8 +176,8 @@ Ports shown as `host → container`.
 | Object storage (SeaweedFS, S3) | 8333 | `chrislusf/seaweedfs` |
 | Orthanc (DICOM / REST) | 14242 → 4242 / 18042 → 8042 | `jodogne/orthanc-python` |
 | Ingestion service | 8070 → 8000 | built from `ingestion-service/` |
-| Image service | 8090 → 8090 | built from `grpc_microservices/Image_service/` |
-| US / XR / CT / angio workers | internal | built from each `grpc_microservices/*_service/` |
+| Image service | 8090 → 8090 | built from `services/Image_service/` |
+| US / XR / CT / angio workers | internal | built from each `services/*_service/` |
 | Go backend | 8081 → 8080 | built from `go-backend/` |
 | Caddy reverse proxy | 8080 (HTTP) / 8443 (HTTPS) | `caddy:2-alpine` |
 | React dev server (Vite) | 5174 | — (dev only) |
@@ -197,7 +197,7 @@ Ports shown as `host → container`.
 ├── go-backend/                 # Go API + serves the React SPA
 ├── frontend/                   # React + Vite + TypeScript SPA
 ├── ingestion-service/          # FastAPI webhook → QA jobs (event entry point)
-├── grpc_microservices/         # Python analysis services (see note below)
+├── services/         # Python analysis services (see note below)
 │   ├── Analyze_service/              # ultrasound  (worker_us_eventdriven.py)
 │   ├── Xray_analyze_service/         # NORMI-13    (worker_xr_eventdriven.py)
 │   ├── CT_analyze_service/           # CatPhan     (worker_ct_eventdriven.py)
@@ -211,7 +211,7 @@ Ports shown as `host → container`.
 └── monitoring_stack/           # Prometheus + Grafana + Loki (optional)
 ```
 
-> **Naming note:** `grpc_microservices/` is a historical name — the current system is
+> **Naming note:** `services/` is a historical name — the current system is
 > event-driven over Orthanc REST, not gRPC. It holds the event workers alongside the legacy
 > gRPC pollers (kept during migration). A rename is planned.
 

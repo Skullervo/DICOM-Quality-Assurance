@@ -57,9 +57,9 @@ Orthanc ───(Lua OnStableStudy)──▶ Ingestion Service (FastAPI, :8000)
 | 2.2.3 | DB-skeema + Service Broker | `scripts/schema_eventdriven.sql` |
 | 2.2.2 | Ingestion-palvelu | `ingestion-service/` |
 | 2.2.1 | Orthanc-webhook | `ingestion-service/orthanc/autoqad_ingest.py` (Python-plugin, toimiva) / `.lua` (varalla) |
-| 2.2.4 | US-worker | `grpc_microservices/Analyze_service/worker_us_eventdriven.py` |
-| 2.2.5 | S3-client | `grpc_microservices/Analyze_service/s3_client.py` |
-| 2.2.5 | Object storage (k8s) | `grpc_microservices/Minikube/cpouta/object-storage.yaml` |
+| 2.2.4 | US-worker | `services/Analyze_service/worker_us_eventdriven.py` |
+| 2.2.5 | S3-client | `services/Analyze_service/s3_client.py` |
+| 2.2.5 | Object storage (k8s) | `services/Minikube/cpouta/object-storage.yaml` |
 | 2.2.6 | Go backend (S3 luku, Slack, AI) | `go-backend/handlers/storage.go`, `ai.go` |
 
 ## Käyttöönotto (lokaali podman)
@@ -82,7 +82,7 @@ podman run -d --name ingestion-service --network autoqad-net -p 8070:8000 \
   -e DATABASE_HOST=... -e DATABASE_PASSWORD=... localhost/autoqad-ingestion:latest
 
 # 4. Worker (sama analyze-image, CMD override)
-podman build -t localhost/autoqad-us-worker:latest grpc_microservices/Analyze_service/
+podman build -t localhost/autoqad-us-worker:latest services/Analyze_service/
 podman run -d --name us-worker-ed --network autoqad-net \
   -e DATABASE_HOST=... -e DATABASE_PASSWORD=... \
   -e ORTHANC_URL=... -e ORTHANC_PASSWORD=... \

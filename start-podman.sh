@@ -104,7 +104,7 @@ if ! podman container exists autoqad-orthanc 2>/dev/null; then
   podman run -d --name autoqad-orthanc --network $NETWORK \
     -p 14242:4242 -p 18042:8042 \
     -v autoqad-orthanc-data:/var/lib/orthanc/db \
-    -v "$PROJECT/grpc_microservices/Orthanc/orthanc.json":/etc/orthanc/orthanc.json:ro \
+    -v "$PROJECT/services/Orthanc/orthanc.json":/etc/orthanc/orthanc.json:ro \
     -v "$PROJECT/ingestion-service/orthanc/autoqad_ingest.py":/etc/orthanc/autoqad_ingest.py:ro \
     -e INGESTION_URL=http://ingestion-service:8000/webhook/study \
     docker.io/jodogne/orthanc-python
@@ -130,7 +130,7 @@ fi
 # HUOM: build-konteksti on projektin juuri ("$PROJECT").
 if ! podman container exists autoqad-image-service 2>/dev/null; then
   echo "[5/8] Building & creating Image Service..."
-  podman build -t autoqad-image-service -f "$PROJECT/grpc_microservices/Image_service/Containerfile" "$PROJECT"
+  podman build -t autoqad-image-service -f "$PROJECT/services/Image_service/Containerfile" "$PROJECT"
   podman run -d --name autoqad-image-service --network $NETWORK -p 8090:8090 \
     "${ORTHANC_ENV[@]}" autoqad-image-service
 else
@@ -162,10 +162,10 @@ run_worker() { # worker-name  image  [python script]
     podman start "$name" 2>/dev/null || true
   fi
 }
-build_img autoqad-us-analyze    grpc_microservices/Analyze_service
-build_img autoqad-xr-analyze    grpc_microservices/Xray_analyze_service
-build_img autoqad-ct-analyze    grpc_microservices/CT_analyze_service
-build_img autoqad-angio-analyze grpc_microservices/Angio_analyze_service
+build_img autoqad-us-analyze    services/Analyze_service
+build_img autoqad-xr-analyze    services/Xray_analyze_service
+build_img autoqad-ct-analyze    services/CT_analyze_service
+build_img autoqad-angio-analyze services/Angio_analyze_service
 run_worker us-worker    autoqad-us-analyze    python worker_us_eventdriven.py
 run_worker xr-worker    autoqad-xr-analyze    python worker_xr_eventdriven.py
 run_worker ct-worker    autoqad-ct-analyze    python worker_ct_eventdriven.py

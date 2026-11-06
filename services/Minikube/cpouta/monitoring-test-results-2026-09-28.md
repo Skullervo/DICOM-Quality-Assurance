@@ -21,7 +21,7 @@ The revision test document assumed a monitoring stack (`monitoring` namespace, P
 Manifest: [`monitoring.yaml`](monitoring.yaml). Raskaat komponentit on pinnattu control-planeen (4 GB), jotta workerit jäävät analyysille; node-exporter ajetaan kaikilla nodeilla toleraatioilla.
 
 ### Application instrumentation (new)
-`grpc_microservices/Analyze_service/analyze_service_timed.py` was instrumented with `prometheus_client`, exposing a metrics endpoint on **port 9110**:
+`services/Analyze_service/analyze_service_timed.py` was instrumented with `prometheus_client`, exposing a metrics endpoint on **port 9110**:
 
 | Metric | Type | Meaning |
 |---|---|---|

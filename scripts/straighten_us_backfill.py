@@ -32,7 +32,7 @@ import psycopg2
 # polku sys.pathiin, jotta voidaan importata TÄSMÄLLEEN sama analyysiluokka jota
 # varsinainen palvelu käyttää (ei kopioida logiikkaa -> suoristus pysyy identtisenä).
 ROOT = Path(__file__).resolve().parent.parent
-ANALYZE = ROOT / "grpc_microservices" / "Analyze_service"
+ANALYZE = ROOT / "services" / "Analyze_service"
 sys.path.insert(0, str(ANALYZE))
 sys.path.insert(0, str(ANALYZE / "utils"))
 from US_IQ_analysis3 import imageQualityUS  # noqa: E402

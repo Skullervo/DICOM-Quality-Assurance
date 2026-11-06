@@ -35,7 +35,7 @@ services:
       - "18042:8042"
     volumes:
       - orthanc_data:/var/lib/orthanc/db
-      - ./grpc_microservices/Orthanc/orthanc.json:/etc/orthanc/orthanc.json:ro
+      - ./services/Orthanc/orthanc.json:/etc/orthanc/orthanc.json:ro
     networks:
       - autoqad-net
 
@@ -43,7 +43,7 @@ services:
 
   fetch-service:
     build:
-      context: ./grpc_microservices/Fetch_service
+      context: ./services/Fetch_service
       dockerfile: Containerfile
     container_name: autoqad-fetch
     restart: unless-stopped
@@ -61,7 +61,7 @@ services:
 
   us-analyze-service:
     build:
-      context: ./grpc_microservices/Analyze_service
+      context: ./services/Analyze_service
       dockerfile: Containerfile
     container_name: autoqad-us-analyze
     restart: unless-stopped
@@ -87,7 +87,7 @@ services:
 
   xr-analyze-service:
     build:
-      context: ./grpc_microservices/Xray_analyze_service
+      context: ./services/Xray_analyze_service
       dockerfile: Containerfile
     container_name: autoqad-xr-analyze
     restart: unless-stopped
@@ -113,7 +113,7 @@ services:
 
   ct-analyze-service:
     build:
-      context: ./grpc_microservices/CT_analyze_service
+      context: ./services/CT_analyze_service
       dockerfile: Containerfile
     container_name: autoqad-ct-analyze
     restart: unless-stopped
@@ -142,7 +142,7 @@ services:
   image-service:
     build:
       context: .
-      dockerfile: grpc_microservices/Image_service/Containerfile
+      dockerfile: services/Image_service/Containerfile
     container_name: autoqad-image-service
     restart: unless-stopped
     ports:
