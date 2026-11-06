@@ -35,58 +35,16 @@ event-driven pipeline see [`EVENT_DRIVEN_ARCHITECTURE.md`](EVENT_DRIVEN_ARCHITEC
 
 ## 1. High-level architecture
 
-```
-Hospital PACS
-   │  DICOM C-STORE
-   ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ Orthanc [1] (DICOM server)                                                    │
-│   OnStableStudy  ──▶  Python plugin (autoqad_ingest.py)  ──HTTP POST──┐       │
-└───────────────────────────────────────────────────────────────────────┼──────┘
-                                                                          ▼
-                                            Ingestion Service [2] (FastAPI, :8070)
-                                              enumerate study via Orthanc REST
-                                              create QUEUED jobs (idempotent)
-                                                                          │
-                                                                          ▼
-                              ┌─────────────────────────────────────────────────┐
-                              │ Microsoft SQL Server [3]  (QA-results)           │
-                              │   us_jobs / xray_jobs / ct_jobs / angio_jobs     │
-                              │   + Service Broker queues (doorbell)             │
-                              │   + result tables (ultrasound, xray_analysis,…)  │
-                              └───────────────┬──────────────────────────────────┘
-                                              │ AFTER INSERT trigger → doorbell
-                                              ▼
-              Event workers (competing consumers) — us / xr / ct / angio
-                1. WAITFOR RECEIVE (Service Broker doorbell)
-                2. reclaim expired claims (dead workers)
-                3. atomic claim from job table (READPAST, ROWLOCK, UPDLOCK)
-                4. fetch DICOM via Orthanc REST
-                5. analyse (pydicom [12] + pylinac [13] / custom)
-                6. results ──▶ SQL Server   ;   images ──▶ S3 (US/angio) or DB BLOB (XR/CT)
-                7. job COMPLETED | FAILED(+error_message)
-                                              │
-            ┌─────────────────────────────────┴───────────────────┐
-            ▼                                                       ▼
-   SeaweedFS [4] (S3, :8333)                          Go backend [5] (:8080)
-   US + angio analysis images                           REST API /Laadunhallinta/api/*
-                                                        serves React SPA [8]
-                                                        S3 proxy / presigned (US/angio)
-                                                        AI reporting [16], Slack
-                                              │
-                                              ▼
-                                Caddy [17] reverse proxy (:8080 HTTP / :8443 HTTPS)
-                                              │
-                                              ▼
-                                         User browser
-```
+![Data-flow diagram of the Radiqa QA pipeline, with trust boundaries](assets/architecture-dfd.png)
+
+*Data-flow diagram: PACS -> Orthanc -> ingestion -> SQL Server + Service Broker -> event workers -> S3 / Go backend -> browser. Bracketed numbers map to the technology references in section 9.*
 
 Key properties:
 
 - **Decoupled ingestion and analysis.** The PACS/Orthanc side only *enqueues work*;
   analysis happens asynchronously in workers that can be scaled independently.
 - **The database is the source of truth, Service Broker is only a doorbell.** A lost or
-  duplicated wake-up message can never lose or double-run a job (see §2).
+  duplicated wake-up message can never lose or double-run a job (see section 2).
 - **Competing consumers.** Multiple replicas of a worker share the queue without any
   manual sharding; `READPAST` lets each worker skip rows another has already locked.
 - **Storage split by modality.** Ultrasound and angiography analysis images go to
@@ -100,34 +58,35 @@ Key properties:
 This model replaces the earlier polling/claim/sharding design. The full design notes are
 in [`EVENT_DRIVEN_ARCHITECTURE.md`](EVENT_DRIVEN_ARCHITECTURE.md); the essentials:
 
-1. **Trigger.** When a study becomes stable in Orthanc, its `OnStableStudy` event fires a
-   Python plugin (`ingestion-service/orthanc/autoqad_ingest.py`) that POSTs the study id to
-   the ingestion service. (A `.lua` variant is kept as a fallback; the Python plugin is the
-   validated path because Orthanc's built-in Lua HTTP client does not reliably emit outbound
-   requests in all environments.)
-2. **Ingestion.** The FastAPI [2] ingestion service enumerates the study over Orthanc REST,
-   determines the modality of each series, and inserts `QUEUED` rows into the per-modality
-   job tables. Insertion is **idempotent** (`UNIQUE(orthanc_id)`), so re-delivery of the
-   same study never creates duplicate jobs.
-3. **Doorbell.** An `AFTER INSERT` trigger sends a message on the matching SQL Server
-   **Service Broker** queue [3]. This only *wakes* a worker — it carries no authoritative
-   state.
-4. **Claim.** A worker blocked on `WAITFOR RECEIVE` wakes, first **reclaims** any expired
-   `CLAIMED`/`RUNNING` jobs (whose owning worker died — `claimed_at < now − CLAIM_TIMEOUT`),
-   then **atomically claims** one `QUEUED` job with
-   `UPDATE … WITH (READPAST, ROWLOCK, UPDLOCK)`. The job state machine is
-   `QUEUED → CLAIMED → RUNNING → COMPLETED | FAILED`.
-5. **Analyse.** The worker fetches the DICOM from Orthanc over REST, runs the
-   modality-specific analysis, writes results to the modality result table, uploads any
-   analysis images (US/angio → S3; XR/CT → DB BLOB), and marks the job `COMPLETED` (or
-   `FAILED` with an `error_message` kept for the *Measurements* view).
+**1. Trigger.** When a study becomes stable in Orthanc, its `OnStableStudy` event fires a
+Python plugin (`ingestion-service/orthanc/autoqad_ingest.py`) that POSTs the study id to the
+ingestion service. (A `.lua` variant is kept as a fallback; the Python plugin is the
+validated path because Orthanc's built-in Lua HTTP client does not reliably emit outbound
+requests in all environments.)
 
-The shared worker logic lives in `worker_common.py` (`EventWorker`); each modality provides
-a thin `worker_{us,xr,ct,angio}_eventdriven.py` that configures the queue, job table, DICOM
+**2. Ingestion.** The FastAPI [2] ingestion service enumerates the study over Orthanc REST,
+determines the modality of each series, and inserts `QUEUED` rows into the per-modality job
+tables. Insertion is **idempotent** (`UNIQUE(orthanc_id)`), so re-delivery of the same study
+never creates duplicate jobs.
+
+**3. Doorbell.** An `AFTER INSERT` trigger sends a message on the matching SQL Server
+**Service Broker** queue [3]. This only *wakes* a worker; it carries no authoritative state.
+
+**4. Claim.** A worker blocked on `WAITFOR RECEIVE` wakes, first **reclaims** any expired
+`CLAIMED`/`RUNNING` jobs (whose owning worker died, `claimed_at < now - CLAIM_TIMEOUT`), then
+**atomically claims** one `QUEUED` job with `UPDATE ... WITH (READPAST, ROWLOCK, UPDLOCK)`.
+The job state machine is `QUEUED -> CLAIMED -> RUNNING -> COMPLETED | FAILED`.
+
+**5. Analyse.** The worker fetches the DICOM from Orthanc over REST, runs the
+modality-specific analysis, writes results to the modality result table, uploads any analysis
+images (US/angio -> S3; XR/CT -> DB BLOB), and marks the job `COMPLETED` (or `FAILED` with an
+`error_message` kept for the *Measurements* view).
+
+The shared worker logic lives in `worker_common.py` (`EventWorker`); each modality provides a
+thin `worker_{us,xr,ct,angio}_eventdriven.py` that configures the queue, job table, DICOM
 modality filter, and the analysis callback.
 
 ---
-
 ## 3. Components
 
 Ports are shown as `host → container`. Everything runs on the `autoqad-net` Podman network.
