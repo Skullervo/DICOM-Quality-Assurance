@@ -13,6 +13,10 @@ python-dotenv==1.2.1
 requests==2.32.3
 xlrd==2.0.1
 pandas>=2.2.0
+# pandas >=2.2 valitsee .xls/.xlsx-lukuun python-calamine-moottorin jos se on
+# saatavilla; ilman sitä pd.read_excel(probe-LUT.xls) kaatuu "Import python-calamine
+# failed" ja KOKO US-analyysi epäonnistuu (anturin LUT-haku). Pidä tämä asennettuna.
+python-calamine>=0.2.0
 PyYAML>=6.0
 prometheus_client>=0.20.0
 boto3>=1.34.0
