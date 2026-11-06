@@ -22,7 +22,10 @@ if [ ! -f .env ]; then
   echo "ERROR: .env not found. Copy it first:  cp .env.example .env  (then edit the values)"
   exit 1
 fi
-set -a; source .env; set +a
+# tr -d '\r': siivoa CR jos .env on tallennettu CRLF-rivinvaihdoilla (Windows-editori).
+# Muuten esim. S3_SECRET_KEY saisi perään '\r' -> generoitu s3config.json rikkoutuu ja
+# SeaweedFS kaatuu ("invalid character '\r' in string") -> koko S3/objektivarasto nurin.
+set -a; source <(tr -d '\r' < .env); set +a
 
 # Yhteinen sisäverkko; SA = SQL Serverin salasana; SQLCMD = valmis sqlcmd kontin sisällä.
 NETWORK=autoqad-net
@@ -60,6 +63,14 @@ done
 echo "     Ensuring database + schemas..."
 DB="${DATABASE_NAME:-QA-results}"
 podman exec autoqad-mssql $SQLCMD -Q "IF DB_ID('$DB') IS NULL CREATE DATABASE [$DB]" >/dev/null
+# Odota että tietokanta on ONLINE. Rebootin jälkeen SQL Server hyväksyy yhteyksiä
+# (master vastaa) mutta QA-results voi olla vielä RECOVERING -> skeeman sovellus
+# kaatuisi "Cannot open database". Odotetaan enintään ~120 s.
+for _i in $(seq 1 60); do
+  _st=$(podman exec autoqad-mssql $SQLCMD -h -1 -W -Q "SET NOCOUNT ON; SELECT state_desc FROM sys.databases WHERE name='$DB'" 2>/dev/null | tr -d '[:space:]')
+  [ "$_st" = "ONLINE" ] && break
+  sleep 2
+done
 # Tulostaulut + event-driven-koordinaatio (Service Broker + job-taulut) + angio-taulu.
 podman exec -i autoqad-mssql $SQLCMD -d "$DB" < "$PROJECT/scripts/schema_mssql.sql" >/dev/null
 podman exec -i autoqad-mssql $SQLCMD -d "$DB" < "$PROJECT/scripts/schema_eventdriven.sql" >/dev/null
