@@ -58,6 +58,19 @@ def enumerate_study(study_id: str) -> dict:
     # Tuloslista per modaliteetti. Täytetään alla käymällä studyn sarjat läpi.
     out = {"study_instance_uid": study_uid, "us": [], "xray": [], "ct": [], "angio": []}
 
+    # QA-suodatus: analysoidaan vain laadunvalvonta-/fantomistudyt. Orthanc sisältää myös
+    # kliinisiä potilaskuvia (natiivit röntgenit, potilas-CT:t, kliininen angio), joille
+    # QA-analyysi ei kuulu ajaa (ne vain kaatuisivat "phantom not detected" -virheeseen ja
+    # turhaan kuormittaisivat). Tunnistus StudyDescriptionin avainsanoilla. Jos avainsanoja
+    # ei ole asetettu (tyhjä), suodatus on pois päältä ja kaikki analysoidaan (vanha käytös).
+    study_desc = (study_tags.get("StudyDescription") or "").lower()
+    if settings.QA_STUDY_KEYWORDS and not any(k in study_desc for k in settings.QA_STUDY_KEYWORDS):
+        logger.info(
+            "Ohitetaan ei-QA-study %s (StudyDescription=%r) — ei luoda jobeja",
+            study_id, study_tags.get("StudyDescription", ""),
+        )
+        return out  # tyhjä -> ingestion ei luo yhtään jobia tälle studylle
+
     # Käydään studyn jokainen sarja (series) läpi ja reititetään se modaliteetin mukaan.
     for series_id in study.get("Series", []):
         series = get_series(series_id)

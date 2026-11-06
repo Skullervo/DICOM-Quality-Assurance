@@ -35,6 +35,22 @@ class Settings:
     MODALITY_CT = {"CT"}
     MODALITY_ANGIO = {"XA"}
 
+    # QA-studysuodatus: analysoidaan VAIN laadunvalvonta-/fantomistudyt, EI kliinisiä
+    # potilaskuvia. Orthanc voi sisältää paljon natiivi-/potilaskuvia (esim. "Vatsa
+    # natiivi", "Lannerangan röntgen"), joille QA-analyysi ei kuulu ajaa. Tunnistus
+    # StudyDescriptionin avainsanoilla (pienellä kirjaimella, osumahaku). Datasta johdetut
+    # oletukset: "LAATU NATIIVI"/"Laatu UÄ ilmakuva"/"LAATU LÄPIV"/"Laadunvalvonta"/
+    # "CT fantom"/"CATPHAN"/"Fantomi-testi"/"Normi 13"/"Fyysikko". Säädä envistä laitoksen
+    # nimeämisen mukaan. Tyhjä lista = ei suodatusta (analysoi kaikki, vanha käytös).
+    QA_STUDY_KEYWORDS = {
+        k.strip().lower()
+        for k in os.getenv(
+            "QA_STUDY_KEYWORDS",
+            "laatu,laadun,fantom,catphan,normi,fyysikko,phantom,tor,leeds,ilmakuva",
+        ).split(",")
+        if k.strip()
+    }
+
 
 # Yksi jaettu asetusinstanssi, jonka muut moduulit importtaavat.
 settings = Settings()
