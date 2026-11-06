@@ -2,13 +2,18 @@ grpcio==1.70.0
 grpcio-tools==1.70.0
 protobuf
 pymssql==2.3.13
-pydicom>=2.4.4
-numpy>=1.26.4
-opencv-python>=4.10.0
-scipy>=1.12.0
+# Analyysiriippuvuudet PINNATTU toimivaan settiin (lähde: old/requirements-venv-snapshot.txt).
+# Pinnaamattomina (>= / git HEAD) image-rebuild veti uudemmat versiot -> NORMI-13:n
+# phantom-reunantunnistus hajosi ("Edges of the phantom not detected" / "index out of
+# bounds"). ÄLÄ löysää näitä ilman että analyysi testataan uudelleen oikealla fantomilla.
+pydicom==2.4.4
+numpy==1.26.4
+opencv-python==4.10.0.84
+scipy==1.12.0
+scikit-image==0.25.1
 matplotlib>=3.8.4
 pylinac==3.38.0
 requests
-normi13-qa @ git+https://github.com/MIPT-Oulu/radiography-qa.git
+normi13-qa @ git+https://github.com/MIPT-Oulu/radiography-qa.git@620d432f1b78b549cea7ddbb3a4a387ff341ab8a
 prometheus_client>=0.20.0
 boto3>=1.34.0

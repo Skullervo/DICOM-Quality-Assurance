@@ -2,11 +2,15 @@ grpcio==1.70.0
 grpcio-tools==1.70.0
 protobuf
 pymssql==2.3.13
-pydicom>=2.4.4
-numpy>=1.26.4
-scipy>=1.12.0
+# Analyysiriippuvuudet PINNATTU toimivaan settiin (lähde: old/requirements-venv-snapshot.txt).
+# Pinnaamattomina image-rebuild veti uudemmat versiot -> CatPhan-tunnistus heikkeni.
+# ÄLÄ löysää näitä ilman että CatPhan-analyysi testataan uudelleen.
+pydicom==2.4.4
+numpy==1.26.4
+scipy==1.12.0
+scikit-image==0.25.1
 matplotlib>=3.8.4
-pylinac>=3.24.1
+pylinac==3.38.0
 requests
 python-dotenv
 prometheus_client>=0.20.0
