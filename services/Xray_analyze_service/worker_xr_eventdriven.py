@@ -11,6 +11,7 @@ Analyysikuvat (VARBINARY) tallentuvat xray_analysis-tauluun kuten ennen.
 """
 import io
 import os
+import json
 import time
 import tempfile
 import logging
@@ -18,6 +19,7 @@ import logging
 import requests
 import pydicom
 
+import s3_client
 from worker_common import EventWorker, IMAGES_PROCESSED, QA_RESULTS
 # TÄRKEÄ: 'import xray_analyze_service' suorittaa kyseisen moduulin ylätason koodin,
 # joka SOVELTAA pakollisen pylinac 3.38 ROI-monkey-patchin JA asettaa matplotlibin
@@ -38,6 +40,21 @@ _USER = os.getenv("ORTHANC_USERNAME", "admin")
 _PASS = os.getenv("ORTHANC_PASSWORD", "")
 AUTH = (_USER, _PASS) if _USER else None
 XRAY_MODALITIES = ("CR", "DX")
+
+# Idempotentti: varmista analysis_images-sarake (S3-kuva-avaimet JSONina). Aja kerran
+# workerin elinaikana (ei joka jobilla). Vanhoilla riveillä sarake on NULL -> Go-backend
+# putoaa takaisin VARBINARY-BLOB-lukupolkuun (kaksoisluku).
+_schema_ready = False
+
+
+def _ensure_schema(cur, conn):
+    global _schema_ready
+    if _schema_ready:
+        return
+    cur.execute("IF COL_LENGTH('dbo.xray_analysis','analysis_images') IS NULL "
+                "ALTER TABLE dbo.xray_analysis ADD analysis_images NVARCHAR(MAX) NULL")
+    conn.commit()
+    _schema_ready = True
 
 
 def _fetch(inst_id: str) -> bytes:
@@ -86,7 +103,26 @@ def _analyze_instance(cur, conn, series_id, instance_id):
         # Poiminta + tallennus samoilla apufunktioilla kuin pollerilla.
         metadata = extract_dicom_metadata(ds)
         analysis = extract_analysis_results(results, IQ)
-        insert_xray_analysis(cur, instance_id, series_id, metadata, analysis, processing_time, cr, ml, mc)
+
+        # Analyysikuvat -> S3 (kuten US/angio): avain qa/xray/<series>/<instance>_<tyyppi>.png.
+        # Go-backend lukee tyyppi->s3-polku -mapin analysis_images-sarakkeesta ja tarjoilee
+        # kuvan S3:sta. Jos S3 ei vastaa, pudotaan BLOB-fallbackiin (nykyinen VARBINARY-polku).
+        img_keys, use_s3 = {}, True
+        try:
+            for typ, data in (("contrast_rois", cr), ("mtf_lp", ml), ("mtf_curve", mc)):
+                if data:
+                    key = f"qa/xray/{series_id}/{instance_id}_{typ}.png"
+                    img_keys[typ] = s3_client.upload_bytes(key, data, "image/png")
+        except Exception as e:  # noqa: BLE001 — S3-virhe ei saa kaataa analyysiä
+            logger.warning("XR S3-upload epäonnistui (%s) -> BLOB-fallback", e)
+            use_s3 = False
+        if use_s3:
+            # Kuvat S3:ssa -> älä kirjoita BLOBeja (None); tallenna avaimet JSONiin.
+            insert_xray_analysis(cur, instance_id, series_id, metadata, analysis, processing_time, None, None, None)
+            cur.execute("UPDATE xray_analysis SET analysis_images=%s WHERE instance=%s",
+                        (json.dumps(img_keys), instance_id))
+        else:
+            insert_xray_analysis(cur, instance_id, series_id, metadata, analysis, processing_time, cr, ml, mc)
         conn.commit()
         IMAGES_PROCESSED.labels(modality="CR", status="success").inc()
         QA_RESULTS.labels(modality="CR").inc()
@@ -104,6 +140,7 @@ def process(wk, cur, conn, job):
     # job.orthanc_id = XR-SARJAN id. Analyysi tehdään per instanssi (kuva).
     series_id = job["orthanc_id"]
     wk.set_status(cur, conn, job["id"], "RUNNING")
+    _ensure_schema(cur, conn)   # varmista analysis_images-sarake (kerran)
 
     # Haetaan sarjan kaikki instanssit Orthancista.
     insts = requests.get(f"{ORTHANC_URL}/series/{series_id}/instances", auth=AUTH, timeout=60).json()

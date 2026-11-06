@@ -74,6 +74,34 @@ func parseS3Path(p string) (bucket, key string, ok bool) {
 	return rest[:i], rest[i+1:], true
 }
 
+// serveS3Image hakee ja proxaa S3-objektin (s3://bucket/key) suoraan vastaukseen.
+// Palauttaa true jos kuva tarjoiltiin, false jos polku on virheellinen tai haku
+// epäonnistui (jolloin kutsuja voi pudota esim. DB-BLOB-fallbackiin). Jaettu
+// US/XR/CT-analyysikuvien tarjoiluun.
+func serveS3Image(w http.ResponseWriter, r *http.Request, s3path string) bool {
+	bucket, key, ok := parseS3Path(s3path)
+	if !ok {
+		return false
+	}
+	cl, err := getS3Client()
+	if err != nil {
+		return false
+	}
+	out, err := cl.GetObject(r.Context(), &s3.GetObjectInput{Bucket: &bucket, Key: &key})
+	if err != nil {
+		return false
+	}
+	defer out.Body.Close()
+	ct := "image/png"
+	if out.ContentType != nil && *out.ContentType != "" {
+		ct = *out.ContentType
+	}
+	w.Header().Set("Content-Type", ct)
+	w.Header().Set("Cache-Control", "no-cache")
+	io.Copy(w, out.Body) //nolint:errcheck
+	return true
+}
+
 // usOutputImagePath hakee ultrasound.output_image_path -arvon instanssille.
 func usOutputImagePath(ctx context.Context, db *sql.DB, instance string) (string, bool) {
 	var p *string

@@ -22,6 +22,7 @@ import logging
 import requests
 import pydicom
 
+import s3_client
 from worker_common import EventWorker, IMAGES_PROCESSED, QA_RESULTS  # noqa: F401
 # ct_analyze_service tuo matplotlib Agg + analyzerit; funktiot uudelleenkäyttöön
 from ct_analyze_service import extract_ct_metadata, detect_phantom_type, insert_ct_analysis
@@ -34,6 +35,20 @@ ORTHANC_URL = os.getenv("ORTHANC_URL", "http://orthanc:8042")
 _USER = os.getenv("ORTHANC_USERNAME", "admin")
 _PASS = os.getenv("ORTHANC_PASSWORD", "")
 AUTH = (_USER, _PASS) if _USER else None
+
+# Idempotentti: varmista analysis_images-sarake (S3-kuva-avaimet JSONina). Aja kerran
+# workerin elinaikana. Vanhoilla riveillä NULL -> Go-backend lukee VARBINARY-BLOBin.
+_schema_ready = False
+
+
+def _ensure_schema(cur, conn):
+    global _schema_ready
+    if _schema_ready:
+        return
+    cur.execute("IF COL_LENGTH('dbo.ct_analysis','analysis_images') IS NULL "
+                "ALTER TABLE dbo.ct_analysis ADD analysis_images NVARCHAR(MAX) NULL")
+    conn.commit()
+    _schema_ready = True
 
 
 def _fetch(inst_id: str) -> bytes:
@@ -48,6 +63,7 @@ def process(wk, cur, conn, job):
     series_id = job["orthanc_id"]
     instance_key = f"{series_id}_0"  # avain ct_analysis-tauluun (sarja + leikeindeksi)
     wk.set_status(cur, conn, job["id"], "RUNNING")
+    _ensure_schema(cur, conn)   # varmista analysis_images-sarake (kerran)
 
     # Hae sarjan kaikkien leikkeiden lista Orthancista.
     insts = requests.get(f"{ORTHANC_URL}/series/{series_id}/instances", auth=AUTH, timeout=60).json()
@@ -100,7 +116,25 @@ def process(wk, cur, conn, job):
         wk.observe_duration(processing_time)
         analysis["num_images"] = len(insts)
 
-        insert_ct_analysis(cur, instance_key, series_id, metadata, analysis, processing_time, images)
+        # Analyysikuvat -> S3 (kuten US/angio): avain qa/ct/<series>/<instance>_<tyyppi>.png.
+        # analysis_images-sarakkeeseen tyyppi->s3-polku -mappi (tyypit vastaavat Go:n
+        # CTAnalysisImage-validFieldsejä). S3-virhe -> BLOB-fallback (VARBINARY-polku).
+        img_keys, use_s3 = {}, True
+        try:
+            for typ, data in images.items():
+                if data:
+                    key = f"qa/ct/{series_id}/{instance_key}_{typ}.png"
+                    img_keys[typ] = s3_client.upload_bytes(key, data, "image/png")
+        except Exception as e:  # noqa: BLE001 — S3-virhe ei saa kaataa analyysiä
+            logger.warning("CT S3-upload epäonnistui (%s) -> BLOB-fallback", e)
+            use_s3 = False
+        if use_s3:
+            # Kuvat S3:ssa -> älä kirjoita BLOBeja (tyhjä images); tallenna avaimet JSONiin.
+            insert_ct_analysis(cur, instance_key, series_id, metadata, analysis, processing_time, {})
+            cur.execute("UPDATE ct_analysis SET analysis_images=%s WHERE instance=%s",
+                        (json.dumps(img_keys), instance_key))
+        else:
+            insert_ct_analysis(cur, instance_key, series_id, metadata, analysis, processing_time, images)
         conn.commit()
         wk.mark_success(cur, conn, job["id"])
         logger.info("✅ CT job %s (series %s) COMPLETED in %.2fs", job["id"], series_id, processing_time)

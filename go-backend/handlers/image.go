@@ -180,6 +180,24 @@ func XRImage(w http.ResponseWriter, r *http.Request) {
 // kääntää sen oikeaksi sarakenimeksi. Tämä sallittujen arvojen kartta on TÄRKEÄ
 // turvan vuoksi: koska sarakenimi upotetaan SQL-kyselyyn, vain kartassa olevat
 // (ei käyttäjän vapaa teksti) kelpaavat -> ei SQL-injektiota.
+// analysisImageS3Key lukee taulun analysis_images-sarakkeen JSONista
+// ({kuvatyyppi: "s3://bucket/key"}) annetun tyypin S3-polun. table on käsittelijän
+// antama vakio (ei käyttäjän syöte) -> turvallinen upottaa kyselyyn. Palauttaa
+// (polku, true) jos löytyi, muuten ("", false) -> kutsuja putoaa BLOB-fallbackiin.
+func analysisImageS3Key(ctx context.Context, db *sql.DB, table, instance, imgType string) (string, bool) {
+	var j *string
+	q := fmt.Sprintf(`SELECT TOP 1 analysis_images FROM %s WHERE instance = @p1 AND analysis_images IS NOT NULL`, table)
+	if err := db.QueryRowContext(ctx, q, instance).Scan(&j); err != nil || j == nil || *j == "" {
+		return "", false
+	}
+	var m map[string]string
+	if err := json.Unmarshal([]byte(*j), &m); err != nil {
+		return "", false
+	}
+	key, ok := m[imgType]
+	return key, ok && key != ""
+}
+
 func XRAnalysisImage(db *sql.DB) http.HandlerFunc {
 	validFields := map[string]string{
 		"contrast_rois": "contrast_rois_image",
@@ -193,6 +211,13 @@ func XRAnalysisImage(db *sql.DB) http.HandlerFunc {
 		if !ok {
 			http.Error(w, "unknown image type", http.StatusBadRequest)
 			return
+		}
+		// S3 ensin (uudet event-rivit): analysis_images-JSON tyyppi -> s3-polku.
+		// Vanhoilla pollerirveillä sarake on NULL -> pudotaan VARBINARY-BLOBiin alla.
+		if key, ok := analysisImageS3Key(r.Context(), db, "xray_analysis", instance, imgType); ok {
+			if serveS3Image(w, r, key) {
+				return
+			}
 		}
 		var data []byte
 		err := db.QueryRowContext(context.Background(),
@@ -381,6 +406,13 @@ func CTAnalysisImage(db *sql.DB) http.HandlerFunc {
 		if !ok {
 			http.Error(w, "unknown image type", http.StatusBadRequest)
 			return
+		}
+		// S3 ensin (uudet event-rivit): analysis_images-JSON tyyppi -> s3-polku.
+		// Vanhoilla pollerirveillä sarake on NULL -> pudotaan VARBINARY-BLOBiin alla.
+		if key, ok := analysisImageS3Key(r.Context(), db, "ct_analysis", instance, imgType); ok {
+			if serveS3Image(w, r, key) {
+				return
+			}
 		}
 		var data []byte
 		err := db.QueryRowContext(context.Background(),

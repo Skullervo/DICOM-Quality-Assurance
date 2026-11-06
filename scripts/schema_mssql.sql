@@ -377,3 +377,9 @@ CREATE TABLE [devices] (
     [is_active] BIT NULL CONSTRAINT [DF_dev_active] DEFAULT 1,
     [institution_id] INT NULL
 );
+
+GO
+-- XR/CT analyysikuvat S3:ssa (event-driven): analysis_images = JSON {kuvatyyppi: s3://bucket/key}.
+-- Idempotentti; vanhoilla BLOB-riveilla NULL -> Go-backend lukee VARBINARY-sarakkeen (kaksoisluku).
+IF COL_LENGTH('dbo.xray_analysis','analysis_images') IS NULL ALTER TABLE dbo.xray_analysis ADD analysis_images NVARCHAR(MAX) NULL;
+IF COL_LENGTH('dbo.ct_analysis','analysis_images') IS NULL ALTER TABLE dbo.ct_analysis ADD analysis_images NVARCHAR(MAX) NULL;
