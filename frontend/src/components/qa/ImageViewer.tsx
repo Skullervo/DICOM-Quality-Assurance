@@ -142,7 +142,7 @@ export function ImageViewer({ instance }: { instance: string }) {
       </div>
 
       {/* Window/Level */}
-      {/* Kaksi liukuria: taso (WC) ja leveys (WW) — säätävät kuvan harmaasävykontrastia. */}
+      {/* Kaksi liukuria: taso (WC) ja leveys (WW) säätävät kuvan harmaasävykontrastia. */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', ...sliderLabel }}>

@@ -23,7 +23,7 @@ export default function Mittaukset() {
     <>
       <div className="page-header">
         <h1>Measurements</h1>
-        <p>Select a modality to see all measurements — including those whose analysis failed</p>
+        <p>Select a modality to see all measurements including those whose analysis failed</p>
       </div>
 
       <div className="card-grid">

@@ -108,12 +108,12 @@ export default function AngioDeviceDetails() {
       ? [
           { title: 'DICOM info', rows: [
             { label: 'Device', value: String(latest.station_name ?? dUnit) },
-            { label: 'Institution', value: String(latest.institution_name ?? '—') },
+            { label: 'Institution', value: String(latest.institution_name ?? '') },
             { label: 'Phantom', value: String(latest.phantom_model ?? 'Leeds TOR-18') },
-            { label: 'kVp', value: String(latest.kvp ?? '—') },
-            { label: 'mAs', value: String(latest.exposure_mAs ?? '—') },
-            { label: 'Model', value: String(latest.manufacturer_model_name ?? '—') },
-            { label: 'Date', value: verdictDevice.measuredAt ?? '—' },
+            { label: 'kVp', value: String(latest.kvp ?? '') },
+            { label: 'mAs', value: String(latest.exposure_mAs ?? '') },
+            { label: 'Model', value: String(latest.manufacturer_model_name ?? '') },
+            { label: 'Date', value: verdictDevice.measuredAt ?? '' },
           ] },
           { title: 'Analysis results', rows: [
             { label: 'Uniformity (PIU)', value: `${rnd(chipUnif, 1)} %` },
@@ -160,7 +160,7 @@ export default function AngioDeviceDetails() {
             background: 'rgba(96,165,250,0.15)', color: '#93c5fd', border: '1px solid rgba(96,165,250,0.3)' }}>XA</span>
         </div>
 
-        {/* Kuva — yksi pudotusvalikko + kuvaikkuna */}
+        {/* Kuva yksi pudotusvalikko + kuvaikkuna */}
         {activeInstanceId && (
           <div style={{ flexShrink: 0, padding: '16px 10px 10px', borderBottom: `1px solid ${C.border}` }}>
             <select value={imgSel} onChange={(e) => setImgSel(e.target.value)}
@@ -205,12 +205,12 @@ export default function AngioDeviceDetails() {
           )}
         </div>
 
-        {/* Verdiktti — kompakti, vasemman paneelin alakulmassa */}
+        {/* Verdiktti kompakti, vasemman paneelin alakulmassa */}
         {latest && <VerdictBar device={verdictDevice} metrics={verdictMetrics} compact card />}
       </div>
       )}
 
-      {/* PÄÄALUE — välilehdet (Analyysi / Kysy tekoälyltä / Raportoi ongelmasta) */}
+      {/* PÄÄALUE välilehdet (Analyysi / Kysy tekoälyltä / Raportoi ongelmasta) */}
       <MainArea
         onTabChange={setActiveTab}
         reportContext={reportCtx}

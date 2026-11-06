@@ -30,7 +30,7 @@ import type { ReportContext } from '../components/qa/ReportTab'
 const VERDICT_FI = { pass: 'Pass', warn: 'Warning', fail: 'Fail', nodata: 'No data' } as const
 const rnd = (v: unknown, p = 2) => (typeof v === 'number' ? v.toFixed(p) : '?')
 
-/* Vertikaalinen profiili — kapea palkki kuvan oikealla puolella, täyttää parent-korkeuden */
+/* Vertikaalinen profiili kapea palkki kuvan oikealla puolella, täyttää parent-korkeuden */
 // Piirtää US-kuvan pystyprofiilin (intensiteetti korkeuden funktiona) SVG-viivana.
 function VertProfileSVG({ data }: { data: number[] }) {
   if (!data || data.length === 0) return (
@@ -54,7 +54,7 @@ function VertProfileSVG({ data }: { data: number[] }) {
   )
 }
 
-/* Horisontaalinen profiili — kuvan alla, 5 segmenttiä (full width × 48px) */
+/* Horisontaalinen profiili kuvan alla, 5 segmenttiä (full width × 48px) */
 // Piirtää US-kuvan vaakaprofiilin ja merkitsee kunkin segmentin minimikohdan punaisella.
 function HorizProfileSVG({ data }: { data: number[] }) {
   if (!data || data.length === 0) return (
@@ -165,13 +165,13 @@ export default function USDeviceDetails() {
           { title: 'DICOM info', rows: [
             { label: 'Device', value: String(latest.stationname ?? s) },
             { label: 'Modality', value: 'US' },
-            { label: 'Institution', value: String(latest.institutionname ?? '—') },
-            { label: 'Manufacturer', value: String(latest.manufacturer ?? '—') },
-            { label: 'Model', value: String(latest.manufacturermodelname ?? '—') },
-            { label: 'Transducer', value: String(latest.tranducertype ?? '—') },
-            { label: 'Serial no.', value: String(latest.deviceserialnumber ?? '—') },
-            { label: 'Study date', value: formatDay((latest.studydate ?? latest.contentdate) as string | undefined) ?? '—' },
-            { label: 'Instance', value: String(latest.instance ?? '—').slice(0, 12) },
+            { label: 'Institution', value: String(latest.institutionname ?? '') },
+            { label: 'Manufacturer', value: String(latest.manufacturer ?? '') },
+            { label: 'Model', value: String(latest.manufacturermodelname ?? '') },
+            { label: 'Transducer', value: String(latest.tranducertype ?? '') },
+            { label: 'Serial no.', value: String(latest.deviceserialnumber ?? '') },
+            { label: 'Study date', value: formatDay((latest.studydate ?? latest.contentdate) as string | undefined) ?? '' },
+            { label: 'Instance', value: String(latest.instance ?? '').slice(0, 12) },
           ] },
           { title: 'Analysis results', rows: [
             { label: 's_depth', value: `${rnd(chipSDepth)} cm` },
@@ -220,7 +220,7 @@ export default function USDeviceDetails() {
             background: `${C.accent}26`, color: C.accent, border: `1px solid ${C.accent}4d` }}>US</span>
         </div>
 
-        {/* Image area: grid — col1=image, col2=vert profile; row2=horiz profile under image only */}
+        {/* Image area: grid col1=image, col2=vert profile; row2=horiz profile under image only */}
         <div style={{
           flexShrink: 0, background: '#000', padding: '16px 6px 3px',
           borderBottom: `1px solid ${C.border}`,
@@ -233,7 +233,7 @@ export default function USDeviceDetails() {
               gap: 2,
             }}>
               {/* Image: row 1, col 1. objectFit: 'fill' (venytys soluun) niin että kuva
-                  kohdistuu profiilien kanssa — profiilit venyttävät (preserveAspectRatio none),
+                  kohdistuu profiilien kanssa profiilit venyttävät (preserveAspectRatio none),
                   joten cover-rajaus saisi pysty-/vaakaprofiilin karkaamaan kuvasta. */}
               <div style={{ gridRow: 1, gridColumn: 1, background: '#020608', borderRadius: 4, overflow: 'hidden' }}>
                 <img src={`data:${imageData.mime ?? 'image/jpeg'};base64,${imageData.image}`}
@@ -241,11 +241,11 @@ export default function USDeviceDetails() {
               </div>
               {hasProfiles && (
                 <>
-                  {/* Vertical profile: row 1, col 2 — same height as image */}
+                  {/* Vertical profile: row 1, col 2 same height as image */}
                   <div style={{ gridRow: 1, gridColumn: 2, background: '#020608', borderRadius: 4, overflow: 'hidden' }}>
                     <VertProfileSVG data={imageData.vert_prof!} />
                   </div>
-                  {/* Horizontal profile: row 2, col 1 only — same width as image */}
+                  {/* Horizontal profile: row 2, col 1 only same width as image */}
                   <div style={{ gridRow: 2, gridColumn: 1 }}>
                     <HorizProfileSVG data={imageData.horiz_prof!} />
                   </div>
@@ -277,13 +277,13 @@ export default function USDeviceDetails() {
           )}
         </div>
 
-        {/* Verdiktti — kompakti, vasemman paneelin alakulmassa */}
+        {/* Verdiktti kompakti, vasemman paneelin alakulmassa */}
         {/* Näytetään vain kun dataa on (uusin rivi tai valittu piste). */}
         {(latest || selectedPoint) && <VerdictBar device={verdictDevice} metrics={verdictMetrics} compact card />}
       </div>
       )}
 
-      {/* PÄÄALUE — välilehdet (Analyysi / Kysy tekoälyltä / Raportoi ongelmasta) */}
+      {/* PÄÄALUE välilehdet (Analyysi / Kysy tekoälyltä / Raportoi ongelmasta) */}
       <MainArea
         onTabChange={setActiveTab}
         reportContext={reportCtx}

@@ -118,7 +118,7 @@ export function AiChat({ context, attachments = [] }: { context: ReportContext; 
             )}
           </div>
 
-          {/* Syöte — vasemmassa sarakkeessa (sama leveys kuin konteksti) */}
+          {/* Syöte vasemmassa sarakkeessa (sama leveys kuin konteksti) */}
           <div>
             <div style={label}>Question</div>
             {/* Enter lähettää, Shift+Enter tekee rivinvaihdon. */}

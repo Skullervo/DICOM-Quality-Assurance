@@ -34,11 +34,11 @@ export default function CTInstitutions() {
       <BreadcrumbNav items={[
         { label: 'Home', path: '/' },
         { label: 'Modalities', path: '/modaliteetit' },
-        { label: 'Computed tomography — Institutions' },
+        { label: 'Computed tomography Institutions' },
       ]} />
 
       <div className="page-header">
-        <h1>CT QA — Institutions</h1>
+        <h1>CT QA Institutions</h1>
         <p>Select an institution to see its CT devices.</p>
       </div>
 

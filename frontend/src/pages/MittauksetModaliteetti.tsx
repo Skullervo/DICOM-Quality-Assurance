@@ -33,7 +33,7 @@ const CONFIG: Record<MittausModaliteetti, {
 }
 
 // Muotoilee DICOM-päivän (YYYYMMDD) muotoon DD.MM.YYYY.
-const fmtDate = (d: string) => (d && d.length >= 8 ? `${d.slice(6, 8)}.${d.slice(4, 6)}.${d.slice(0, 4)}` : (d || '—'))
+const fmtDate = (d: string) => (d && d.length >= 8 ? `${d.slice(6, 8)}.${d.slice(4, 6)}.${d.slice(0, 4)}` : (d || ''))
 
 // "Pilleri"-merkin tyyli: vihreä onnistuneelle (ok=true), punainen epäonnistuneelle.
 const pill = (ok: boolean): CSSProperties => ({
@@ -101,7 +101,7 @@ export default function MittauksetModaliteetti({ modality }: { modality: Mittaus
 
       <div className="page-header">
         <h1>{cfg.title}</h1>
-        <p>{all.length} measurements — {nAnalyzed} analyzed, {nFailed} failed/pending.</p>
+        <p>{all.length} measurements {nAnalyzed} analyzed, {nFailed} failed/pending.</p>
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
@@ -131,7 +131,7 @@ export default function MittauksetModaliteetti({ modality }: { modality: Mittaus
                   <td>
                     {/* Pikkukuva; latausvirheessä viiva. Klikkaus avaa suurennoksen. */}
                     {broken.has(m.orthanc_id) ? (
-                      <span style={{ color: 'var(--text-faint)', fontSize: '0.8rem' }}>—</span>
+                      <span style={{ color: 'var(--text-faint)', fontSize: '0.8rem' }}></span>
                     ) : (
                       <img src={api.measurementImageUrl(m.orthanc_id)} alt="" loading="lazy"
                         onError={() => setBroken((s) => new Set(s).add(m.orthanc_id))}
@@ -142,20 +142,20 @@ export default function MittauksetModaliteetti({ modality }: { modality: Mittaus
                   <td>
                     {/* Vain onnistuneen analyysin laite on linkki QA-sivulle; muuten pelkkä nimi. */}
                     {m.status === 'analyzed'
-                      ? <Link to={cfg.deviceLink(m)}>{m.station_name || '—'}</Link>
-                      : (m.station_name || '—')}
+                      ? <Link to={cfg.deviceLink(m)}>{m.station_name || ''}</Link>
+                      : (m.station_name || '')}
                   </td>
-                  <td>{m.institution_name || '—'}</td>
+                  <td>{m.institution_name || ''}</td>
                   <td className="hide-mobile">{fmtDate(m.study_date)}</td>
-                  <td className="hide-mobile">{m.manufacturer || '—'}</td>
-                  <td className="hide-mobile">{m.manufacturer_model || '—'}</td>
+                  <td className="hide-mobile">{m.manufacturer || ''}</td>
+                  <td className="hide-mobile">{m.manufacturer_model || ''}</td>
                   <td>
                     <span style={pill(m.status === 'analyzed')}>
                       {m.status === 'analyzed' ? 'Analyzed' : 'Failed'}
                     </span>
                   </td>
                   <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem', maxWidth: 360 }}>
-                    {m.status === 'failed' ? (m.reason ? <span title={m.reason}>{m.reason}</span> : '—') : ''}
+                    {m.status === 'failed' ? (m.reason ? <span title={m.reason}>{m.reason}</span> : '') : ''}
                   </td>
                 </tr>
               ))
@@ -166,7 +166,7 @@ export default function MittauksetModaliteetti({ modality }: { modality: Mittaus
         </table>
       </div>
 
-      {/* Suurennuslightbox — klikkaus pikkukuvasta */}
+      {/* Suurennuslightbox klikkaus pikkukuvasta */}
       {zoom && (
         <div onClick={() => setZoom(null)} role="dialog" aria-label="Enlarged image"
           style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(0,0,0,.85)', cursor: 'zoom-out',
@@ -175,7 +175,7 @@ export default function MittauksetModaliteetti({ modality }: { modality: Mittaus
             style={{ maxWidth: '92vw', maxHeight: '80vh', objectFit: 'contain', borderRadius: 6, background: '#000' }} />
           <div onClick={(e) => e.stopPropagation()} style={{ cursor: 'default', textAlign: 'center', color: 'var(--text)',
             background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 14px', maxWidth: '90vw' }}>
-            <div style={{ fontWeight: 600, fontSize: 13 }}>{zoom.station_name || '—'} · {zoom.institution_name} · {fmtDate(zoom.study_date)}</div>
+            <div style={{ fontWeight: 600, fontSize: 13 }}>{zoom.station_name || ''} · {zoom.institution_name} · {fmtDate(zoom.study_date)}</div>
             <div style={{ marginTop: 6 }}>
               <span style={pill(zoom.status === 'analyzed')}>{zoom.status === 'analyzed' ? 'Analyzed' : 'Failed'}</span>
               {zoom.status === 'failed' && zoom.reason ? <span style={{ color: 'var(--text-muted)', marginLeft: 8, fontSize: '0.85rem' }}>{zoom.reason}</span> : null}

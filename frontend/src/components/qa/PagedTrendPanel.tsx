@@ -24,7 +24,7 @@ export function PagedTrendPanel({ title, metrics, perPage = 3, activeIndex, onSe
   onSelect?: (index: number) => void
   highlightId?: string | null
   onHover?: (id: string | null) => void
-  chromeless?: boolean // riisu kortti-kehys (tausta/reunus/otsikkopalkki) — jätä käyrät + otsikko + sivutus
+  chromeless?: boolean // riisu kortti-kehys (tausta/reunus/otsikkopalkki) jätä käyrät + otsikko + sivutus
   dimTitle?: boolean // himmennä käyräotsikot
 }) {
   const [manualPage, setManualPage] = useState(0)  // käyttäjän ‹ ›-napeilla valitsema sivu
@@ -56,7 +56,7 @@ export function PagedTrendPanel({ title, metrics, perPage = 3, activeIndex, onSe
             highlighted={highlightId === m.id} onHover={onHover} />
         ))}
       </div>
-      {/* Sivutusvalitsin — vain jos käyriä on enemmän kuin yhdelle sivulle mahtuu */}
+      {/* Sivutusvalitsin vain jos käyriä on enemmän kuin yhdelle sivulle mahtuu */}
       {pages > 1 && (
         <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
           padding: chromeless ? '8px 2px 0' : '8px 12px', ...(chromeless ? {} : { borderTop: '1px solid var(--border)' }) }}>

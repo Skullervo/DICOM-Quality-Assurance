@@ -55,7 +55,7 @@ export default function USTable() {
                 <td className="hide-mobile">{unit.manufacturer_model}</td>
                 <td>{unit.measurement_count}</td>
                 <td className="hide-mobile">
-                  {unit.last_measurement ? unit.last_measurement.slice(0, 10) : '—'}
+                  {unit.last_measurement ? unit.last_measurement.slice(0, 10) : ''}
                 </td>
                 <td>
                   {/* Avaa laitteen QA-trendisivun. */}

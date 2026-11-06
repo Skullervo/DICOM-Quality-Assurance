@@ -39,12 +39,12 @@ export default function CTUnits() {
       <BreadcrumbNav items={[
         { label: 'Home', path: '/' },
         { label: 'Modalities', path: '/modaliteetit' },
-        { label: 'CT — Institutions', path: '/ct/institutions' },
-        { label: institution ? `${institution} — Departments` : 'CT devices' },
+        { label: 'CT Institutions', path: '/ct/institutions' },
+        { label: institution ? `${institution} Departments` : 'CT devices' },
       ]} />
 
       <div className="page-header">
-        <h1>{institution ? `${institution} — CT departments` : 'All CT devices'}</h1>
+        <h1>{institution ? `${institution} CT departments` : 'All CT devices'}</h1>
         <p>CT measurements with CatPhan / Siemens phantoms, by department.</p>
       </div>
 
@@ -74,7 +74,7 @@ export default function CTUnits() {
                   <td className="hide-mobile">{unit.manufacturer}</td>
                   <td className="hide-mobile">{unit.manufacturer_model}</td>
                   <td className="hide-mobile">
-                    {unit.last_measurement ? unit.last_measurement.slice(0, 10) : '—'}
+                    {unit.last_measurement ? unit.last_measurement.slice(0, 10) : ''}
                   </td>
                   <td>{unit.measurement_count}</td>
                 </tr>

@@ -16,7 +16,7 @@ const hu = (value: number | null, nominal = -1000, tol = 40, action = 20): Statu
   ...symmetricLimits(nominal, tol, action),
 })
 
-describe('deriveStatus — symmetrinen (HU)', () => {
+describe('deriveStatus symmetrinen (HU)', () => {
   it('nodata kun value puuttuu tai NaN', () => {
     expect(deriveStatus(hu(null))).toBe('nodata')
     expect(deriveStatus(hu(Number.NaN))).toBe('nodata')
@@ -36,7 +36,7 @@ describe('deriveStatus — symmetrinen (HU)', () => {
   })
 })
 
-describe('deriveStatus — yksipuolinen (MTF: matalampi huonompi)', () => {
+describe('deriveStatus yksipuolinen (MTF: matalampi huonompi)', () => {
   const mtf = (value: number | null): StatusInput => ({
     value, nominal: null, lowerLimit: 1.5, upperLimit: null, lowerWarn: 1.8,
   })
@@ -48,7 +48,7 @@ describe('deriveStatus — yksipuolinen (MTF: matalampi huonompi)', () => {
   it('fail lowerLimitin alle', () => expect(deriveStatus(mtf(1.4))).toBe('fail'))
 })
 
-describe('deriveStatus — yksipuolinen (poikkeama: isompi huonompi)', () => {
+describe('deriveStatus yksipuolinen (poikkeama: isompi huonompi)', () => {
   const unif = (value: number | null): StatusInput => ({
     value, nominal: 0, lowerLimit: null, upperLimit: 10, upperWarn: 5,
   })
@@ -57,7 +57,7 @@ describe('deriveStatus — yksipuolinen (poikkeama: isompi huonompi)', () => {
   it('fail upperLimitin yli', () => expect(deriveStatus(unif(12))).toBe('fail'))
 })
 
-describe('deriveVerdict — korkein vakavuus voittaa', () => {
+describe('deriveVerdict korkein vakavuus voittaa', () => {
   it('kaikki pass -> pass', () => {
     const v = deriveVerdict([hu(-1000), hu(-1010)])
     expect(v.verdict).toBe('pass')
@@ -99,12 +99,12 @@ describe('format-apurit', () => {
   it('fmt pyöristää ja käyttää typografista miinusta', () => {
     expect(fmt(-1015.4, 0)).toBe('−1015')
     expect(fmt(0.10499, 2)).toBe('0.10')
-    expect(fmt(null, 2)).toBe('—')
+    expect(fmt(null, 2)).toBe('')
   })
   it('fmtDelta lisää etumerkin', () => {
     expect(fmtDelta(15, 0)).toBe('+15')
     expect(fmtDelta(-37, 0)).toBe('−37')
     expect(fmtDelta(0, 1)).toBe('±0.0')
-    expect(fmtDelta(null, 0)).toBe('—')
+    expect(fmtDelta(null, 0)).toBe('')
   })
 })

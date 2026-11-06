@@ -34,11 +34,11 @@ export default function AngioInstitutions() {
       <BreadcrumbNav items={[
         { label: 'Home', path: '/' },
         { label: 'Modalities', path: '/modaliteetit' },
-        { label: 'Angiography — Institutions' },
+        { label: 'Angiography Institutions' },
       ]} />
 
       <div className="page-header">
-        <h1>Angiography QA — Institutions</h1>
+        <h1>Angiography QA Institutions</h1>
         <p>Select an institution to see its angiography devices.</p>
       </div>
 

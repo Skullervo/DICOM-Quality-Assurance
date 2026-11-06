@@ -39,12 +39,12 @@ export default function XrayUnits() {
       <BreadcrumbNav items={[
         { label: 'Home', path: '/' },
         { label: 'Modalities', path: '/modaliteetit' },
-        { label: 'X-ray — Institutions', path: '/xray/institutions' },
-        { label: institution ? `${institution} — Departments` : 'X-ray devices' },
+        { label: 'X-ray Institutions', path: '/xray/institutions' },
+        { label: institution ? `${institution} Departments` : 'X-ray devices' },
       ]} />
 
       <div className="page-header">
-        <h1>{institution ? `${institution} — X-ray devices` : 'All X-ray devices'}</h1>
+        <h1>{institution ? `${institution} X-ray devices` : 'All X-ray devices'}</h1>
         <p>NORMI-13 phantom measurements by department.</p>
       </div>
 
@@ -74,7 +74,7 @@ export default function XrayUnits() {
                   <td className="hide-mobile">{unit.manufacturer}</td>
                   <td className="hide-mobile">{unit.manufacturer_model}</td>
                   <td className="hide-mobile">
-                    {unit.last_measurement ? unit.last_measurement.slice(0, 10) : '—'}
+                    {unit.last_measurement ? unit.last_measurement.slice(0, 10) : ''}
                   </td>
                   <td>{unit.measurement_count}</td>
                 </tr>

@@ -46,7 +46,7 @@ export default function USUnitDetails() {
       ]} />
 
       <div className="page-header">
-        <h1>{institution} — Devices</h1>
+        <h1>{institution} Devices</h1>
         <p>
           Click a device name in the table to view the quality assurance results
           for ultrasound devices in the {institution} department.
@@ -77,7 +77,7 @@ export default function USUnitDetails() {
                   <td>{unit.manufacturer}</td>
                   <td className="hide-mobile">{unit.manufacturer_model}</td>
                   <td className="hide-mobile">
-                    {unit.last_measurement ? unit.last_measurement.slice(0, 10) : '—'}
+                    {unit.last_measurement ? unit.last_measurement.slice(0, 10) : ''}
                   </td>
                   <td>{unit.measurement_count}</td>
                 </tr>

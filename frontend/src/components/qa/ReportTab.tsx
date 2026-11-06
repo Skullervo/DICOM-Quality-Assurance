@@ -28,7 +28,7 @@ export type ReportAttachment = { key: string; label: string; url: string }
 export type ReportSection = { title: string; rows: { label: string; value: string }[] }
 // Koko laitteen tilakonteksti, joka liitetään raporttiin/AI-kysymykseen.
 export type ReportContext = {
-  sections: ReportSection[] // esim. DICOM-tiedot, Analyysitulokset — tiiviinä taulukkoina
+  sections: ReportSection[] // esim. DICOM-tiedot, Analyysitulokset tiiviinä taulukkoina
   failing?: FailingItem[] // rajojen ulkopuoliset mittarit (rakenteisesti)
   modality?: string // Slack-reititys backendissä (US / CR / DX / CT)
   station?: string // laitteen tunnus (lisätään viestin alkuun)
@@ -152,7 +152,7 @@ export function ReportTab({ context, attachments = [] }: { context: ReportContex
             </div>
           </div>
 
-          {/* Automaattinen konteksti — tiiviit taulukot + Rajan ulkopuolella (jaettu ContextView) */}
+          {/* Automaattinen konteksti tiiviit taulukot + Rajan ulkopuolella (jaettu ContextView) */}
           <ContextView context={context} />
 
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 120 }}>

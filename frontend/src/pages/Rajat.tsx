@@ -65,7 +65,7 @@ const numOrNull = (s: string): number | null => {
   return Number.isFinite(n) ? n : null
 }
 // Näyttömuoto: null/undefined -> viiva, muuten luku tekstinä.
-const fmt = (v: number | null | undefined) => (v == null ? '—' : String(v))
+const fmt = (v: number | null | undefined) => (v == null ? '' : String(v))
 
 export default function Rajat() {
   const qc = useQueryClient()

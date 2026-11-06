@@ -41,11 +41,11 @@ export default function USUnits() {
         { label: 'Home', path: '/' },
         { label: 'Modalities', path: '/modaliteetit' },
         { label: 'Institutions', path: '/us/institutions' },
-        { label: institution ? `${institution} — Departments` : 'Departments' },
+        { label: institution ? `${institution} Departments` : 'Departments' },
       ]} />
 
       <div className="page-header">
-        <h1>{institution ? `${institution} — Devices` : 'All ultrasound devices'}</h1>
+        <h1>{institution ? `${institution} Devices` : 'All ultrasound devices'}</h1>
         <p>Click a device name to view its quality assurance results.</p>
       </div>
 
@@ -77,7 +77,7 @@ export default function USUnits() {
                   <td className="hide-mobile">{unit.manufacturer_model}</td>
                   <td className="hide-mobile">
                     {/* Näytä vain päivämääräosa (10 ensimmäistä merkkiä) tai viiva jos puuttuu. */}
-                    {unit.last_measurement ? unit.last_measurement.slice(0, 10) : '—'}
+                    {unit.last_measurement ? unit.last_measurement.slice(0, 10) : ''}
                   </td>
                   <td>{unit.measurement_count}</td>
                 </tr>

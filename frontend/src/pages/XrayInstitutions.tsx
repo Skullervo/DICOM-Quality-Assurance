@@ -34,11 +34,11 @@ export default function XrayInstitutions() {
       <BreadcrumbNav items={[
         { label: 'Home', path: '/' },
         { label: 'Modalities', path: '/modaliteetit' },
-        { label: 'Plain radiography — Institutions' },
+        { label: 'Plain radiography Institutions' },
       ]} />
 
       <div className="page-header">
-        <h1>X-ray QA — Institutions</h1>
+        <h1>X-ray QA Institutions</h1>
         <p>Select an institution to see its X-ray devices.</p>
       </div>
 

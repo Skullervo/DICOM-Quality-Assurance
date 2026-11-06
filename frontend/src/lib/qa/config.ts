@@ -64,7 +64,7 @@ const CT_METRICS: MetricConfig[] = [
 // MTF/CNR pienempi = huonompi. TODO: vahvista fyysikon kanssa.
 // Huom: upperWarn/lowerWarn antavat varoituksen ennen varsinaista hylkäysrajaa.
 const XR_METRICS: MetricConfig[] = [
-  { id: 'uniformity_deviation', label: 'Uniformity — deviation', unit: '%', nominal: 0, lowerLimit: null, upperLimit: 10, upperWarn: 5, precision: 2 },
+  { id: 'uniformity_deviation', label: 'Uniformity deviation', unit: '%', nominal: 0, lowerLimit: null, upperLimit: 10, upperWarn: 5, precision: 2 },
   { id: 'mtf_50_percent', label: 'MTF 50%', unit: 'lp/mm', nominal: null, lowerLimit: 1.5, upperLimit: null, lowerWarn: 1.8, precision: 2 },
   { id: 'median_cnr', label: 'Median CNR', unit: '', nominal: null, lowerLimit: 2, upperLimit: null, lowerWarn: 3, precision: 2 },
   // TODO: vahvista fyysikon kanssa — ei rajoja repossa.

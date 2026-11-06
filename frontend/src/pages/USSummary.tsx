@@ -30,7 +30,7 @@ function classify(u_cov: number, u_skew: number): QAResult {
 
 // Siistii anturin nimen luettavaan muotoon, esim. "CURVED LINEAR_3500" -> "C (3.5 MHz)".
 function cleanProbe(raw: string): string {
-  if (!raw) return '—'
+  if (!raw) return ''
   const name = raw.replace(/_$/, '')        // poista mahdollinen loppuviiva
   const parts = name.split('_')
   // Odotettu muoto: "<tyyppi>_<taajuus-Hz>".
@@ -150,11 +150,11 @@ export default function USSummary() {
       <BreadcrumbNav items={[
         { label: 'Home', path: '/' },
         { label: 'Modalities', path: '/modaliteetit' },
-        { label: 'Ultrasound — Summary' },
+        { label: 'Ultrasound Summary' },
       ]} />
 
       <div className="page-header">
-        <h1>In-air Reverberation QA — Summary</h1>
+        <h1>In-air Reverberation QA Summary</h1>
         <p>
           {rows.length} device–transducer combinations, {totalMeasurements} measurements
           <br />
@@ -203,19 +203,19 @@ export default function USSummary() {
                   {r.failCount}
                 </td>
                 <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>
-                  {r.s_depth !== null ? r.s_depth.toFixed(2) : '—'}
+                  {r.s_depth !== null ? r.s_depth.toFixed(2) : ''}
                 </td>
                 <td style={{
                   textAlign: 'right', fontFamily: 'monospace',
                   color: r.u_cov !== null && r.u_cov > LIMITS.u_cov.fail ? 'var(--status-fail)' : r.u_cov !== null && r.u_cov > LIMITS.u_cov.warn ? 'var(--status-warn)' : undefined,
                 }}>
-                  {r.u_cov !== null ? r.u_cov.toFixed(2) : '—'}
+                  {r.u_cov !== null ? r.u_cov.toFixed(2) : ''}
                 </td>
                 <td style={{
                   textAlign: 'right', fontFamily: 'monospace',
                   color: r.u_skew !== null && Math.abs(r.u_skew) > LIMITS.u_skew.fail ? 'var(--status-fail)' : r.u_skew !== null && Math.abs(r.u_skew) > LIMITS.u_skew.warn ? 'var(--status-warn)' : undefined,
                 }}>
-                  {r.u_skew !== null ? r.u_skew.toFixed(3) : '—'}
+                  {r.u_skew !== null ? r.u_skew.toFixed(3) : ''}
                 </td>
               </tr>
             ))}

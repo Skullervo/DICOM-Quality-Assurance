@@ -36,7 +36,7 @@ export default function USInstitutions() {
       <BreadcrumbNav items={[
         { label: 'Home', path: '/' },
         { label: 'Modalities', path: '/modaliteetit' },
-        { label: 'Ultrasound — Institutions' },
+        { label: 'Ultrasound Institutions' },
       ]} />
 
       <div className="page-header">

@@ -25,7 +25,7 @@ export type StatusInput = Pick<
  *  - muuten                                -> 'pass'
  *
  * Toimintaraja voi olla symmetrinen (actionLimit, poikkeama nominaalista) tai
- * yksipuolinen (lowerWarn/upperWarn) — kaikki tarkistetaan.
+ * yksipuolinen (lowerWarn/upperWarn) kaikki tarkistetaan.
  */
 export function deriveStatus(m: StatusInput): Status {
   // Ilman arvoa (null/NaN) ei voi arvioida -> ei dataa.
@@ -104,13 +104,13 @@ const MINUS = '−' // typografinen miinus (rivittyy tabulaarisesti)
 
 // Muotoile luku näytettäväksi annetulla desimaalitarkkuudella; puuttuva -> "—".
 export function fmt(v: number | null | undefined, precision: number): string {
-  if (v == null || Number.isNaN(v)) return '—'
+  if (v == null || Number.isNaN(v)) return ''
   return v.toFixed(precision).replace('-', MINUS)
 }
 
 // Muotoile muutos (delta) etumerkin kera: +, − tai ± (kun nolla).
 export function fmtDelta(d: number | null | undefined, precision: number): string {
-  if (d == null || Number.isNaN(d)) return '—'
+  if (d == null || Number.isNaN(d)) return ''
   const sign = d > 0 ? '+' : d < 0 ? MINUS : '±'
   return sign + Math.abs(d).toFixed(precision)
 }
@@ -131,7 +131,7 @@ export function failingDetails(metrics: Metric[]): FailingItem[] {
     }))
 }
 
-/** Rajan näyttömuoto: "±40", "1.5…10", "≤ 10", "≥ 1.5" tai "—". */
+/** Rajan näyttömuoto: "±40", "1.5…10", "≤ 10", "≥ 1.5" tai "". */
 export function limitText(m: Pick<Metric, 'lowerLimit' | 'upperLimit' | 'nominal' | 'precision'>): string {
   const p = m.precision
   const { lowerLimit: lo, upperLimit: hi, nominal: nom } = m
@@ -140,5 +140,5 @@ export function limitText(m: Pick<Metric, 'lowerLimit' | 'upperLimit' | 'nominal
   if (lo != null && hi != null) return `${fmt(lo, p)}…${fmt(hi, p)}`  // molemmat rajat: väli
   if (hi != null) return `≤ ${fmt(hi, p)}`  // vain yläraja
   if (lo != null) return `≥ ${fmt(lo, p)}`  // vain alaraja
-  return '—'  // ei rajoja
+  return ''  // ei rajoja
 }

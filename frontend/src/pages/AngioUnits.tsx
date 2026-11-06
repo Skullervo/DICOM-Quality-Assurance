@@ -39,12 +39,12 @@ export default function AngioUnits() {
       <BreadcrumbNav items={[
         { label: 'Home', path: '/' },
         { label: 'Modalities', path: '/modaliteetit' },
-        { label: 'Angiography — Institutions', path: '/angio/institutions' },
-        { label: institution ? `${institution} — Departments` : 'Angiography devices' },
+        { label: 'Angiography Institutions', path: '/angio/institutions' },
+        { label: institution ? `${institution} Departments` : 'Angiography devices' },
       ]} />
 
       <div className="page-header">
-        <h1>{institution ? `${institution} — Angiography devices` : 'All angiography devices'}</h1>
+        <h1>{institution ? `${institution} Angiography devices` : 'All angiography devices'}</h1>
         <p>Leeds TOR-18 phantom measurements by department.</p>
       </div>
 
@@ -74,7 +74,7 @@ export default function AngioUnits() {
                   <td className="hide-mobile">{unit.manufacturer}</td>
                   <td className="hide-mobile">{unit.manufacturer_model}</td>
                   <td className="hide-mobile">
-                    {unit.last_measurement ? unit.last_measurement.slice(0, 10) : '—'}
+                    {unit.last_measurement ? unit.last_measurement.slice(0, 10) : ''}
                   </td>
                   <td>{unit.measurement_count}</td>
                 </tr>

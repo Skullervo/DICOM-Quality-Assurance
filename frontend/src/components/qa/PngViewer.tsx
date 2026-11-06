@@ -74,7 +74,7 @@ export function PngViewer({ src, alt, adjustable = true }: { src: string; alt: s
         onMouseDown={onDown} onMouseMove={onMove} onMouseUp={endDrag} onMouseLeave={endDrag}
         style={{ position: 'relative', background: '#000', borderRadius: 6, aspectRatio: '1', overflow: 'hidden', cursor: dragging ? 'grabbing' : 'grab' }}
       >
-        {/* Jos kuva ei lataudu (esim. mittaukselle ei ole analyysikuvaa — Siemens-
+        {/* Jos kuva ei lataudu (esim. mittaukselle ei ole analyysikuvaa Siemens-
             fallback tai topogrammi), näytetään selkeä viesti mustan ikkunan sijaan. */}
         {failed ? (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',

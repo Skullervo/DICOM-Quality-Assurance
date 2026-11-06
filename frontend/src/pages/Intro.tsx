@@ -50,7 +50,7 @@ export default function Intro() {
           {/* Himmentimen aukko (kuusikulmio) */}
           <path className="opening draw" style={d('0.4s')} pathLength={1}
             d="M282.35,184 L220,148 L157.65,184 L157.65,256 L220,292 L282.35,256 Z" />
-          {/* Terät — aukon kärjistä kehälle, kevyt kierre */}
+          {/* Terät aukon kärjistä kehälle, kevyt kierre */}
           <path className="blade draw" style={d('0.75s')} pathLength={1} d="M282.35,184 L286.7,36.8" />
           <path className="blade draw" style={d('0.85s')} pathLength={1} d="M220,148 L94.7,70.6" />
           <path className="blade draw" style={d('0.95s')} pathLength={1} d="M157.65,184 L28,253.9" />

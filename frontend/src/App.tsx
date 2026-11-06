@@ -56,7 +56,7 @@ export default function App() {
     // kaikki reitit, jotta myös RequireAuth pääsee lukemaan kirjautumistilan.
     <AuthProvider>
     {/* basename: tuotannossa SPA tarjoillaan polusta /Laadunhallinta/ (Go-backend /
-        Caddy), joten React Routerin on tiedettävä se — muuten mikään reitti ei täsmää
+        Caddy), joten React Routerin on tiedettävä se muuten mikään reitti ei täsmää
         ja sivu jää tyhjäksi. Dev-palvelin (Vite :5174) ajaa juuressa, joten siellä ei
         basenamea käytetä. */}
     <BrowserRouter basename={import.meta.env.DEV ? undefined : '/Laadunhallinta'}>
@@ -66,7 +66,7 @@ export default function App() {
         <Route path="/intro" element={<Intro />} />
         <Route path="/login" element={<Login />} />
 
-        {/* Suojatut reitit — vaativat kirjautumisen */}
+        {/* Suojatut reitit vaativat kirjautumisen */}
         {/* RequireAuth ohjaa kirjautumattoman käyttäjän /login-sivulle. */}
         <Route element={<RequireAuth />}>
         {/* Layout on yhteinen kehys (navigaatio + sisältöalue), jonka sisään
@@ -77,7 +77,7 @@ export default function App() {
           <Route path="modaliteetit" element={<Modaliteetit />} />
           <Route path="tietoa" element={<Tietoa />} />
 
-          {/* Laitteet — modaliteettikohtaiset laitetaulukot */}
+          {/* Laitteet modaliteettikohtaiset laitetaulukot */}
           {/* Sama LaitteetModaliteetti-komponentti, modality-propilla valitaan
               mitä modaliteettia näytetään. */}
           <Route path="laitteet" element={<Laitteet />} />
@@ -86,7 +86,7 @@ export default function App() {
           <Route path="laitteet/ct" element={<LaitteetModaliteetti modality="ct" />} />
           <Route path="laitteet/angio" element={<LaitteetModaliteetti modality="angio" />} />
 
-          {/* Mittaukset — kaikki mittaukset (myös epäonnistuneet analyysit) */}
+          {/* Mittaukset kaikki mittaukset (myös epäonnistuneet analyysit) */}
           {/* Mittaukset-näkymä lukee datan myös Orthancista, joten mukana
               näkyvät myös analyysit joita ei saatu tietokantaan asti. */}
           <Route path="mittaukset" element={<Mittaukset />} />

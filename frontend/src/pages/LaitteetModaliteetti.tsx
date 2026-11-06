@@ -157,19 +157,19 @@ export default function LaitteetModaliteetti({ modality }: { modality: LaiteModa
                     <td>
                       {isEd
                         ? <input value={form.institution_name} onChange={upd('institution_name')} aria-label="Institution" style={inp} />
-                        : (u.institution_name || '—')}
+                        : (u.institution_name || '')}
                     </td>
                     <td className="hide-mobile">
                       {isEd
                         ? <input value={form.manufacturer} onChange={upd('manufacturer')} aria-label="Manufacturer" style={inp} />
-                        : (u.manufacturer || '—')}
+                        : (u.manufacturer || '')}
                     </td>
                     <td className="hide-mobile">
                       {isEd
                         ? <input value={form.manufacturer_model} onChange={upd('manufacturer_model')} aria-label="Model" style={inp} />
-                        : (u.manufacturer_model || '—')}
+                        : (u.manufacturer_model || '')}
                     </td>
-                    <td className="hide-mobile">{u.last_measurement ? u.last_measurement.slice(0, 10) : '—'}</td>
+                    <td className="hide-mobile">{u.last_measurement ? u.last_measurement.slice(0, 10) : ''}</td>
                     <td>{u.measurement_count}</td>
                     <td>
                       {/* Muokkaustilassa Tallenna/Peruuta, muuten Muokkaa (estetty jos toinen rivi muokkauksessa). */}

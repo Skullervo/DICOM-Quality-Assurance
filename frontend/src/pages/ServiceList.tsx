@@ -72,10 +72,10 @@ export default function ServiceList() {
                       background: svc.status === 'running' ? 'rgba(63,185,80,0.15)' : 'var(--bg-secondary)',
                       color: svc.status === 'running' ? 'var(--status-ok)' : 'var(--text-secondary)',
                     }}>
-                      {svc.status ?? '—'}
+                      {svc.status ?? ''}
                     </span>
                   </td>
-                  <td className="hide-mobile" style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{svc.image ?? '—'}</td>
+                  <td className="hide-mobile" style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{svc.image ?? ''}</td>
                   <td>
                     <Link to={`/hallinta/services/${svc.id}`}>Open →</Link>
                   </td>

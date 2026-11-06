@@ -17,5 +17,5 @@ export function contextToText(context: ReportContext): string {
   // osiot eroteltuna tyhjällä rivillä.
   return context.sections.map((sec) => `${sec.title}:\n${sec.rows.map((r) => `  ${r.label}: ${r.value}`).join('\n')}`).join('\n\n')
     // Lopuksi, jos rajan ulkopuolisia on, listataan ne FAIL/WARNING-merkinnöin ja raja mukaan.
-    + (failing.length ? `\n\nOut of limits:\n${failing.map((x) => `  - ${x.label} ${x.value} [${x.status === 'fail' ? 'FAIL' : 'WARNING'}${x.limit !== '—' ? ', limit ' + x.limit : ''}]`).join('\n')}` : '')
+    + (failing.length ? `\n\nOut of limits:\n${failing.map((x) => `  - ${x.label} ${x.value} [${x.status === 'fail' ? 'FAIL' : 'WARNING'}${x.limit !== '' ? ', limit ' + x.limit : ''}]`).join('\n')}` : '')
 }

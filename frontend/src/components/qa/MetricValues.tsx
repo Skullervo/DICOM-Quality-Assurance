@@ -32,7 +32,7 @@ function Row({ m }: { m: Metric }) {
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 11.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {name}
-          {lim !== '—' && (
+          {lim !== '' && (
             <span style={{ color: 'var(--text-faint)', fontWeight: 400 }}> ({lim}{m.unit ? ' ' + m.unit : ''})</span>
           )}
         </div>

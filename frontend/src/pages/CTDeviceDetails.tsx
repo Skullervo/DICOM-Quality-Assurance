@@ -103,13 +103,13 @@ export default function CTDeviceDetails() {
       ? [
           { title: 'DICOM info', rows: [
             { label: 'Device', value: String(latest.station_name ?? station) },
-            { label: 'Institution', value: String(latest.institution_name ?? '—') },
-            { label: 'Phantom', value: String(latest.phantom_model ?? '—') },
-            { label: 'kVp', value: String(latest.kvp ?? '—') },
-            { label: 'mAs', value: String(latest.exposure_mAs ?? '—') },
-            { label: 'Slice thickness', value: latest.slice_thickness ? `${latest.slice_thickness} mm` : '—' },
-            { label: 'Model', value: String(latest.manufacturer_model_name ?? '—') },
-            { label: 'Date', value: formatDay(latest.content_date as string | undefined) ?? '—' },
+            { label: 'Institution', value: String(latest.institution_name ?? '') },
+            { label: 'Phantom', value: String(latest.phantom_model ?? '') },
+            { label: 'kVp', value: String(latest.kvp ?? '') },
+            { label: 'mAs', value: String(latest.exposure_mAs ?? '') },
+            { label: 'Slice thickness', value: latest.slice_thickness ? `${latest.slice_thickness} mm` : '' },
+            { label: 'Model', value: String(latest.manufacturer_model_name ?? '') },
+            { label: 'Date', value: formatDay(latest.content_date as string | undefined) ?? '' },
           ] },
           { title: 'Analysis results', rows: [
             { label: 'HU air', value: `${rnd(latest.hu_air, 0)} HU` },
@@ -160,7 +160,7 @@ export default function CTDeviceDetails() {
             background: 'rgba(45,212,191,0.15)', color: '#5eead4', border: '1px solid rgba(45,212,191,0.3)' }}>CT</span>
         </div>
 
-        {/* Kuva — yksi pudotusvalikko + kuvaikkuna (säästää tilaa vs. välilehdet) */}
+        {/* Kuva yksi pudotusvalikko + kuvaikkuna (säästää tilaa vs. välilehdet) */}
         {/* Valittu kuvatyyppi (imgSel) ratkaisee, mikä katselin renderöidään alla. */}
         {instanceId && (
           <div style={{ flexShrink: 0, padding: '16px 10px 10px', borderBottom: `1px solid ${C.border}` }}>
@@ -207,12 +207,12 @@ export default function CTDeviceDetails() {
           )}
         </div>
 
-        {/* Verdiktti — kompakti, vasemman paneelin alakulmassa */}
+        {/* Verdiktti kompakti, vasemman paneelin alakulmassa */}
         {latest && <VerdictBar device={verdictDevice} metrics={verdictMetrics} compact card />}
       </div>
       )}
 
-      {/* PÄÄALUE — välilehdet (Analyysi / Kysy tekoälyltä / Raportoi ongelmasta) */}
+      {/* PÄÄALUE välilehdet (Analyysi / Kysy tekoälyltä / Raportoi ongelmasta) */}
       <MainArea
         onTabChange={setActiveTab}
         reportContext={reportCtx}

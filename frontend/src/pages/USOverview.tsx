@@ -41,7 +41,7 @@ export default function USOverview() {
       <BreadcrumbNav items={[
         { label: 'Home', path: '/' },
         { label: 'Modalities', path: '/modaliteetit' },
-        { label: 'Ultrasound — Devices' },
+        { label: 'Ultrasound Devices' },
       ]} />
 
       <div className="page-header">

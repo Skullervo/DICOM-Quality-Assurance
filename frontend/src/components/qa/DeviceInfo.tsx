@@ -23,7 +23,7 @@ function InfoRow({ field, last }: { field: InfoField; last: boolean }) {
       {/* Arvo; title näyttää koko tekstin hoverilla jos se katkaistaan (ellipsis). */}
       <span className="num" title={field.value || undefined}
         style={{ fontSize: 12.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-        {field.value || '—'}
+        {field.value || ''}
       </span>
     </div>
   )
