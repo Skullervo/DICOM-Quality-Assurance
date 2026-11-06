@@ -51,6 +51,21 @@ class Settings:
         if k.strip()
     }
 
+    # CT-sarjasuodatus: CatPhan-analyysi vaatii koko fantomivolyymin (satoja leikkeitä
+    # eri moduuleista). Jokainen CT-tutkimus sisältää kuitenkin myös TOPOGRAMMIN/scoutin
+    # (1 leike) ja mahdollisesti dose report -sarjan — nämä EIVÄT ole CatPhan-volyymeja,
+    # ja jos ne analysoidaan, CatPhan-detektio kaatuu -> Siemens-fallback -> ei kuvia.
+    # Ohitetaan CT-sarjat joissa on liian vähän leikkeitä TAI kuvaus on topogrammi/scout/dose.
+    CT_MIN_SLICES = int(os.getenv("CT_MIN_SLICES", "20"))
+    CT_SKIP_SERIES = {
+        k.strip().lower()
+        for k in os.getenv(
+            "CT_SKIP_SERIES",
+            "topogram,topo,scout,localizer,surview,dose report,dose,patient protocol",
+        ).split(",")
+        if k.strip()
+    }
+
 
 # Yksi jaettu asetusinstanssi, jonka muut moduulit importtaavat.
 settings = Settings()

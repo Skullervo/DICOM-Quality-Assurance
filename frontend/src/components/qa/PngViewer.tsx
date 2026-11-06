@@ -26,6 +26,10 @@ export function PngViewer({ src, alt, adjustable = true }: { src: string; alt: s
   const drag = useRef<{ x: number; y: number } | null>(null)  // raahauksen aloituskohta
   const containerRef = useRef<HTMLDivElement>(null)
   const zoomRef = useRef(1)
+  const [failed, setFailed] = useState(false)  // true jos PNG ei latautunut (esim. mittaukselle ei analyysikuvaa)
+
+  // Nollaa virhetila kun kuva (src) vaihtuu, jotta uusi kuva yritetään ladata uudestaan.
+  useEffect(() => { setFailed(false) }, [src])
 
   // Rajaa panorointi niin että kuva pysyy aina peittämässä kuvaikkunan.
   const clampPan = (px: number, py: number, z: number) => {
@@ -70,18 +74,26 @@ export function PngViewer({ src, alt, adjustable = true }: { src: string; alt: s
         onMouseDown={onDown} onMouseMove={onMove} onMouseUp={endDrag} onMouseLeave={endDrag}
         style={{ position: 'relative', background: '#000', borderRadius: 6, aspectRatio: '1', overflow: 'hidden', cursor: dragging ? 'grabbing' : 'grab' }}
       >
-        {/* Jos kuva ei lataudu, häivytetään se näkyvistä (opacity 0). */}
-        <img
-          src={src} alt={alt} draggable={false}
-          onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0' }}
-          style={{
-            width: '100%', height: '100%', objectFit: 'contain', display: 'block',
-            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-            transformOrigin: 'center center', transition: dragging ? 'none' : 'transform .05s',
-            filter, imageRendering: zoom > 2 ? 'pixelated' : 'auto',
-          }}
-        />
-        {zoom > 1 && (
+        {/* Jos kuva ei lataudu (esim. mittaukselle ei ole analyysikuvaa — Siemens-
+            fallback tai topogrammi), näytetään selkeä viesti mustan ikkunan sijaan. */}
+        {failed ? (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
+            justifyContent: 'center', color: C.muted, fontSize: 12, textAlign: 'center', padding: 16 }}>
+            Ei analyysikuvaa tälle mittaukselle
+          </div>
+        ) : (
+          <img
+            src={src} alt={alt} draggable={false}
+            onError={() => setFailed(true)}
+            style={{
+              width: '100%', height: '100%', objectFit: 'contain', display: 'block',
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              transformOrigin: 'center center', transition: dragging ? 'none' : 'transform .05s',
+              filter, imageRendering: zoom > 2 ? 'pixelated' : 'auto',
+            }}
+          />
+        )}
+        {!failed && zoom > 1 && (
           <button onClick={reset} title="Reset zoom/pan"
             style={{ position: 'absolute', top: 6, right: 6, display: 'flex', alignItems: 'center', gap: 4,
               background: 'rgba(19,25,34,.85)', border: `1px solid ${C.border}`, borderRadius: 5,

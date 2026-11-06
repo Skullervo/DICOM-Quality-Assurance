@@ -103,6 +103,17 @@ def enumerate_study(study_id: str) -> dict:
         elif modality in settings.MODALITY_CT:
             # CT: yksi job per SARJA (orthanc_id = sarjan id); CT-analyysi käsittelee
             # koko fantomisarjan (Catphan-moduulit eri leikkeissä).
+            # Ohita ei-volyymiset sarjat: topogrammi/scout (1 leike), dose report yms.
+            # Nämä eivät ole CatPhan-volyymeja -> analyysi putoaisi Siemens-fallbackiin
+            # (ei kuvia, vajaat metriikat). Vain oikea fantomivolyymi analysoidaan.
+            ct_desc = (s_tags.get("SeriesDescription") or "").lower()
+            n_slices = len(series.get("Instances", []))
+            if n_slices < settings.CT_MIN_SLICES or any(k in ct_desc for k in settings.CT_SKIP_SERIES):
+                logger.info(
+                    "Ohitetaan CT-sarja %s (ei CatPhan-volyymi: leikkeet=%d, kuvaus=%r)",
+                    series_id, n_slices, s_tags.get("SeriesDescription", ""),
+                )
+                continue
             out["ct"].append({
                 "orthanc_id": series_id,
                 "series_instance_uid": series_uid,
