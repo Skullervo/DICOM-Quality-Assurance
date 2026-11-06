@@ -16,6 +16,17 @@ $repo = Split-Path -Parent $MyInvocation.MyCommand.Path
 # Muunna Windows-polku WSL:n ymmärtämään /mnt/<asema>/... -muotoon.
 $wslPath = "/mnt/" + $repo.Substring(0,1).ToLower() + $repo.Substring(2).Replace('\','/')
 
+# Varmista että podman-kone on käynnissä (muuten 'podman machine ssh' ei toimi).
+$state = (podman machine inspect --format "{{.State}}" 2>$null)
+if ($state -ne "running") {
+  Write-Host "Starting podman machine..." -ForegroundColor Cyan
+  podman machine start
+}
+
 # Aja bash-käynnistysskripti Podman-koneen sisällä.
+# HUOM: käytä 'podman machine ssh' EIKÄ 'wsl -d ... -- podman ...'. Jälkimmäinen ajaa
+# podmanin väärässä kontekstissa (väärä XDG_RUNTIME_DIR / crun-tila /mnt/wslg:ssä) ->
+# 'podman exec' kaatuu esim. "unable to find user mssql". ssh kirjautuu oikeana
+# rootless-käyttäjänä, jolloin podman-konteksti vastaa Windowsin podman-clientia.
 Write-Host "Running start-podman.sh in podman machine ($wslPath) ..." -ForegroundColor Cyan
-wsl -d $WSL -- bash "$wslPath/start-podman.sh"
+podman machine ssh "bash '$wslPath/start-podman.sh'"

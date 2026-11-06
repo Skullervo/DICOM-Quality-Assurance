@@ -21,7 +21,7 @@ db.sqlite3
 # Isot dumpit / backupit (ei versionhallintaan)
 backups/
 
-# US-suoristuksen v√§liaikaistuloste
+# US-suoristuksen valiaikaistuloste
 array_image.png
 
 # Paikalliset ohjeet/dokumentit (ei versionhallintaan)
@@ -29,7 +29,7 @@ CLAUDE.md
 ROADMAP.md
 palvelimen_kaynnistys.md
 
-# Vanha Django-hallinta (koko sis√§lt√∂ pois versionhallinnasta)
+# Vanha Django-hallinta (koko sisalto pois versionhallinnasta)
 hallinta/
 
 # docs
@@ -41,11 +41,27 @@ arkisto/
 # Claude Code -paikallisasetukset
 .claude/
 
-# projects/ = ali-/arkistoprojektit, eiv√§t kuulu t√§h√§n reppoon (mm. ptg oma git-repo)
+# projects/ = ali-/arkistoprojektit, eivat kuulu tahan reppoon (mm. ptg oma git-repo)
 projects/
-
 
 go-backend/frontend/
 
-# SeaweedFS S3 config generoidaan .env:st‰ (sis‰lt‰‰ secretin)
+# SeaweedFS S3 config generoidaan .env:sta (sisaltaa secretin)
 object-storage/s3config.json
+
+# --- Repon siivous (2026-11): eriytetyt/arkistoidut osat pois jaettavasta reposta ---
+
+# Turhat/kayttamattomat tiedostot arkistoituna (kaivettavissa tarvittaessa)
+old/
+
+# Paikallinen scratch (kokeilukoodi, raporttigeneraattorit)
+scratchpad/
+
+# Tietoturvatestaus elaa omassa privaatissa repossaan
+security-project/
+
+# Lokin ajonaikainen data (ei versionhallintaan)
+monitoring_stack/loki-storage/
+
+# venv-snapshot (kehityksen apufile)
+requirements-venv-snapshot.txt

@@ -188,6 +188,23 @@ else
   podman start autoqad-go-backend 2>/dev/null || true
 fi
 
+# ─── Caddy reverse proxy (lokaali, vastaa tuotannon Caddya) ──────────────────
+# Topologia: selain -> Caddy (host :8080 HTTP / :8443 HTTPS) -> autoqad-go-backend:8080.
+# Lisätty tietoturvaprojektia varten (TLS + proxy-taso testattavaksi lokaalisti).
+# HUOM: go-backend pysyy MYÖS suoraan auki :8081:ssä (vertailu: direct vs. proxy).
+# HTTPS käyttää Caddyn sisäistä CA:ta; data (CA-juuri) säilyy autoqad-caddy-data-volumessa.
+if ! podman container exists autoqad-caddy 2>/dev/null; then
+  echo "[+] Creating Caddy reverse proxy..."
+  podman run -d --name autoqad-caddy --network $NETWORK \
+    -p 8080:8080 -p 8443:8443 \
+    -v "$PROJECT/caddy/Caddyfile":/etc/caddy/Caddyfile:ro \
+    -v autoqad-caddy-data:/data \
+    docker.io/library/caddy:2-alpine
+else
+  echo "[+] Caddy exists, starting..."
+  podman start autoqad-caddy 2>/dev/null || true
+fi
+
 # ─── Monitoring (optional) ──────────────────────────────────────────────────
 echo "[8/8] Monitoring stack (optional): see monitoring_stack/compose.yml"
 
@@ -195,6 +212,7 @@ echo ""
 echo "=== Status ==="
 podman ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 echo ""
-echo "Go backend: http://localhost:8081    Orthanc: http://localhost:18042 (admin/${ORTHANC_PASSWORD})"
+echo "Go backend (direct): http://localhost:8081    Orthanc: http://localhost:18042 (admin/${ORTHANC_PASSWORD})"
+echo "Caddy proxy: http://localhost:8080  /  https://localhost:8443  -> go-backend (TLS: Caddyn sisäinen CA)"
 echo "Object storage (S3): http://localhost:8333    Ingestion: http://localhost:8070/health"
 echo "Frontend (dev): cd frontend && npm run dev   ->   http://localhost:5174"

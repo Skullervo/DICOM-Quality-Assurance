@@ -1,0 +1,37 @@
+# Caddyfile — lokaali reverse proxy go-backendin edessä (vastaa tuotannon Caddya).
+# Topologia: selain -> Caddy -> autoqad-go-backend:8080 (sisäverkossa autoqad-net).
+# Lisätty tietoturvaprojektia varten: TLS + proxy-taso testattavaksi lokaalisti.
+# Host-portit (start-podman.sh): 8080 = HTTP, 8443 = HTTPS.
+{
+	# Ei ACME/Let's Encryptia lokaalissa; ei automaattisia HTTP->HTTPS-ohjauksia.
+	auto_https disable_redirects
+	# Admin-API (2019) pois päältä — ei tarvetta lokaalisti, pienempi hyökkäyspinta.
+	admin off
+}
+
+# HTTPS: Caddyn SISÄINEN CA (itse-allekirjoitettu paikallinen varmenne).
+# Eksplisiittinen host 'localhost' rajaa TLS-automaation (ei catch-all-ristiriitaa),
+# ja 'bind 0.0.0.0' saa Caddyn kuuntelemaan kaikkia rajapintoja -> kontin portinvälitys toimii.
+# Selaimen luottamus: joko hyväksy varoitus, tai luota juureen:
+#   podman exec autoqad-caddy caddy trust     (ja asenna juuri Windowsin varmennevarastoon)
+https://localhost:8443 {
+	bind 0.0.0.0
+	tls internal
+	reverse_proxy autoqad-go-backend:8080
+
+	# ─── WP2-kovennus lisätään TÄHÄN (jätetty tyhjäksi, jotta ennen/jälkeen-ero näkyy): ───
+	# header {
+	#	Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	#	X-Content-Type-Options    "nosniff"
+	#	X-Frame-Options           "DENY"
+	#	Referrer-Policy           "no-referrer"
+	#	-Server
+	# }
+	# (rate limiting vaatii caddy-ratelimit-pluginin omaan buildiin)
+}
+
+# HTTP: vertailuun ja varalle, jos sisäistä CA:ta ei ole luotettu selaimessa.
+# Eksplisiittinen http:// = ei TLS-politiikkaa (ei ristiriitaa HTTPS-lohkon kanssa).
+http://:8080 {
+	reverse_proxy autoqad-go-backend:8080
+}
