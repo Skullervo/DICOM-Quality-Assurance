@@ -383,3 +383,6 @@ GO
 -- Idempotentti; vanhoilla BLOB-riveilla NULL -> Go-backend lukee VARBINARY-sarakkeen (kaksoisluku).
 IF COL_LENGTH('dbo.xray_analysis','analysis_images') IS NULL ALTER TABLE dbo.xray_analysis ADD analysis_images NVARCHAR(MAX) NULL;
 IF COL_LENGTH('dbo.ct_analysis','analysis_images') IS NULL ALTER TABLE dbo.ct_analysis ADD analysis_images NVARCHAR(MAX) NULL;
+
+IF COL_LENGTH('dbo.ct_analysis','hu_roi_map') IS NULL ALTER TABLE dbo.ct_analysis ADD hu_roi_map NVARCHAR(MAX) NULL;
+IF COL_LENGTH('dbo.ct_analysis','hu_linearity_clean_image') IS NULL ALTER TABLE dbo.ct_analysis ADD hu_linearity_clean_image VARBINARY(MAX) NULL;

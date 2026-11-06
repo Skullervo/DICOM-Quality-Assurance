@@ -47,6 +47,15 @@ def _ensure_schema(cur, conn):
         return
     cur.execute("IF COL_LENGTH('dbo.ct_analysis','analysis_images') IS NULL "
                 "ALTER TABLE dbo.ct_analysis ADD analysis_images NVARCHAR(MAX) NULL")
+    # hu_roi_map: insert_ct_analysis kirjoittaa tämän (CTP404 HU-ROI-kartta JSONina),
+    # mutta schema_mssql.sql:n CREATE TABLE ei luonut sitä -> ilman tätä KAIKKI CT-insertit
+    # kaatuvat "Invalid column name 'hu_roi_map'". Idempotentti lisäys.
+    cur.execute("IF COL_LENGTH('dbo.ct_analysis','hu_roi_map') IS NULL "
+                "ALTER TABLE dbo.ct_analysis ADD hu_roi_map NVARCHAR(MAX) NULL")
+    # hu_linearity_clean_image: myös insert_ct_analysis:n kirjoittama BLOB-sarake jota
+    # schema ei luonut (sama skeema-ajautuma kuin hu_roi_map).
+    cur.execute("IF COL_LENGTH('dbo.ct_analysis','hu_linearity_clean_image') IS NULL "
+                "ALTER TABLE dbo.ct_analysis ADD hu_linearity_clean_image VARBINARY(MAX) NULL")
     conn.commit()
     _schema_ready = True
 
