@@ -8,10 +8,7 @@
 ![Podman](https://img.shields.io/badge/Podman-892CA0?style=for-the-badge&logo=podman&logoColor=white)
 ![SQL Server](https://img.shields.io/badge/SQL%20Server-CC2927?style=for-the-badge&logo=microsoftsqlserver&logoColor=white)
 
-**Radiqa** is a cloud-native, **event-driven** framework for the **automated QA of medical
-imaging** in multi-institutional healthcare environments. It receives DICOM images from a
-hospital PACS via Orthanc, runs modality-specific QA analysis (ultrasound, X-ray, CT,
-angiography), stores the results in Microsoft SQL Server, and presents them through a web app
+**RadiQA** is a cloud-native, **event-driven** framework for the **automated QA of medical imaging** in multi-institutional healthcare environments. It receives DICOM images from a hospital PACS via Orthanc, runs modality-specific QA analysis (ultrasound, X-ray, CT, angiography), stores the results in Microsoft SQL Server, and presents them through a web app
 with trend visualization, editable tolerance limits and AI-assisted reporting.
 
 > **New here?** Read [`ARCHITECTURE.md`](ARCHITECTURE.md) for how the system fits together,
@@ -35,38 +32,38 @@ with trend visualization, editable tolerance limits and AI-assisted reporting.
 
 ## 1. What you get
 
-- **Per-device dashboards** — pass/warn/fail evaluation with interactive trend charts per
-  modality (ultrasound, X-ray, CT, angiography).
-- **Measurements view** — every acquisition Orthanc has seen, *including failed analyses*,
-  with the failure reason.
-- **Editable acceptance limits** — tolerances live in the database and are editable from the UI.
-- **Editable device metadata** — station / institution / manufacturer / model.
-- **AI-assisted reporting** — ask questions about the QA data (OpenAI GPT).
-- **Issue reporting** — to a Slack channel.
+- **Per-device dashboards**: 
+  - PASS\WARN\FAIL evaluation with interactive trend charts per modality (ultrasound, X-ray, CT, angiography).
+- **Measurements view**: 
+  - every acquisition Orthanc has seen, *including failed analyses*, with the failure reason.
+- **Editable acceptance limits**:
+  - tolerances live in the database and are editable from the UI.
+- **Editable device metadata**: 
+  - station / institution / manufacturer / model.
+- **AI-assisted reporting**: 
+  - ask questions about the QA data (OpenAI GPT).
+- **Issue reporting**: 
+  - to a Slack channel.
 
-## 2. How it works (in one paragraph)
+## 2. How it works
 
-A study arriving in **Orthanc** triggers a webhook to the **ingestion service**, which
-creates QA jobs in **SQL Server**. A **Service Broker** message wakes the matching **event
-worker** (US / XR / CT / angio), which claims the job atomically, fetches the DICOM over
-Orthanc REST, analyses it, and writes results to the database (US/angio analysis images go to
-**S3/SeaweedFS**; XR/CT images stay as DB BLOBs). The **Go backend** reads the results and
-serves the **React** app behind a **Caddy** reverse proxy. Full detail: [`ARCHITECTURE.md`](ARCHITECTURE.md).
+1. A study arriving in **Orthanc** triggers a webhook to the **ingestion service**, which creates QA jobs in **SQL Server**. 
+2. A **Service Broker** message wakes the matching **event worker** (US / XR / CT / angio), which claims the job atomically, fetches the DICOM over Orthanc REST, analyses it, and writes results to the database (**S3/SeaweedFS**). 
+3. The **Go backend** reads the results and serves the **React** app behind a **Caddy** reverse proxy. Full detail:[`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ---
 
 ## 3. Getting started
 
-The whole backend stack runs as rootless **Podman** containers on one network
-(`autoqad-net`). `start-podman.sh` builds every image, creates the containers in dependency
-order and initialises the database — so a fresh install is essentially
+The whole backend stack runs as rootless **Podman** containers on one network (`autoqad-net`). `start-podman.sh` builds every image, creates the containers in dependency order and initialises the database, so a fresh install is essentially 
 *configure `.env` → run one script → load some DICOM data*.
 
 ### 3.1 Prerequisites
 
-- **Podman** (rootless) — the only hard requirement for the container stack; the script
-  builds the Python/Go services in containers.
-- **Node.js 20+** — only to run the React dev server (§5).
+- **Podman** (rootless): 
+  - the only hard requirement for the container stack; the script builds the Python/Go services in containers.
+- **Node.js 20+**: 
+  - only to run the React dev server (§5).
 - *(Go 1.25+ / Python 3.12+ are needed only if you build a service **outside** containers.)*
 
 ### 3.2 Clone and configure
@@ -91,7 +88,7 @@ Edit `.env` (git-ignored). At minimum set:
 > `.env.example` files inside `ingestion-service/`, `go-backend/` and `frontend/` are only
 > for running those services standalone.
 
-### 3.3 Windows (WSL2 + Podman) — the primary supported setup
+### 3.3 Windows (WSL2 + Podman)
 
 ```powershell
 # one-time: install Podman Desktop / podman, then
@@ -102,9 +99,7 @@ podman machine start
 .\start-autoqad.ps1
 ```
 
-`start-autoqad.ps1` starts the Podman machine if needed and runs `start-podman.sh` via
-`podman machine ssh` (the correct rootless context — do **not** use
-`wsl -d podman-machine-default -- podman …`, which runs Podman in a broken context).
+`start-autoqad.ps1` starts the Podman machine if needed and runs `start-podman.sh` via `podman machine ssh` (the correct rootless context — do **not** use `wsl -d podman-machine-default -- podman …`, which runs Podman in a broken context).
 
 ### 3.4 Linux
 
@@ -114,12 +109,18 @@ podman machine start
 
 ### 3.5 What comes up
 
-The script is **idempotent** — existing containers are just (re)started. It brings up, in
-order: **MS SQL Server** (+ creates the `QA-results` database and applies the schemas) →
-**object storage** (SeaweedFS) → **Orthanc** (+ ingestion webhook plugin) → **ingestion
-service** → **image service** → **event workers** (us / xr / ct / angio) → **Go backend** →
-**Caddy** reverse proxy. Monitoring (Prometheus/Grafana/Loki) is optional
-(`monitoring_stack/compose.yml`).
+The script is **idempotent**:
+- existing containers are just (re)started. 
+- It brings up, in order: 
+  - **MS SQL Server** (+ creates the `QA-results` database and applies the schemas) →
+  - **object storage** (SeaweedFS) → 
+  - **Orthanc** (+ ingestion webhook plugin) → 
+  - **ingestion service** → 
+  - **image service** → 
+  - **event workers** → 
+  - **Go backend** → 
+  - **Caddy** reverse proxy. 
+- Monitoring (Prometheus/Grafana/Loki) is optional (`monitoring_stack/compose.yml`).
 
 ### 3.6 Verify
 
@@ -132,23 +133,26 @@ curl http://localhost:8070/health                                # ingestion
 
 ---
 
+### 3.7 Distributed deployment (Kubernetes / CSC cPouta)
+
+The single-node Podman stack above is the quickest way to run RadiQA. The system has also been validated **distributed on a Kubernetes cluster (CSC cPouta)**: the event schema, Service Broker, object storage and competing-consumer workers scale across nodes. The Kubernetes manifests live in `services/Minikube/cpouta/`.
+
+> **Full distributed setup instructions will be added to this file later.**
+
+
 ## 4. Loading DICOM data
 
-Analysis only runs on data that has reached Orthanc. When a study becomes **stable**, the
-ingestion webhook fires automatically and the matching worker analyses it.
+Analysis only runs on data that has reached Orthanc. When a study becomes **stable**, the ingestion webhook fires automatically and the matching worker analyses it.
 
-**A) From the hospital PACS (C-STORE)** — point the PACS at Orthanc:
+**A) From the hospital PACS (C-STORE)** (point the PACS at Orthanc):
 - Host: the Orthanc server, **DICOM port `14242`** (container port 4242)
 - AE Title: `ORTHANC`
 
-**B) Upload test images manually** — Orthanc Explorer (`http://localhost:18042` → *Upload*),
-or via REST:
+**B) Upload test images manually** (Orthanc Explorer:`http://localhost:18042` → *Upload*), or via REST:
 ```sh
 curl -u admin:$ORTHANC_PASSWORD --data-binary @image.dcm \
      -H "Content-Type: application/dicom" http://localhost:18042/instances
 ```
-US images are analysed as-is; XR expects a NORMI-13 phantom image, CT a CatPhan scan, and
-angiography a Leeds TOR-18 image. (`scripts/import_dicom_to_orthanc.ps1` bulk-uploads a folder.)
 
 ---
 
@@ -159,16 +163,15 @@ cd frontend
 npm install
 npm run dev        # http://localhost:5174
 ```
-The Vite dev server proxies `/Laadunhallinta/api` to the Go backend. The login gate defaults
-to `admin` / `radiqa` (override with `VITE_LOGIN_USER` / `VITE_LOGIN_PASSWORD` in
-`frontend/.env`). In production the React app is built into the Go backend image and served
-by it — no separate frontend container.
+The Vite dev server proxies `/Laadunhallinta/api` to the Go backend. The login gate defaults to `admin` / `radiqa` (override with `VITE_LOGIN_USER` / `VITE_LOGIN_PASSWORD` in `frontend/.env`). In production the React app is built into the Go backend image and served by it, no separate frontend container.
 
 ---
 
 ## 6. Services and ports
 
-Ports shown as `host → container`. The **host** side of every port is set in `.env` (defaults below); change it only if a port is already in use on your machine — see *Changing a port* under the table.
+Ports shown as `host → container`. The **host** side of every port is set in `.env` (defaults below):
+- change it only if a port is already in use on your machine 
+- see *Changing a port* under the table.
 
 | Service | Port | Container image |
 |---|---|---|
@@ -185,9 +188,8 @@ Ports shown as `host → container`. The **host** side of every port is set in `
 
 ### Changing a port (if one is already in use)
 
-Every host port has a variable in `.env` with the default shown above. If a port is already
-taken on your machine (port `8080` is the most common clash), pick a free one and set the
-matching variable **before** running `start-podman.sh`:
+Every host port has a variable in `.env` with the default shown above. 
+- If a port is already taken on your machine, pick a free one and set the matching variable **before** running `start-podman.sh`
 
 | `.env` variable | Default | Service |
 |---|---|---|
@@ -201,10 +203,12 @@ matching variable **before** running `start-podman.sh`:
 | `CADDY_HTTP_PORT` | 8080 | Caddy HTTP (main browser entry point) |
 | `CADDY_HTTPS_PORT` | 8443 | Caddy HTTPS |
 
-Only the **host** side changes — container-internal ports and container-to-container
-addresses are fixed, so nothing else needs editing. Find a free port with
-`netstat -ano | findstr :8080` (Windows) or `ss -ltnp | grep 8080` (Linux). On startup the
-script prints the final URLs for whatever ports you chose.
+Only the **host** side changes
+- container-internal ports and container-to-container addresses are fixed, so nothing else needs editing. 
+
+Find a free port with
+- `netstat -ano | findstr :8080` (Windows) or `ss -ltnp | grep 8080` (Linux). 
+- On startup the script prints the final URLs for whatever ports you chose.
 
 > If you also run the Vite **dev server** (§5) and change `GO_HOST_PORT`, update the proxy
 > target in `frontend/vite.config.ts` to match. The containerised stack does not need this —
@@ -216,7 +220,7 @@ script prints the final URLs for whatever ports you chose.
 
 ```
 .
-├── ARCHITECTURE.md             # how the system fits together (start here)
+├── ARCHITECTURE.md             # system architecture (start here)
 ├── start-podman.sh             # brings up the whole stack (Linux / podman machine)
 ├── start-autoqad.ps1           # Windows wrapper (runs the above in the podman machine)
 ├── stop-autoqad.ps1            # stops the stack
@@ -237,9 +241,6 @@ script prints the final URLs for whatever ports you chose.
 └── monitoring_stack/           # Prometheus + Grafana + Loki (optional)
 ```
 
-> **Naming note:** `services/` is a historical name — the current system is
-> event-driven over Orthanc REST, not gRPC. It holds the event workers alongside the legacy
-> gRPC pollers (kept during migration). A rename is planned.
 
 ---
 
@@ -250,10 +251,11 @@ script prints the final URLs for whatever ports you chose.
 .\stop-autoqad.ps1 -Machine   # also stop the podman machine (frees RAM)
 ```
 
-- **Containers don't come back after a reboot** — they have no restart policy; run
-  `start-autoqad.ps1` again (it re-starts existing containers in the right order).
-- **SQL Server slow to accept connections on first boot** — it recovers the database;
-  `start-podman.sh` waits up to ~120 s.
+- **Containers don't come back after a reboot** 
+  - they have no restart policy; run `start-autoqad.ps1` again (it re-starts existing containers in the right order).
+- **SQL Server slow to accept connections on first boot** 
+  - it recovers the database.
+  - `start-podman.sh` waits up to ~120 s.
 - On Windows, data lives in named Podman volumes (`autoqad-mssql-data`,
   `autoqad-orthanc-data`, `autoqad-s3-data`, …) and survives restarts.
 
@@ -261,9 +263,9 @@ script prints the final URLs for whatever ports you chose.
 
 ## 9. Security notes
 
-- All secrets are read from environment variables / `.env` files, which are **git-ignored**.
-  Never commit a real `.env`. Production uses Kubernetes Secrets.
-- The web login is a **lightweight front-end gate** (UI only) — it does **not** protect the
-  API yet. Backend authentication is a planned, pre-deployment enhancement.
-- Security testing (threat model, offensive testing, hardening) is maintained in a separate
-  private repository and is run only against a local instance with synthetic/phantom data.
+- All secrets are read from environment variables / `.env` files, which are **git-ignored**. Never commit a real `.env`. Production uses Kubernetes Secrets.
+- The web login is a **lightweight front-end gate** (UI only); it does **not** protect the API yet. Backend authentication is a planned, pre-deployment enhancement.
+- A dedicated **threat model, security test plan and hardening notes** live in a separate **private** security repository. See `WP0_THREAT_MODEL.md` there for the detailed threat modelling (STRIDE + DFD, OWASP Top 10), the test plan, and the hardening measures.
+- Security testing is run only against a local instance with synthetic / phantom data, never patient data.
+
+
