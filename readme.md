@@ -18,7 +18,7 @@ with trend visualization, editable tolerance limits and AI-assisted reporting.
 
 ## Contents
 
-1. [What you get](#1-what-you-get)
+1. [Features](#1-Features)
 2. [How it works (in one paragraph)](#2-how-it-works-in-one-paragraph)
 3. [Getting started](#3-getting-started)
 4. [Loading DICOM data](#4-loading-dicom-data)
@@ -30,7 +30,7 @@ with trend visualization, editable tolerance limits and AI-assisted reporting.
 
 ---
 
-## 1. What you get
+## 1. Features
 
 - **Per-device dashboards**: 
   - PASS\WARN\FAIL evaluation with interactive trend charts per modality (ultrasound, X-ray, CT, angiography).

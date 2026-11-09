@@ -65,3 +65,10 @@ monitoring_stack/loki-storage/
 
 # venv-snapshot (kehityksen apufile)
 requirements-venv-snapshot.txt
+
+# Testikuvat (anonymisoidut DICOMit) - isot, jaetaan pyynnosta, ei versionhallintaan
+test_images/
+
+
+#copilot pois asetus
+.vscode/
