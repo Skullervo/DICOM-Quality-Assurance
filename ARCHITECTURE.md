@@ -1,21 +1,14 @@
-# Radiqa / AutoQAD — System Architecture
+# RadiQA Architecture
 
-Radiqa (project name *AutoQAD*) is a cloud-native, **event-driven** framework for the
-**automated quality assurance (QA) of medical imaging** in multi-institutional healthcare
-environments. It receives DICOM images from a hospital PACS through an Orthanc [1] DICOM
-server, runs modality-specific QA analysis (ultrasound, X-ray, CT, angiography), stores the
-results in Microsoft SQL Server [3], and presents them through a Go [5] + React [8] web
+RadiQA (project name *AutoQAD*) is a cloud-native, **event-driven** framework for the**automated quality assurance (QA) of medical imaging** in multi-institutional healthcare
+ environments. It receives DICOM images from a hospital PACS through an Orthanc [1] DICOMserver, runs modality-specific QA analysis (ultrasound, X-ray, CT, angiography), stores the
+ results in Microsoft SQL Server [3], and presents them through a Go [5] + React [8] web
 application with trend visualization, editable tolerance limits and AI-assisted reporting.
-
-This document describes **what the system is and how the pieces fit together**. For a
-hands-on install guide see [`README.md`](readme.md); for the rationale behind the
-event-driven pipeline see [`EVENT_DRIVEN_ARCHITECTURE.md`](EVENT_DRIVEN_ARCHITECTURE.md).
+ This document describes **what the system is and how the pieces fit together**. For ahands-on install guide see [`README.md`](readme.md); for the rationale behind the
+ event-driven pipeline see [`EVENT_DRIVEN_ARCHITECTURE.md`](EVENT_DRIVEN_ARCHITECTURE.md).
 
 ---
-
-## Contents
-
-1. [High-level architecture](#1-high-level-architecture)
+ ## Contents.
 2. [The event-driven pipeline](#2-the-event-driven-pipeline)
 3. [Components](#3-components)
 4. [Supported modalities](#4-supported-modalities)
@@ -30,66 +23,56 @@ event-driven pipeline see [`EVENT_DRIVEN_ARCHITECTURE.md`](EVENT_DRIVEN_ARCHITEC
 ## 1. High-level architecture
 
 ![Data-flow diagram of the Radiqa QA pipeline, with trust boundaries](assets/architecture-dfd.png)
-
 *Data-flow diagram: PACS -> Orthanc -> ingestion -> SQL Server + Service Broker -> event workers -> S3 / Go backend -> browser. Bracketed numbers map to the technology references in section 9.*
 
 Key properties:
 
-- **Decoupled ingestion and analysis.** The PACS/Orthanc side only *enqueues work*;
-  analysis happens asynchronously in workers that can be scaled independently.
-- **The database is the source of truth, Service Broker is only a doorbell.** A lost or
-  duplicated wake-up message can never lose or double-run a job (see section 2).
-- **Competing consumers.** Multiple replicas of a worker share the queue without any
-  manual sharding; `READPAST` lets each worker skip rows another has already locked.
-- **All UI analysis images in object storage.** Every analysis image rendered in the UI
-  (ultrasound, angiography, X-ray, CT) is stored in S3-compatible object storage [4] and
-  served by the Go backend. Legacy X-ray/CT rows written before the migration remain as
-  SQL Server BLOBs and are still served through a fallback read path.
-
----
-
-## 2. The event-driven pipeline
-
-This model replaces the earlier polling/claim/sharding design. The full design notes are
+- **Decoupled ingestion and analysis.** The PACS/Orthanc side only *enqueues work*;  analysis happens asynchronously in workers that can be scaled independently.
+- **The database is the source of truth,
+    - The PACS/Orthanc side only *enqueues work*;  
+    - or
+  duplicated wake-up message can never lose or double-run a job (see section 2
+  - ).**Competing consumers.** Multiple replicas of a worker share the queue without any
+   manual sharding; `READPAST` lets each worker skip rows another has already locked.
+- **All UI analysis images 
+  - Multiple replicas of a worker share the queue without any(ultrasound, angiography, X-ray, CT) is stored in S3-compatible object storage [4] and
+   served by the Go backend. Legacy X-ray/CT rows written before the migration remain as
+  SQL Server BLOBs and are still served through 
+  - Every analysis image rendered in the UI(ultrasound, angiography, X-ray, CT) is stored in S3-compatible object storage [4] and
+     served by the Go backend. Legacy X-ray/CT rows written before the migration remainSQL Server BLOBs and are still served through a fallback read path.
+   ## 2. The event-driven pipeline
+ This model replaces the earlier polling/claim/sharding design. The full design notes are
 in [`EVENT_DRIVEN_ARCHITECTURE.md`](EVENT_DRIVEN_ARCHITECTURE.md); the essentials:
 
 **1. Trigger.** When a study becomes stable in Orthanc, its `OnStableStudy` event fires a
 Python plugin (`ingestion-service/orthanc/autoqad_ingest.py`) that POSTs the study id to the
-ingestion service. (A `.lua` variant is kept as a fallback; the Python plugin is the
-validated path because Orthanc's built-in Lua HTTP client does not reliably emit outbound
-requests in all environments.)
 
-**2. Ingestion.** The FastAPI [2] ingestion service enumerates the study over Orthanc REST,
+**2. Ingestin.*
+- * The FastAPI [2] ingestion service enumerates the study over Orthanc REST,
 determines the modality of each series, and inserts `QUEUED` rows into the per-modality job
-tables. Insertion is **idempotent** (`UNIQUE(orthanc_id)`), so re-delivery of the same study
+tables. Insertion i
+- **idempotent** (`UNIQUE(orthanc_id)`), so re-delivery of the same study
 never creates duplicate jobs.
 
-**3. Doorbell.** An `AFTER INSERT` trigger sends a message on the matching SQL Server
-**Service Broker** queue [3]. This only *wakes* a worker; it carries no authoritative state.
-
+**3. Doorbell** 
+- An `AFTER INSERT` trigger sends a message on the matching SQL Server**Service Broker** queue [3]. This only *wakes* a worker; it carries no authoritative state.
+ 
 **4. Claim.** A worker blocked on `WAITFOR RECEIVE` wakes, first **reclaims** any expired
-`CLAIMED`/`RUNNING` jobs (whose owning worker died, `claimed_at < now - CLAIM_TIMEOUT`), then
-**atomically claims** one `QUEUED` job with `UPDATE ... WITH (READPAST, ROWLOCK, UPDLOCK)`.
-The job state machine is `QUEUED -> CLAIMED -> RUNNING -> COMPLETED | FAILED`.
-
-**5. Analyse.** The worker fetches the DICOM from Orthanc over REST, runs the
-modality-specific analysis, writes results to the modality result table, uploads any analysis
+`CLAIMED`/`RUN
+- NING` jobs (whose owning worker died, `claimed_at < now - CLAIM_TIMEOUT`), **atomically claims** one `QUEUED` job with `UPDATE ... WITH (READPAST, ROWLOCK, UPDLOCK)`.
+ The job state machine is `QUEUED -> CLAIMED -> RUNNING -> COMPLETED | FAILED`.
+ **5. Analyse.** The worker fetches the DICOM from Orthanc over REST, runs the
+- modality-specific analysis, writes results to the modality result table, uploads any analysis
 images to S3 (SeaweedFS), and marks the job `COMPLETED` (or `FAILED` with an
-`error_message` kept for the *Measurements* view).
-
-The shared worker logic lives in `worker_common.py` (`EventWorker`); each modality provides a
-thin `worker_{us,xr,ct,angio}_eventdriven.py` that configures the queue, job table, DICOM
-modality filter, and the analysis callback.
-
----
-## 3. Components
-
-Ports are shown as `host → container`. Everything runs on the `autoqad-net` Podman network.
+`error_message` 
+- kept for the *Measurements* view).
+ The shared worker logic lives in `worker_common.py` (`EventWorker`); each modality provides athin `worker_{us,xr,ct,angio}_eventdriven.py` that configures the queue, job table, DICOM
+ modality filter, and the analysis callback.
+ ---
 
 | Component | Tech | Path | Port |
 |---|---|---|---|
-| **Orthanc** (DICOM server + ingest plugin) | Orthanc [1] (`jodogne/orthanc-python`) | `services/Orthanc/`, plugin in `ingestion-service/orthanc/` | 14242→4242 (DICOM), 18042→8042 (REST) |
-| **Ingestion service** | FastAPI [2] / Python | `ingestion-service/` | 8070→8000 |
+| **Orthanc** (D| **Ingestion service** | FastAPI [2] / Python | `ingestion-service/` | 8070→8000 |
 | **MS SQL Server** | SQL Server 2022 + Service Broker [3] | schemas in `scripts/` | 11433→1433 |
 | **Object storage** | SeaweedFS [4] (S3-compatible) | config generated from `.env` | 8333 |
 | **US event worker** | Python, custom analysis | `services/Analyze_service/worker_us_eventdriven.py` | internal |
@@ -117,42 +100,39 @@ and code names are English).
 | **CT** | `CT` | pylinac [13] CatPhan 504/600 (auto-detected): HU linearity, uniformity/noise, MTF, low-contrast; Siemens fallback | Catphan | S3 |
 | **Angiography (XA)** | `XA` | pylinac [13] Leeds TOR-18: contrast detail, CNR, MTF (best-effort) | Leeds TOR-18 | S3 |
 
-Each worker **self-filters by DICOM `Modality`** — there is no central dispatcher. Tolerance
-limits are stored per device in the `tolerance_config` table and are editable from the UI;
-they are preliminary and remain under physicist review.
-
----
+Each worker **self-filters by DICOM `Modality`**,  there is no central dispatcher. Tolerancelimits are stored per device in the `tolerance_config` table and are editable from the UI,
+ they are preliminary and remain und r physicist review.
+ ---
 
 ## 5. Data model and storage
 
 - **Database:** Microsoft SQL Server, database `QA-results`. Schema is applied idempotently
   at startup from three files in `scripts/`:
-  - `schema_mssql.sql` — result tables (`ultrasound`, `xray_analysis`, `ct_analysis`),
-    device/institution/tolerance tables, audit log.
-  - `schema_eventdriven.sql` — job tables (`us_jobs`, `xray_jobs`, `ct_jobs`) + Service
-    Broker queues/services + notify triggers (the event-driven coordination layer).
-  - `schema_angio.sql` — the angiography result table + its job table/queue.
-- **Object storage:** SeaweedFS (S3-compatible). Analysis images for all modalities (US,
-  angiography, X-ray, CT) are stored under keys like `qa/<modality>/<id>.png`. For US/angio
-  the object key goes in `output_image_path`; for X-ray/CT a small `analysis_images` JSON
-  column maps each image type to its `s3://` key. The Go backend serves them as a proxy
-  (`/.../analysis-image/{instance}`) or via a presigned URL.
-- **Legacy BLOB fallback:** X-ray and CT rows written before the S3 migration still hold their
-  analysis images as `VARBINARY` BLOBs; the backend serves those when no `analysis_images`
-  key is present, so existing data stays viewable without a data migration.
-
-> Ultrasound uses some legacy column names (`stationname`, `contentdate`, …); these are kept
-> as-is for database compatibility rather than harmonised to snake_case.
-
----
-
+  - `schema_mssq
+  - Microsoft SQL Server, database `QA-results`. 
+  - Schema is applied idempotentlyat startup from three files in `scripts/`:
+     - `schema_mssql.sql` — result tables (`ultrasound`, `xray_analysis`, `ct_analysis`),
+      device/institution
+      - result tables (`ultrasound`, `xray_analysis`, `ct_analysis`),`schema_eventdriven.sql` — job tables (`us_jobs`, `xray_jobs`, `ct_jobs`) + Service
+       Broker queues/services + notify triggers (the event-driven coordination layer).
+    angiography, X-ray, CT) ar
+      - job tables (`us_jobs`, `xray_jobs`, `ct_jobs`) + Serviceobject key goes in `output_image_path`; for X-ray/CT a small `analysis_images` JSON
+   column maps each image type to its `s3://` key. The Go backend serves them as a proxy
+  (`/.../analysis-image/
+      - Ttance}`) or via a presigned URL.
+- **Legacy BLOB fallba
+  - SeaweedFS (S3-compatible). 
+    - Analysis images for all modalities (US,angiography, X-ray, CT) are stored under keys like `qa/<modality>/<id>.png`. For US/angio
+       the object key goes in `output_image_path`; for X-ray/CT a small `analy
+    - sis_images` column maps each image type to its `s3://` key. The Go backend serves them as a proxy
+     > Ultrasound uses some legacy column names (`stationname`, `contentdate`, …); theses for database compatibility rather than harmonised to snake_case.
+ 
+    - 
+ 
 ## 6. Technology stack
 
 | Layer | Technology |
-|---|---|
-| DICOM server | Orthanc [1] + Python plugin |
-| Ingestion | FastAPI [2] (Python) |
-| Database / coordination | Microsoft SQL Server 2022 + Service Broker [3] |
+
 | Object storage | SeaweedFS [4] (S3) |
 | Analysis | Python: pydicom [12], pylinac [13], `normi13_qa` [14], boto3 [15] |
 | Backend | Go [5]: Chi router, go-mssqldb [6], aws-sdk-go-v2 (S3) [7], Prometheus client |
@@ -175,41 +155,29 @@ they are preliminary and remain under physicist review.
 - **Hospital:** Orthanc installed on the hospital server; the stack behind the hospital's
   outer proxy (F5), with Caddy proxying `/Laadunhallinta/*` to the Go backend. The exact
   production topology is defined with hospital IT at deployment time.
-
----
-
-## 8. Security posture
-
-- All secrets (DB/Orthanc passwords, OpenAI key, Slack webhook, S3 credentials) are read
-  from environment variables / `.env` files, which are **git-ignored**. Production uses
-  Kubernetes Secrets.
-- The web login is a **lightweight front-end gate** (UI only) — it does **not** yet protect
-  the API. Backend authentication (session/JWT) is a planned, pre-deployment enhancement and
-  is the top item in the project's threat model.
-- A dedicated, isolated security-testing effort (threat model + offensive testing +
-  hardening) lives in a **separate private repository**; it is run only against a local
-  instance with synthetic/phantom data, never patient data.
-
+-
+ # 8. Security posture
+ 
+- All secrets (DB/Orthanc passwords, OpenAI key, Slack webhook, from environment variables / `.env` files, which are **git-ignored**. Production uses
+  Kubernetes Secrets.The web login is a **lightweight front-end gate** (UI only) — it does **not** yet protect
+   the API. Backend authentication (session/JWT) is a planned, pre-deployment enhancement and
+  is the top item in the project's threat model.A dedicated, isolated security-testing effort (threat model + offensive testing +
+   hardening) lives in a **separate private repository**; it is run only against a locainstance with synthetic/phantom data, never patient data.
+ 
 ---
 
 ## 9. References
 
 **Infrastructure**
-- **[1]** Orthanc — lightweight DICOM server. https://www.orthanc-server.com/
-- **[2]** FastAPI. https://fastapi.tiangolo.com/
-- **[3]** Microsoft SQL Server & Service Broker. https://learn.microsoft.com/sql/database-engine/service-broker/service-broker-essentials
-- **[4]** SeaweedFS (S3-compatible object store). https://github.com/seaweedfs/seaweedfs
-- **[17]** Caddy web server / reverse proxy. https://caddyserver.com/
-- **[18]** Podman (rootless containers). https://podman.io/
-- **[19]** Kubernetes. https://kubernetes.io/
-- **[20]** Prometheus / Grafana / Loki. https://prometheus.io/ · https://grafana.com/ · https://grafana.com/oss/loki/
-
-**Backend / frontend**
-- **[5]** Go — https://go.dev/ · Chi router — https://github.com/go-chi/chi
-- **[6]** go-mssqldb (SQL Server driver for Go). https://github.com/microsoft/go-mssqldb
-- **[7]** AWS SDK for Go v2 (S3). https://github.com/aws/aws-sdk-go-v2
-- **[8]** React — https://react.dev/ · Vite — https://vite.dev/
-- **[9]** TanStack Query. https://tanstack.com/query
+- **[1]** Orthanc — lightweight DICOM server. https://www.orthanc-server.com/**[2]** FastAPI. https://fastapi.tiangolo.com/
+ - **[3]** Microsoft SQL Server & Service Broker. https://learn.microsoft.com/sql/data**[4]** SeaweedFS (S3-compatible object store). https://github.com/seaweedfs/seaweedfs
+ - **[17]** Caddy web server / reverse proxy. https://caddyserver.com/
+- **[18]** Podman (rootless containers). https://podman.io/**[19]** Kubernetes. https://kubernetes.io/
+ - **[20]** Prometheus / Grafana / Loki. https://prometheus.io/ · https://grafana.com/ · ht
+ **Backend / frontend**
+- **[5]** Go — https://go.dev/ · Chi router — https://github.com/go-chi/chi**[6]** go-mssqldb (SQL Server driver for Go). https://github.com/microsoft/go-mssqldb
+ - **[7]** AWS SDK for Go v2 (S3). https://github.com/aws/aws-sdk-go-v2**[8]** React — https://react.dev/ · Vite — https://vite.dev/
+ - **[9]** TanStack Query. https://tanstack.com/query
 - **[10]** Recharts. https://recharts.org/
 - **[11]** Tailwind CSS. https://tailwindcss.com/
 - **[16]** OpenAI API. https://platform.openai.com/docs

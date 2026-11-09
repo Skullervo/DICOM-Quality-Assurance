@@ -42,7 +42,7 @@ podman network exists $NETWORK 2>/dev/null || podman network create $NETWORK
 if ! podman container exists autoqad-mssql 2>/dev/null; then
   echo "[1/8] Creating MS SQL Server..."
   podman run -d --name autoqad-mssql --network $NETWORK \
-    -p 11433:1433 \
+    -p ${MSSQL_HOST_PORT:-11433}:1433 \
     -v autoqad-mssql-data:/var/opt/mssql \
     -e ACCEPT_EULA=Y -e MSSQL_SA_PASSWORD="${SA_PW}" -e MSSQL_PID=Developer \
     mcr.microsoft.com/mssql/server:2022-latest
@@ -98,7 +98,7 @@ cat > "$PROJECT/object-storage/s3config.json" <<EOF
     "actions": ["Admin","Read","Write","List","Tagging"] } ] }
 EOF
 if ! podman container exists object-storage 2>/dev/null; then
-  podman run -d --name object-storage --network $NETWORK -p 8333:8333 \
+  podman run -d --name object-storage --network $NETWORK -p ${S3_HOST_PORT:-8333}:8333 \
     -v "$PROJECT/object-storage/s3config.json":/etc/seaweedfs/s3config.json:ro \
     -v autoqad-s3-data:/data \
     docker.io/chrislusf/seaweedfs:latest \
@@ -113,7 +113,7 @@ fi
 if ! podman container exists autoqad-orthanc 2>/dev/null; then
   echo "[3/8] Creating Orthanc (+ ingestion webhook)..."
   podman run -d --name autoqad-orthanc --network $NETWORK \
-    -p 14242:4242 -p 18042:8042 \
+    -p ${ORTHANC_DICOM_HOST_PORT:-14242}:4242 -p ${ORTHANC_REST_HOST_PORT:-18042}:8042 \
     -v autoqad-orthanc-data:/var/lib/orthanc/db \
     -v "$PROJECT/services/Orthanc/orthanc.json":/etc/orthanc/orthanc.json:ro \
     -v "$PROJECT/ingestion-service/orthanc/autoqad_ingest.py":/etc/orthanc/autoqad_ingest.py:ro \
@@ -129,7 +129,7 @@ fi
 if ! podman container exists ingestion-service 2>/dev/null; then
   echo "[4/8] Building & creating Ingestion service..."
   podman build -t autoqad-ingestion -f "$PROJECT/ingestion-service/Containerfile" "$PROJECT/ingestion-service"
-  podman run -d --name ingestion-service --network $NETWORK -p 8070:8000 \
+  podman run -d --name ingestion-service --network $NETWORK -p ${INGESTION_HOST_PORT:-8070}:8000 \
     "${ORTHANC_ENV[@]}" "${DB_ENV[@]}" autoqad-ingestion
 else
   echo "[4/8] Ingestion service exists, starting..."
@@ -142,7 +142,7 @@ fi
 if ! podman container exists autoqad-image-service 2>/dev/null; then
   echo "[5/8] Building & creating Image Service..."
   podman build -t autoqad-image-service -f "$PROJECT/services/Image_service/Containerfile" "$PROJECT"
-  podman run -d --name autoqad-image-service --network $NETWORK -p 8090:8090 \
+  podman run -d --name autoqad-image-service --network $NETWORK -p ${IMAGE_HOST_PORT:-8090}:8090 \
     "${ORTHANC_ENV[@]}" autoqad-image-service
 else
   echo "[5/8] Image Service exists, starting..."
@@ -188,7 +188,7 @@ run_worker angio-worker autoqad-angio-analyze           # angio-image ajaa worke
 if ! podman container exists autoqad-go-backend 2>/dev/null; then
   echo "[7/8] Building & creating Go Backend..."
   podman build -t autoqad-go-backend -f "$PROJECT/go-backend/Containerfile" "$PROJECT/go-backend"
-  podman run -d --name autoqad-go-backend --network $NETWORK -p 8081:8080 \
+  podman run -d --name autoqad-go-backend --network $NETWORK -p ${GO_HOST_PORT:-8081}:8080 \
     -e PORT=8080 "${DB_ENV[@]}" "${ORTHANC_ENV[@]}" "${S3_ENV[@]}" \
     -e IMAGE_SERVICE_URL=http://autoqad-image-service:8090 \
     -e OPENAI_API_KEY="${OPENAI_API_KEY}" \
@@ -207,7 +207,8 @@ fi
 if ! podman container exists autoqad-caddy 2>/dev/null; then
   echo "[+] Creating Caddy reverse proxy..."
   podman run -d --name autoqad-caddy --network $NETWORK \
-    -p 8080:8080 -p 8443:8443 \
+    -p ${CADDY_HTTP_PORT:-8080}:${CADDY_HTTP_PORT:-8080} -p ${CADDY_HTTPS_PORT:-8443}:${CADDY_HTTPS_PORT:-8443} \
+    -e CADDY_HTTP_PORT="${CADDY_HTTP_PORT:-8080}" -e CADDY_HTTPS_PORT="${CADDY_HTTPS_PORT:-8443}" \
     -v "$PROJECT/caddy/Caddyfile":/etc/caddy/Caddyfile:ro \
     -v autoqad-caddy-data:/data \
     docker.io/library/caddy:2-alpine
@@ -223,7 +224,7 @@ echo ""
 echo "=== Status ==="
 podman ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 echo ""
-echo "Go backend (direct): http://localhost:8081    Orthanc: http://localhost:18042 (admin/${ORTHANC_PASSWORD})"
-echo "Caddy proxy: http://localhost:8080  /  https://localhost:8443  -> go-backend (TLS: Caddyn sisäinen CA)"
-echo "Object storage (S3): http://localhost:8333    Ingestion: http://localhost:8070/health"
+echo "Go backend (direct): http://localhost:${GO_HOST_PORT:-8081}    Orthanc: http://localhost:${ORTHANC_REST_HOST_PORT:-18042} (admin/${ORTHANC_PASSWORD})"
+echo "Caddy proxy: http://localhost:${CADDY_HTTP_PORT:-8080}  /  https://localhost:${CADDY_HTTPS_PORT:-8443}  -> go-backend (TLS: Caddyn sisäinen CA)"
+echo "Object storage (S3): http://localhost:${S3_HOST_PORT:-8333}    Ingestion: http://localhost:${INGESTION_HOST_PORT:-8070}/health"
 echo "Frontend (dev): cd frontend && npm run dev   ->   http://localhost:5174"
