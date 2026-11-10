@@ -16,7 +16,7 @@
 
 // API:n perusosoite. Vite voi antaa VITE_API_BASE-ympäristömuuttujan; jos sitä
 // ei ole, käytetään oletuspolkua, jonka Caddy/dev-proxy reitittää Go-backendiin.
-export const BASE = import.meta.env.VITE_API_BASE ?? '/Laadunhallinta/api';
+export const BASE = import.meta.env.VITE_API_BASE ?? '/radiqa/api';
 
 // Yleinen apufunktio GET-hakuihin: hakee annetusta polusta JSONin ja palauttaa
 // sen tyyppinä T. Jos palvelin vastaa virhekoodilla (ei 2xx), heitetään virhe,

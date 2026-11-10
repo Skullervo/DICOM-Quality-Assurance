@@ -55,11 +55,11 @@ export default function App() {
     // AuthProvider pitää kirjassa onko käyttäjä kirjautunut; sen pitää kääriä
     // kaikki reitit, jotta myös RequireAuth pääsee lukemaan kirjautumistilan.
     <AuthProvider>
-    {/* basename: tuotannossa SPA tarjoillaan polusta /Laadunhallinta/ (Go-backend /
+    {/* basename: tuotannossa SPA tarjoillaan polusta /radiqa/ (Go-backend /
         Caddy), joten React Routerin on tiedettävä se muuten mikään reitti ei täsmää
         ja sivu jää tyhjäksi. Dev-palvelin (Vite :5174) ajaa juuressa, joten siellä ei
         basenamea käytetä. */}
-    <BrowserRouter basename={import.meta.env.DEV ? undefined : '/Laadunhallinta'}>
+    <BrowserRouter basename={import.meta.env.DEV ? undefined : '/radiqa'}>
       <Routes>
         {/* Julkiset reitit: intro + kirjautuminen */}
         {/* Nämä näkyvät ilman kirjautumista. */}

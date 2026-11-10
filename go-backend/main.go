@@ -3,7 +3,7 @@
 // Tämä tiedosto on koko palvelun runko. Se tekee neljä asiaa:
 //  1. Lataa ympäristömuuttujat (.env) ja avaa tietokantayhteyden (MS SQL Server).
 //  2. Varmistaa että toleranssitaulu (hyväksyttävyysrajat) on olemassa ja siemennetty.
-//  3. Rakentaa HTTP-reitityksen (chi-reititin): kaikki /Laadunhallinta/api/* -rajapinnat
+//  3. Rakentaa HTTP-reitityksen (chi-reititin): kaikki /radiqa/api/* -rajapinnat
 //     sekä React-käyttöliittymän (SPA) tarjoilu.
 //  4. Käynnistää HTTP-palvelimen kuuntelemaan porttia (oletus 8080).
 //
@@ -73,9 +73,9 @@ func main() {
 	r.Get("/health", handlers.Health)             // GET /health -> {"status":"ok"}
 	r.Handle("/metrics", handlers.MetricsHandler()) // GET /metrics -> Prometheus-tekstimuoto
 
-	// Kaikki varsinainen sovellus elää /Laadunhallinta-polun alla (Caddy-proxy ohjaa
+	// Kaikki varsinainen sovellus elää /radiqa-polun alla (Caddy-proxy ohjaa
 	// tämän polun tänne; nimi on suomea ja säilytetään tarkoituksella).
-	r.Route("/Laadunhallinta", func(r chi.Router) {
+	r.Route("/radiqa", func(r chi.Router) {
 		// /api-alipolku: JSON-rajapinnat frontendille. Tämän ryhmän sisällä vaaditaan
 		// autentikointi (RequireAuth) — ks. middleware/auth.go.
 		r.Route("/api", func(r chi.Router) {
@@ -165,7 +165,7 @@ func main() {
 			r.Post("/report-issue", handlers.ReportSlackIssue)
 		})
 
-		// Kaikki muut /Laadunhallinta/*-polut tarjoavat React-sovelluksen (SPA).
+		// Kaikki muut /radiqa/*-polut tarjoavat React-sovelluksen (SPA).
 		// Selainpuolen reititys hoitaa varsinaisen sivun; palvelin palauttaa index.html:n.
 		r.Get("/*", handlers.ServeReact)
 	})

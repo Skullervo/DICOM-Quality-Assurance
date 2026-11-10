@@ -113,10 +113,6 @@ Each worker **self-filters by DICOM `Modality`**, there is no central dispatcher
     - Analysis images for all modalities (US, angiography, X-ray, CT) are stored under keys like `qa/<modality>/<id>.png`. 
     For US/angio the object key goes in `output_image_path`; for X-ray/CT a small `analysis_images` JSON
     column maps each image type to its `s3://` key. The Go backend serves them as a proxy (`/.../analysis-image/{instance}`) or via a presigned URL.
-- **Legacy BLOB fallback:** X-ray and CT rows written before the S3 migration still hold their
-  analysis images as `VARBINARY` BLOBs; the backend serves those when no `analysis_images`
-  key is present, so existing data stays viewable without a data migration.
-
 
 ---
 
@@ -142,8 +138,7 @@ Each worker **self-filters by DICOM `Modality`**, there is no central dispatcher
 
 - **Local (development / single-site):** 
   - rootless Podman on the `autoqad-net` network. 
-  - The whole stack is brought up by `start-podman.sh` (on Windows via the `start-autoqad.ps1`
-  wrapper, which runs it inside the Podman machine). 
+  - The whole stack is brought up by `start-podman.sh` (on Windows via the `start-autoqad.ps1` wrapper, which runs it inside the Podman machine). 
   - See `README.md`.
 - **Cloud (CSC cPouta / OpenStack):** 
   - Kubernetes manifests under `services/Minikube/cpouta/` (event schema, Service Broker, object storage, workers). 

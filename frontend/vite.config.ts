@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     port: 5174,
     proxy: {
-      '/Laadunhallinta/api': {
+      '/radiqa/api': {
         target: 'http://localhost:8081',
         changeOrigin: true,
       },

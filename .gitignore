@@ -59,6 +59,7 @@ scratchpad/
 
 # Tietoturvatestaus elaa omassa privaatissa repossaan
 security-project/
+security-project-backup/
 
 # Lokin ajonaikainen data (ei versionhallintaan)
 monitoring_stack/loki-storage/
