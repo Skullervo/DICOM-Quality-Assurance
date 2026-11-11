@@ -1,0 +1,12 @@
+# Build-konteksti = projektin juuri (go-backend/Containerfile vaatii frontend-lähteen
+# samassa buildissa). Tämä image tarvitsee vain go-backend/ + frontend/ -> jätetään
+# kaikki muu pois, jotta konteksti pysyy pienenä (venv/, test_images/, services/,
+# monitoring_stack/, .git ym. eivät lähde buildiin).
+*
+!go-backend
+!frontend
+
+# Raskaat/generoidut osat, jotka rakennetaan uudelleen kontissa:
+frontend/node_modules
+frontend/dist
+go-backend/frontend

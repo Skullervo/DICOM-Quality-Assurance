@@ -1,38 +1,50 @@
-# Go-backendin Containerfile (Podman, rootless). Kaksivaiheinen build:
-# ensin käännetään Go-binääri "builder"-vaiheessa, sitten kopioidaan vain
-# valmis binääri kevyeen ajokuvaan -> pieni ja turvallinen tuotantokuva.
+# Go-backendin Containerfile (Podman, rootless). KOLMIVAIHEINEN build:
+#   1) rakennetaan React-frontend Node-kuvassa,
+#   2) käännetään Go-binääri,
+#   3) kootaan kevyt ajokuva (binääri + valmis frontend).
+#
+# HUOM: build-konteksti on PROJEKTIN JUURI (ei go-backend/), jotta frontend-lähde on
+# saatavilla samassa buildissa. Näin puhdas klooni asentuu ilman käsin ajettua
+# "npm run build" -askelta. start-podman.sh ajaa:
+#   podman build -f go-backend/Containerfile \
+#     --ignorefile go-backend/.containerignore  <projektin juuri>
+# (.containerignore rajaa kontekstin vain go-backend/- ja frontend/-lähteisiin.)
 
-# --- Vaihe 1: käännös (builder) ---
-# Go-työkalut sisältävä välikuva, jota ei oteta lopulliseen kuvaan mukaan.
+# --- Vaihe 1: React-frontendin build ---
+# Node-kuva vain kääntämistä varten; ei päädy lopulliseen imageen.
+FROM docker.io/library/node:20-alpine AS frontend
+WORKDIR /frontend
+# Kopioidaan ensin lukkotiedostot -> npm ci välimuistittuu kunnes riippuvuudet muuttuvat.
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+# Loput frontend-lähteestä ja tuotantobuild (tsc + vite) -> /frontend/dist.
+COPY frontend/ ./
+RUN npm run build
+
+# --- Vaihe 2: Go-binäärin käännös ---
+# Go-työkalut sisältävä välikuva; vain valmis binääri otetaan mukaan.
 FROM docker.io/library/golang:1.26-alpine AS builder
-
 WORKDIR /build
-# Kopioidaan ensin vain riippuvuustiedostot ja ladataan paketit -> Docker/Podman
-# välimuistittaa tämän kerroksen, joten paketteja ei ladata uudelleen ellei go.mod muutu.
-COPY go.mod go.sum ./
+# Riippuvuudet ensin -> välimuistittuu kunnes go.mod/go.sum muuttuu.
+COPY go-backend/go.mod go-backend/go.sum ./
 RUN go mod download
-# Kopioidaan loput lähdekoodista ja käännetään staattinen binääri.
-# CGO_ENABLED=0 = ei C-riippuvuuksia -> binääri toimii myös minimaalisessa Alpinessa.
-COPY . .
+# Go-lähde ja staattinen binääri (CGO_ENABLED=0 -> toimii minimaalisessa Alpinessa).
+COPY go-backend/ ./
 RUN CGO_ENABLED=0 GOOS=linux go build -o autoqad-backend .
 
-# --- Vaihe 2: ajokuva (runtime) ---
-# Kevyt Alpine ilman Go-työkaluja; sisältää vain valmiin binäärin + frontendin.
+# --- Vaihe 3: ajokuva (runtime) ---
+# Kevyt Alpine ilman Go-/Node-työkaluja; vain valmis binääri + rakennettu frontend.
 FROM docker.io/library/alpine:3.21
 
-# Luodaan ei-root-käyttäjä (uid 1000). Rootless Podman vaatii että prosessi EI aja roottina.
+# Ei-root-käyttäjä (uid 1000). Rootless Podman vaatii että prosessi EI aja roottina.
 RUN addgroup -g 1000 -S autoqad && \
     adduser -u 1000 -S autoqad -G autoqad
 
 WORKDIR /app
-# Kopioidaan builder-vaiheesta vain käännetty binääri ja rakennettu React-frontend.
-# Go-backend tarjoilee frontendin (frontend/dist) samasta prosessista.
-COPY --from=builder /build/autoqad-backend .
-COPY --from=builder /build/frontend/dist ./frontend/dist
+# Go-binääri + React-build (ServeReact tarjoilee ./frontend/dist tiedostojärjestelmästä).
+COPY --from=builder  /build/autoqad-backend .
+COPY --from=frontend /frontend/dist ./frontend/dist
 
-# Vaihdetaan ei-root-käyttäjään ja avataan backendin portti (8080 kontin sisällä).
 USER 1000:1000
 EXPOSE 8080
-
-# Käynnistyskomento: aja backend-binääri.
 ENTRYPOINT ["./autoqad-backend"]

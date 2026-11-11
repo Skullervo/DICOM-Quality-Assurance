@@ -187,7 +187,10 @@ run_worker angio-worker autoqad-angio-analyze           # angio-image ajaa worke
 # kuvapalvelun osoitteen sekä OpenAI- ja Slack-avaimet.
 if ! podman container exists autoqad-go-backend 2>/dev/null; then
   echo "[7/8] Building & creating Go Backend..."
-  podman build -t autoqad-go-backend -f "$PROJECT/go-backend/Containerfile" "$PROJECT/go-backend"
+  # Build-konteksti = projektin juuri (Containerfile rakentaa myös frontendin);
+  # .containerignore rajaa kontekstin go-backend/- ja frontend/-lähteisiin.
+  podman build -t autoqad-go-backend -f "$PROJECT/go-backend/Containerfile" \
+    --ignorefile "$PROJECT/go-backend/.containerignore" "$PROJECT"
   podman run -d --name autoqad-go-backend --network $NETWORK -p ${GO_HOST_PORT:-8081}:8080 \
     -e PORT=8080 "${DB_ENV[@]}" "${ORTHANC_ENV[@]}" "${S3_ENV[@]}" \
     -e IMAGE_SERVICE_URL=http://autoqad-image-service:8090 \

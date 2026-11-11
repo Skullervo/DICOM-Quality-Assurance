@@ -60,10 +60,12 @@ The whole backend stack runs as rootless **Podman** containers on one network (`
 
 ### 3.1 Prerequisites
 
+- **git**:
+  - to clone the repository.
 - **Podman** (rootless): 
-  - the only hard requirement for the container stack; the script builds the Python/Go services in containers.
+  - the only hard requirement for the container stack; the script builds every service (Python, Go **and** the React frontend) in containers.
 - **Node.js 20+**: 
-  - only to run the React dev server (§5).
+  - only to run the React dev server (§5); the production frontend is built inside the Go backend image, so a container install does not need Node.
 - *(Go 1.25+ / Python 3.12+ are needed only if you build a service **outside** containers.)*
 
 ### 3.2 Clone and configure
@@ -81,7 +83,7 @@ Edit `.env` (git-ignored). At minimum set:
 | `MSSQL_SA_PASSWORD` | database | SQL Server requires ≥ 8 chars incl. upper/lower/digit/symbol |
 | `ORTHANC_PASSWORD` | DICOM server | Orthanc web/REST login (user `admin`) |
 | `S3_ACCESS_KEY`, `S3_SECRET_KEY` | object storage | any values; must match on worker + backend (the script wires them automatically) |
-| `OPENAI_API_KEY` | AI reporting | optional — leave as placeholder to disable |
+| `OPENAI_API_KEY` | AI reporting | optional — leave **empty** to disable |
 | `SLACK_WEBHOOK_URL` | issue reporting | optional |
 
 > `start-podman.sh` reads **this root `.env`** and passes the values to every container. The
@@ -125,7 +127,7 @@ The script is **idempotent**:
 ### 3.6 Verify
 
 ```sh
-curl http://localhost:8081/Laadunhallinta/api/us/institutions   # Go backend (direct)
+curl http://localhost:8081/radiqa/api/us/institutions   # Go backend (direct)
 curl http://localhost:8070/health                                # ingestion
 ```
 - Orthanc Explorer: `http://localhost:18042` (login `admin` / your `ORTHANC_PASSWORD`)
@@ -163,7 +165,7 @@ cd frontend
 npm install
 npm run dev        # http://localhost:5174
 ```
-The Vite dev server proxies `/Laadunhallinta/api` to the Go backend. The login gate defaults to `admin` / `radiqa` (override with `VITE_LOGIN_USER` / `VITE_LOGIN_PASSWORD` in `frontend/.env`). In production the React app is built into the Go backend image and served by it, no separate frontend container.
+The Vite dev server proxies `/radiqa/api` to the Go backend. The login gate defaults to `admin` / `radiqa` (override with `VITE_LOGIN_USER` / `VITE_LOGIN_PASSWORD` in `frontend/.env`). In production the React app is built into the Go backend image and served by it, no separate frontend container.
 
 ---
 
